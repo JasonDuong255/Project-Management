@@ -1,0 +1,86 @@
+[
+  {
+    "id": "u-admin-1",
+    "name": "Lê Minh Châu",
+    "email": "chau.admin@company.vn",
+    "username": "sys.chau",
+    "password": "123456",
+    "role": "SYSTEM_ADMIN",
+    "title": "Quản trị hệ thống",
+    "unit": "Khối CNTT",
+    "monthlyCapacity": 0,
+    "avatarColor": "#7c3aed"
+  },
+  {
+    "id": "u-pm-1",
+    "name": "Nguyễn Văn An",
+    "email": "an.pm@company.vn",
+    "username": "pm.an",
+    "password": "123456",
+    "role": "PROJECT_ADMIN",
+    "title": "Quản trị viên dự án",
+    "unit": "PMO",
+    "monthlyCapacity": 160,
+    "avatarColor": "#0f766e"
+  },
+  {
+    "id": "u-pm-2",
+    "name": "Hoàng Thu Hà",
+    "email": "ha.pm@company.vn",
+    "username": "pm.ha",
+    "password": "123456",
+    "role": "PROJECT_ADMIN",
+    "title": "Quản trị viên dự án",
+    "unit": "PMO",
+    "monthlyCapacity": 160,
+    "avatarColor": "#ea580c"
+  },
+  {
+    "id": "u-mem-1",
+    "name": "Trần Thị Bình",
+    "email": "binh.dev@company.vn",
+    "username": "dev.binh",
+    "password": "123456",
+    "role": "DELIVERY_MEMBER",
+    "title": "Chuyên viên phân tích nghiệp vụ",
+    "unit": "Tổ triển khai số 1",
+    "monthlyCapacity": 150,
+    "avatarColor": "#2563eb"
+  },
+  {
+    "id": "u-mem-2",
+    "name": "Phạm Quốc Duy",
+    "email": "duy.dev@company.vn",
+    "username": "dev.duy",
+    "password": "123456",
+    "role": "DELIVERY_MEMBER",
+    "title": "Kỹ sư tích hợp",
+    "unit": "Tổ triển khai số 1",
+    "monthlyCapacity": 150,
+    "avatarColor": "#be123c"
+  },
+  {
+    "id": "u-mem-3",
+    "name": "Võ Minh Khang",
+    "email": "khang.dev@company.vn",
+    "username": "dev.khang",
+    "password": "123456",
+    "role": "DELIVERY_MEMBER",
+    "title": "Lập trình viên frontend",
+    "unit": "Tổ triển khai số 2",
+    "monthlyCapacity": 150,
+    "avatarColor": "#0891b2"
+  },
+  {
+    "id": "u-mem-4",
+    "name": "Nguyễn Thị Lan",
+    "email": "lan.dev@company.vn",
+    "username": "dev.lan",
+    "password": "123456",
+    "role": "DELIVERY_MEMBER",
+    "title": "Kiểm thử viên",
+    "unit": "Tổ triển khai số 2",
+    "monthlyCapacity": 150,
+    "avatarColor": "#ca8a04"
+  }
+]

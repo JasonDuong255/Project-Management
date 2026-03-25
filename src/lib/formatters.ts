@@ -1,0 +1,36 @@
+import dayjs from 'dayjs'
+
+import type { CatalogOption, UserRole } from '../types'
+
+export function formatDate(value: string) {
+  return dayjs(value).format('DD/MM/YYYY')
+}
+
+export function formatDateTime(value: string) {
+  return dayjs(value).format('DD/MM/YYYY HH:mm')
+}
+
+export function formatMonthLabel(value: string) {
+  return dayjs(`${value}-01`).format('MM/YYYY')
+}
+
+export function formatHours(value: number) {
+  return `${value}h`
+}
+
+export function getRoleLabel(role: UserRole) {
+  switch (role) {
+    case 'PROJECT_ADMIN':
+      return 'Quản trị viên dự án'
+    case 'DELIVERY_MEMBER':
+      return 'Thành viên tổ triển khai'
+    case 'SYSTEM_ADMIN':
+      return 'Admin hệ thống'
+    default:
+      return role
+  }
+}
+
+export function getCatalogLabel(options: CatalogOption[], value: string) {
+  return options.find((item) => item.value === value)?.label ?? value
+}

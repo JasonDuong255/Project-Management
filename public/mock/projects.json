@@ -1,0 +1,366 @@
+[
+  {
+    "id": "p-1",
+    "code": "PRJ-2026-001",
+    "name": "Cổng Quản trị Nhân sự 360",
+    "summary": "Chuẩn hóa dữ liệu nhân sự, hồ sơ nội bộ và luồng phê duyệt điều động trên một cổng dùng chung.",
+    "sponsor": "Khối Nhân sự",
+    "department": "PMO",
+    "objective": "Tạo cổng quản lý nhân sự tập trung, kết nối HRM và văn bản nội bộ.",
+    "adminId": "u-pm-1",
+    "memberIds": ["u-mem-1", "u-mem-2", "u-mem-4"],
+    "startDate": "2026-01-05",
+    "endDate": "2026-05-30",
+    "status": "IN_PROGRESS",
+    "health": "GREEN",
+    "progress": 58,
+    "currentPhase": "Phát triển chức năng hồ sơ & phân quyền",
+    "adjustedPlan": "Điều chỉnh mốc UAT sớm hơn 1 tuần do dữ liệu nền đã chốt trước hạn.",
+    "riskSummary": "Rủi ro chính là chất lượng dữ liệu hồ sơ cũ và thay đổi yêu cầu phân quyền từ HR.",
+    "basisInfo": {
+      "outputContracts": [
+        { "name": "HD dau ra HR360-01", "note": "Hop dong tong the voi khoi nhan su" }
+      ],
+      "inputContracts": [
+        { "name": "HD mua dich vu tich hop", "note": "Don vi tu van ho tro dong bo du lieu" }
+      ],
+      "deploymentApprovals": [
+        { "name": "PAKD HR360", "note": "Phe duyet trien khai giai doan 1" }
+      ],
+      "projectTeamDecisions": [
+        { "name": "QD thanh lap to du an HR360", "note": "Ban hanh thang 01/2026" }
+      ],
+      "ttkMode": "CHUYEN_TRACH",
+      "deploymentMode": "HD_PLHD",
+      "durationDays": 146,
+      "durationHours": 1168
+    },
+    "financialInfo": {
+      "revenue": { "amount": 2850000000, "note": "PAKD so 05/2025" },
+      "internalCost": { "amount": 1260000000, "note": "PAKD so 05/2025" },
+      "externalCost": { "amount": 420000000, "note": "PAKD so 05/2025" },
+      "profit": { "amount": 1170000000, "note": "PAKD so 05/2025" },
+      "costSource": "Ngan sach chuyen doi so va chi phi van hanh khoi nhan su"
+    },
+    "personnelInfo": {
+      "aitsMembers": [
+        {
+          "fullName": "Nguyen An",
+          "titleUnit": "Project Manager - PMO",
+          "role": "PM phu trach",
+          "responsibility": "Dieu phoi tong the, chot pham vi va ke hoach",
+          "totalPlannedHours": 0,
+          "email": "an.nguyen@aits.vn",
+          "phone": "0901000001"
+        },
+        {
+          "fullName": "Le Binh",
+          "titleUnit": "Business Analyst - Trung tam Giai phap",
+          "role": "BA",
+          "responsibility": "Lam viec nghiep vu va dac ta quy trinh",
+          "totalPlannedHours": 124,
+          "email": "binh.le@aits.vn",
+          "phone": "0901000002"
+        }
+      ],
+      "customerMembers": [
+        {
+          "fullName": "Tran Thu Ha",
+          "titleUnit": "Pho phong Nhan su - Khoi Nhan su",
+          "role": "",
+          "responsibility": "Dau moi nghiep vu va phe duyet UAT",
+          "email": "ha.tran@customer.vn",
+          "phone": "0912000001"
+        }
+      ],
+      "partners": [
+        {
+          "fullName": "Pham Quoc Dat",
+          "titleUnit": "Technical Lead - Tich hop du lieu",
+          "role": "Doi tac tich hop",
+          "responsibility": "Ho tro ETL va mapping du lieu",
+          "email": "dat.pham@partner.vn",
+          "phone": "0933000001"
+        }
+      ]
+    },
+    "documents": [
+      {
+        "id": "doc-101",
+        "title": "BRD cổng nhân sự 360",
+        "category": "BRD",
+        "uploadedBy": "u-pm-1",
+        "uploadedAt": "2026-01-08T09:20:00",
+        "url": "#",
+        "description": "Tài liệu đặc tả nghiệp vụ phiên bản 1.2"
+      },
+      {
+        "id": "doc-102",
+        "title": "Kế hoạch kiểm thử vòng 1",
+        "category": "Test Plan",
+        "uploadedBy": "u-mem-4",
+        "uploadedAt": "2026-03-18T15:30:00",
+        "url": "#",
+        "description": "Checklist kiểm thử chức năng hồ sơ nhân sự"
+      }
+    ],
+    "monthlyAllocations": [
+      { "memberId": "u-mem-1", "month": "2026-03", "hours": 52 },
+      { "memberId": "u-mem-2", "month": "2026-03", "hours": 48 },
+      { "memberId": "u-mem-4", "month": "2026-03", "hours": 36 },
+      { "memberId": "u-mem-1", "month": "2026-04", "hours": 72 },
+      { "memberId": "u-mem-2", "month": "2026-04", "hours": 58 },
+      { "memberId": "u-mem-4", "month": "2026-04", "hours": 42 }
+    ],
+    "risks": [
+      {
+        "id": "risk-101",
+        "title": "Dữ liệu hồ sơ cũ chưa chuẩn mã phòng ban",
+        "level": "MEDIUM",
+        "status": "WATCHING",
+        "ownerId": "u-pm-1",
+        "mitigation": "Chốt file mapping với khối nhân sự trước vòng UAT.",
+        "lastUpdated": "2026-03-20T10:00:00"
+      }
+    ]
+  },
+  {
+    "id": "p-2",
+    "code": "PRJ-2026-002",
+    "name": "Kho dữ liệu Hợp đồng nội bộ",
+    "summary": "Xây dựng kho dữ liệu tập trung cho hợp đồng, phụ lục và lịch tái ký trên toàn công ty.",
+    "sponsor": "Khối Pháp chế",
+    "department": "PMO",
+    "objective": "Số hóa dữ liệu hợp đồng và chuẩn báo cáo nhắc hạn cho toàn doanh nghiệp.",
+    "adminId": "u-pm-1",
+    "memberIds": ["u-mem-2", "u-mem-3"],
+    "startDate": "2026-02-01",
+    "endDate": "2026-07-15",
+    "status": "AT_RISK",
+    "health": "AMBER",
+    "progress": 34,
+    "currentPhase": "Thiết kế dữ liệu & tích hợp ETL",
+    "adjustedPlan": "Đang xem xét giãn mốc SIT do môi trường UAT cấp chậm.",
+    "riskSummary": "Phụ thuộc nhiều nguồn dữ liệu rời rạc và cần xác nhận từ bộ phận pháp chế.",
+    "basisInfo": {
+      "outputContracts": [
+        { "name": "HD dau ra kho hop dong", "note": "Trien khai he thong quan ly hop dong noi bo" }
+      ],
+      "inputContracts": [
+        { "name": "PLHD ETL du lieu", "note": "Bo sung pham vi tich hop va chuyen doi du lieu" }
+      ],
+      "deploymentApprovals": [
+        { "name": "PAKD kho hop dong", "note": "Da phe duyet cap bo phan" }
+      ],
+      "projectTeamDecisions": [
+        { "name": "QD thanh lap to ETL hop dong", "note": "Tap trung nhom phap che va du lieu" }
+      ],
+      "ttkMode": "KIEM_NHIEM",
+      "deploymentMode": "TK_THD",
+      "durationDays": 165,
+      "durationHours": 1320
+    },
+    "financialInfo": {
+      "revenue": { "amount": 1980000000, "note": "PAKD so 02/2026" },
+      "internalCost": { "amount": 920000000, "note": "PAKD so 02/2026" },
+      "externalCost": { "amount": 380000000, "note": "PAKD so 02/2026" },
+      "profit": { "amount": 680000000, "note": "PAKD so 02/2026" },
+      "costSource": "Ngan sach khoi phap che ket hop chi phi dau tu so hoa du lieu"
+    },
+    "personnelInfo": {
+      "aitsMembers": [
+        {
+          "fullName": "Nguyen An",
+          "titleUnit": "Project Manager - PMO",
+          "role": "PM phu trach",
+          "responsibility": "Quan ly trien khai va xu ly phu thuoc",
+          "totalPlannedHours": 0,
+          "email": "an.nguyen@aits.vn",
+          "phone": "0901000001"
+        },
+        {
+          "fullName": "Do Minh Chau",
+          "titleUnit": "Data Engineer - Khoi Cong nghe",
+          "role": "Data engineer",
+          "responsibility": "Xay dung ETL va chuan hoa du lieu",
+          "totalPlannedHours": 136,
+          "email": "chau.do@aits.vn",
+          "phone": "0901000005"
+        }
+      ],
+      "customerMembers": [
+        {
+          "fullName": "Bui Lan Anh",
+          "titleUnit": "Chuyen vien Phap che - Khoi Phap che",
+          "role": "",
+          "responsibility": "Chot mau hop dong va nghiep vu nhac han",
+          "email": "anh.bui@customer.vn",
+          "phone": "0912000002"
+        }
+      ],
+      "partners": [
+        {
+          "fullName": "Nguyen Thanh Son",
+          "titleUnit": "Solution Architect - Doi tac so hoa",
+          "role": "Tu van giai phap",
+          "responsibility": "Tu van mo hinh kho hop dong va data flow",
+          "email": "son.nguyen@partner.vn",
+          "phone": "0933000002"
+        }
+      ]
+    },
+    "documents": [
+      {
+        "id": "doc-201",
+        "title": "Data dictionary hợp đồng",
+        "category": "Thiết kế",
+        "uploadedBy": "u-mem-3",
+        "uploadedAt": "2026-02-22T11:15:00",
+        "url": "#",
+        "description": "Danh sách trường dữ liệu và quy tắc chuẩn hóa"
+      }
+    ],
+    "monthlyAllocations": [
+      { "memberId": "u-mem-2", "month": "2026-03", "hours": 58 },
+      { "memberId": "u-mem-3", "month": "2026-03", "hours": 64 },
+      { "memberId": "u-mem-2", "month": "2026-04", "hours": 66 },
+      { "memberId": "u-mem-3", "month": "2026-04", "hours": 72 }
+    ],
+    "risks": [
+      {
+        "id": "risk-201",
+        "title": "Môi trường UAT chưa cấp đủ kết nối nguồn",
+        "level": "HIGH",
+        "status": "OPEN",
+        "ownerId": "u-pm-1",
+        "mitigation": "Escalate hạ tầng và tách trước luồng ETL độc lập.",
+        "lastUpdated": "2026-03-19T15:45:00"
+      },
+      {
+        "id": "risk-202",
+        "title": "Biểu mẫu hợp đồng có nhiều biến thể giữa các đơn vị",
+        "level": "MEDIUM",
+        "status": "WATCHING",
+        "ownerId": "u-mem-2",
+        "mitigation": "Chốt chuẩn template tối thiểu dùng chung trong sprint hiện tại.",
+        "lastUpdated": "2026-03-18T08:15:00"
+      }
+    ]
+  },
+  {
+    "id": "p-3",
+    "code": "PRJ-2026-003",
+    "name": "Ứng dụng Quản lý Tài sản nội bộ",
+    "summary": "Xây ứng dụng theo dõi vòng đời tài sản CNTT, cấp phát và bảo trì cho toàn công ty.",
+    "sponsor": "Khối Hành chính",
+    "department": "PMO",
+    "objective": "Quản lý vòng đời tài sản tập trung, số hóa quy trình bàn giao và kiểm kê.",
+    "adminId": "u-pm-2",
+    "memberIds": ["u-mem-1", "u-mem-3", "u-mem-4"],
+    "startDate": "2026-03-10",
+    "endDate": "2026-09-30",
+    "status": "PLANNING",
+    "health": "GREEN",
+    "progress": 22,
+    "currentPhase": "Lập kế hoạch sơ bộ và bóc tách WBS",
+    "adjustedPlan": "Chưa phát sinh điều chỉnh đáng kể, đang làm rõ phạm vi quản lý thiết bị di động.",
+    "riskSummary": "Rủi ro liên quan tới số lượng danh mục tài sản và quy tắc kiểm kê tại các chi nhánh.",
+    "basisInfo": {
+      "outputContracts": [
+        { "name": "Ke hoach noi bo tai san", "note": "Trien khai cho khoi hanh chinh va CNTT" }
+      ],
+      "inputContracts": [
+        { "name": "HD mua barcode va tem", "note": "Ho tro giai doan kiem ke tai san" }
+      ],
+      "deploymentApprovals": [
+        { "name": "To trinh trien khai giai doan 1", "note": "Tap trung nhom tai san CNTT" }
+      ],
+      "projectTeamDecisions": [
+        { "name": "QD thanh lap to du an tai san", "note": "Ban hanh thang 03/2026" }
+      ],
+      "ttkMode": "KIEM_NHIEM",
+      "deploymentMode": "NOI_BO",
+      "durationDays": 205,
+      "durationHours": 1640
+    },
+    "financialInfo": {
+      "revenue": { "amount": 0, "note": "Du an noi bo khong ghi nhan doanh thu thuong mai" },
+      "internalCost": { "amount": 760000000, "note": "PAKD noi bo so 03/2026" },
+      "externalCost": { "amount": 145000000, "note": "PAKD noi bo so 03/2026" },
+      "profit": { "amount": 0, "note": "Danh gia theo hieu qua van hanh" },
+      "costSource": "Ngan sach dau tu CNTT va quy bao tri tai san noi bo"
+    },
+    "personnelInfo": {
+      "aitsMembers": [
+        {
+          "fullName": "Pham Mai Linh",
+          "titleUnit": "Project Manager - PMO",
+          "role": "PM phu trach",
+          "responsibility": "Chot pham vi va dieu phoi WBS",
+          "totalPlannedHours": 0,
+          "email": "linh.pham@aits.vn",
+          "phone": "0901000006"
+        },
+        {
+          "fullName": "Hoang Gia Bao",
+          "titleUnit": "Tester - Trung tam QA",
+          "role": "QA",
+          "responsibility": "Xay dung test case va xac nhan nghiep vu",
+          "totalPlannedHours": 94,
+          "email": "bao.hoang@aits.vn",
+          "phone": "0901000007"
+        }
+      ],
+      "customerMembers": [
+        {
+          "fullName": "Le Hong Minh",
+          "titleUnit": "Truong phong Hanh chinh - Khoi Hanh chinh",
+          "role": "",
+          "responsibility": "Xac nhan quy trinh ban giao va kiem ke",
+          "email": "minh.le@customer.vn",
+          "phone": "0912000003"
+        }
+      ],
+      "partners": [
+        {
+          "fullName": "Tran Quang Huy",
+          "titleUnit": "Ky su barcode - Doi tac thiet bi",
+          "role": "Ho tro thiet bi",
+          "responsibility": "Cung cap giai phap tem nhan va may quet",
+          "email": "huy.tran@partner.vn",
+          "phone": "0933000003"
+        }
+      ]
+    },
+    "documents": [
+      {
+        "id": "doc-301",
+        "title": "Scope note tài sản nội bộ",
+        "category": "Scope",
+        "uploadedBy": "u-pm-2",
+        "uploadedAt": "2026-03-12T13:05:00",
+        "url": "#",
+        "description": "Ghi chú phạm vi và nhóm tài sản ưu tiên giai đoạn 1"
+      }
+    ],
+    "monthlyAllocations": [
+      { "memberId": "u-mem-1", "month": "2026-03", "hours": 46 },
+      { "memberId": "u-mem-3", "month": "2026-03", "hours": 32 },
+      { "memberId": "u-mem-4", "month": "2026-03", "hours": 44 },
+      { "memberId": "u-mem-1", "month": "2026-04", "hours": 64 },
+      { "memberId": "u-mem-3", "month": "2026-04", "hours": 54 },
+      { "memberId": "u-mem-4", "month": "2026-04", "hours": 50 }
+    ],
+    "risks": [
+      {
+        "id": "risk-301",
+        "title": "Quy trình bàn giao tài sản tại chi nhánh chưa thống nhất",
+        "level": "MEDIUM",
+        "status": "WATCHING",
+        "ownerId": "u-pm-2",
+        "mitigation": "Chuẩn hóa quy trình tối thiểu và gom ngoại lệ cho giai đoạn 2.",
+        "lastUpdated": "2026-03-21T14:10:00"
+      }
+    ]
+  }
+]

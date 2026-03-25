@@ -1,0 +1,40 @@
+{
+  "projectStatuses": [
+    { "value": "INITIATION", "label": "Khởi động" },
+    { "value": "PLANNING", "label": "Lập kế hoạch" },
+    { "value": "IN_PROGRESS", "label": "Đang triển khai" },
+    { "value": "AT_RISK", "label": "Có rủi ro" },
+    { "value": "DONE", "label": "Hoàn tất" }
+  ],
+  "healthStatuses": [
+    { "value": "GREEN", "label": "Ổn định" },
+    { "value": "AMBER", "label": "Cần theo dõi" },
+    { "value": "RED", "label": "Khẩn cấp" }
+  ],
+  "taskStatuses": [
+    { "value": "NOT_STARTED", "label": "Chưa bắt đầu" },
+    { "value": "IN_PROGRESS", "label": "Đang thực hiện" },
+    { "value": "BLOCKED", "label": "Bị chặn" },
+    { "value": "DONE", "label": "Hoàn thành" },
+    { "value": "NEEDS_REPLAN", "label": "Cần cập nhật kế hoạch" }
+  ],
+  "riskLevels": [
+    { "value": "LOW", "label": "Thấp" },
+    { "value": "MEDIUM", "label": "Trung bình" },
+    { "value": "HIGH", "label": "Cao" }
+  ],
+  "documentCategories": [
+    { "value": "BRD", "label": "BRD" },
+    { "value": "Thiết kế", "label": "Thiết kế" },
+    { "value": "Test Plan", "label": "Kế hoạch kiểm thử" },
+    { "value": "Scope", "label": "Phạm vi" },
+    { "value": "Khác", "label": "Khác" }
+  ],
+  "departments": [
+    { "value": "PMO", "label": "PMO" },
+    { "value": "Khối CNTT", "label": "Khối CNTT" },
+    { "value": "Khối Nhân sự", "label": "Khối Nhân sự" },
+    { "value": "Khối Hành chính", "label": "Khối Hành chính" },
+    { "value": "Khối Pháp chế", "label": "Khối Pháp chế" }
+  ]
+}

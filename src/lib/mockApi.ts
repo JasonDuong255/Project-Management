@@ -82,6 +82,7 @@ function buildAitsPersonnelFromProject(project: Project, users: User[]): Project
       .reduce((sum, allocation) => sum + allocation.hours, 0)
 
     return {
+      userId: memberId,
       fullName: user?.name ?? memberId,
       titleUnit: user ? `${user.title} - ${user.unit}` : '',
       role: memberId === project.adminId ? 'PM phu trach' : 'Nhan su AITS',
@@ -111,8 +112,35 @@ function normalizeReferenceItems(items?: Project['basisInfo']['outputContracts']
   }))
 }
 
-function normalizeAitsPersonnelItems(items?: Project['personnelInfo']['aitsMembers']) {
+function resolveAitsUserId(
+  item: Project['personnelInfo']['aitsMembers'][number] | undefined,
+  users: User[],
+) {
+  if (item?.userId) {
+    return item.userId
+  }
+
+  const byEmail = item?.email
+    ? users.find((user) => user.email.toLowerCase() === item.email.toLowerCase())
+    : null
+
+  if (byEmail) {
+    return byEmail.id
+  }
+
+  const byName = item?.fullName
+    ? users.find((user) => user.name.toLowerCase() === item.fullName.toLowerCase())
+    : null
+
+  return byName?.id ?? ''
+}
+
+function normalizeAitsPersonnelItems(
+  items: Project['personnelInfo']['aitsMembers'] | undefined,
+  users: User[],
+) {
   return (items ?? []).map((item) => ({
+    userId: resolveAitsUserId(item, users),
     fullName: item?.fullName ?? '',
     titleUnit: item?.titleUnit ?? '',
     role: item?.role ?? '',
@@ -134,6 +162,44 @@ function normalizeExternalPersonnelItems(items?: Project['personnelInfo']['custo
   }))
 }
 
+function attachAitsUserIds(
+  items: Project['personnelInfo']['aitsMembers'],
+  project: Project,
+) {
+  const availableIds = [...new Set([project.adminId, ...project.memberIds].filter(Boolean))]
+  const usedIds = new Set(items.map((item) => item.userId).filter(Boolean))
+
+  return items.map((item, index) => {
+    if (item.userId) {
+      return item
+    }
+
+    const looksLikePm =
+      item.role.toLowerCase().includes('pm') ||
+      item.titleUnit.toLowerCase().includes('project manager') ||
+      index === 0
+
+    if (looksLikePm && project.adminId && !usedIds.has(project.adminId)) {
+      usedIds.add(project.adminId)
+      return {
+        ...item,
+        userId: project.adminId,
+      }
+    }
+
+    const nextId = availableIds.find((memberId) => !usedIds.has(memberId)) ?? ''
+
+    if (nextId) {
+      usedIds.add(nextId)
+    }
+
+    return {
+      ...item,
+      userId: nextId,
+    }
+  })
+}
+
 function normalizeFinancialItem(
   item?: Project['financialInfo']['revenue'],
 ): Project['financialInfo']['revenue'] {
@@ -151,6 +217,10 @@ function normalizeAssigneeIds(assigneeIds?: string[], assigneeId?: string) {
 function normalizeProject(project: Project, users: User[]): Project {
   const defaultBasisInfo = createDefaultBasisInfo(project)
   const defaultPersonnelInfo = createDefaultPersonnelInfo(project, users)
+  const normalizedAitsMembers = attachAitsUserIds(
+    normalizeAitsPersonnelItems(project.personnelInfo?.aitsMembers, users),
+    project,
+  )
   const basisInfo = project.basisInfo
   const financialInfo = project.financialInfo
   const personnelInfo = project.personnelInfo
@@ -175,8 +245,8 @@ function normalizeProject(project: Project, users: User[]): Project {
       costSource: financialInfo?.costSource ?? '',
     },
     personnelInfo: {
-      aitsMembers: normalizeAitsPersonnelItems(personnelInfo?.aitsMembers).length
-        ? normalizeAitsPersonnelItems(personnelInfo?.aitsMembers)
+      aitsMembers: normalizedAitsMembers.length
+        ? normalizedAitsMembers
         : defaultPersonnelInfo.aitsMembers,
       customerMembers: normalizeExternalPersonnelItems(personnelInfo?.customerMembers),
       partners: normalizeExternalPersonnelItems(personnelInfo?.partners),

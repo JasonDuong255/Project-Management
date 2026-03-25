@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { GanttPage } from './pages/GanttPage'
 import { LoginPage } from './pages/LoginPage'
 import { MemberWorkspacePage } from './pages/MemberWorkspacePage'
+import { NotificationCenterPage } from './pages/NotificationCenterPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -45,6 +46,7 @@ function AppRoutes() {
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/notifications" element={<NotificationCenterPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
             <Route

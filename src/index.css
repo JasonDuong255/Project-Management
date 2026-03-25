@@ -371,6 +371,25 @@ td p,
   color: rgba(255, 255, 255, 0.8);
 }
 
+.nav-link__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.nav-link__badge {
+  min-width: 1.5rem;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(244, 114, 30, 0.18);
+  color: #fed7aa;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .nav-link--active,
 .nav-link:hover {
   color: white;
@@ -428,6 +447,18 @@ td p,
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  font-weight: 700;
 }
 
 .page-grid {
@@ -1055,6 +1086,94 @@ td p,
   color: var(--muted);
 }
 
+.workload-project-summary {
+  margin-top: 0.25rem;
+}
+
+.workload-planner-table-wrapper {
+  border-radius: 22px;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.workload-planner-table {
+  min-width: 1280px;
+}
+
+.workload-planner-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(244, 248, 252, 0.96);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.workload-planner-table td {
+  padding: 0.7rem 0.65rem;
+}
+
+.workload-member-cell {
+  min-width: 220px;
+}
+
+.workload-member-cell strong,
+.workload-planner-table td strong {
+  display: block;
+}
+
+.workload-member-cell p,
+.workload-cell-note {
+  margin: 0.18rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.workload-member-cell small {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--muted);
+}
+
+.workload-month-cell {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 180px;
+}
+
+.workload-month-cell input {
+  width: 100%;
+  padding: 0.62rem 0.68rem;
+  border-radius: 12px;
+  border: 1px solid rgba(20, 48, 71, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  font: inherit;
+}
+
+.workload-month-cell__meta {
+  display: grid;
+  gap: 0.16rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.workload-footer-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+
+.workload-footer-note span {
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(20, 48, 71, 0.06);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .checkbox-grid,
 .task-selector {
   display: grid;
@@ -1106,6 +1225,82 @@ td p,
 .empty-panel {
   text-align: center;
   padding: 2rem;
+}
+
+.notification-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.notification-card {
+  display: grid;
+  gap: 0.95rem;
+  padding: 1rem 1.05rem;
+  border-radius: 22px;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  background:
+    linear-gradient(180deg, rgba(217, 119, 6, 0.05), rgba(255, 255, 255, 0.94)),
+    rgba(255, 255, 255, 0.9);
+}
+
+.notification-card__header,
+.notification-card__children-header,
+.notification-child-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.notification-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.notification-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(20, 48, 71, 0.06);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.notification-card__body,
+.notification-card__children,
+.notification-child-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.notification-card__summary {
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.notification-card__summary p {
+  margin: 0.25rem 0 0;
+}
+
+.notification-child-row {
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background: rgba(20, 48, 71, 0.04);
+}
+
+.notification-child-row p {
+  margin: 0.2rem 0 0;
+}
+
+.notification-child-row__meta {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: end;
 }
 
 .text-danger {
@@ -1329,7 +1524,10 @@ td p,
   .profile-summary,
   .list-row,
   .plan-gantt-caption,
-  .personnel-group__header {
+  .personnel-group__header,
+  .notification-card__header,
+  .notification-card__children-header,
+  .notification-child-row {
     flex-direction: column;
   }
 

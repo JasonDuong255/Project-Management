@@ -93,6 +93,7 @@ export interface ProjectFinancialInfo {
 }
 
 export interface ProjectAitsPersonnel {
+  userId: string
   fullName: string
   titleUnit: string
   role: string
@@ -256,6 +257,7 @@ export interface UpdateProjectInput {
       | 'basisInfo'
       | 'financialInfo'
       | 'personnelInfo'
+      | 'monthlyAllocations'
     >
   >
 }

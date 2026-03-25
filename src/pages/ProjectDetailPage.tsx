@@ -75,6 +75,7 @@ function cloneFinancialInfo(financialInfo: ProjectFinancialInfo): ProjectFinanci
 
 function cloneAitsPersonnel(items: ProjectAitsPersonnel[]) {
   return items.map((item) => ({
+    userId: item.userId,
     fullName: item.fullName,
     titleUnit: item.titleUnit,
     role: item.role,
@@ -105,6 +106,7 @@ function createReferenceItem(): ProjectReferenceItem {
 
 function createAitsPersonnel(): ProjectAitsPersonnel {
   return {
+    userId: '',
     fullName: '',
     titleUnit: '',
     role: '',
@@ -138,6 +140,7 @@ function sanitizeReferenceItems(items: ProjectReferenceItem[]) {
 function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
   return items
     .map((item) => ({
+      userId: item.userId,
       fullName: item.fullName.trim(),
       titleUnit: item.titleUnit.trim(),
       role: item.role.trim(),

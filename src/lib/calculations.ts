@@ -21,6 +21,30 @@ export interface WorkloadRow {
   projectNames: string[]
 }
 
+export interface TaskDeadlineNotificationChild {
+  id: string
+  name: string
+  status: PlanItem['status']
+  progress: number
+  endDate: string
+  assigneeNames: string
+}
+
+export interface TaskDeadlineNotification {
+  id: string
+  projectId: string
+  projectCode: string
+  projectName: string
+  taskId: string
+  taskName: string
+  progress: number
+  endDate: string
+  daysRemaining: number
+  assigneeNames: string
+  projectManagerName: string
+  childTasks: TaskDeadlineNotificationChild[]
+}
+
 export function getTaskAssigneeIds(task: PlanItem) {
   if (task.assigneeIds?.length) {
     return task.assigneeIds
@@ -227,6 +251,90 @@ export function getProjectById(projects: Project[], projectId?: string) {
 
 export function getUserById(users: User[], userId?: string) {
   return users.find((user) => user.id === userId) ?? null
+}
+
+function getDescendantPlanItems(planItems: PlanItem[], parentId: string): PlanItem[] {
+  const children = planItems.filter((item) => item.parentId === parentId)
+
+  return children.flatMap((child) => [child, ...getDescendantPlanItems(planItems, child.id)])
+}
+
+export function getTaskDeadlineNotifications(
+  planItems: PlanItem[],
+  projects: Project[],
+  users: User[],
+  currentUser: User | null,
+) {
+  if (!currentUser) {
+    return []
+  }
+
+  const today = dayjs().startOf('day')
+
+  return planItems
+    .filter((item) => item.parentId === null)
+    .map<TaskDeadlineNotification | null>((task) => {
+      const project = projects.find((projectItem) => projectItem.id === task.projectId)
+
+      if (!project) {
+        return null
+      }
+
+      const isRecipient =
+        currentUser.role === 'SYSTEM_ADMIN' ||
+        project.adminId === currentUser.id ||
+        getTaskAssigneeIds(task).includes(currentUser.id)
+
+      if (!isRecipient) {
+        return null
+      }
+
+      const daysRemaining = dayjs(task.endDate).startOf('day').diff(today, 'day')
+
+      if (daysRemaining < 0 || daysRemaining > 7 || task.progress >= 100) {
+        return null
+      }
+
+      const childTasks = getDescendantPlanItems(planItems, task.id)
+        .filter((item) => item.progress < 100 || item.status !== 'DONE')
+        .map<TaskDeadlineNotificationChild>((item) => ({
+          id: item.id,
+          name: item.name,
+          status: item.status,
+          progress: item.progress,
+          endDate: item.endDate,
+          assigneeNames:
+            getTaskAssigneeIds(item)
+              .map((userId) => users.find((user) => user.id === userId)?.name ?? userId)
+              .join(', ') || 'Chua phan cong',
+        }))
+
+      const assigneeNames =
+        getTaskAssigneeIds(task)
+          .map((userId) => users.find((user) => user.id === userId)?.name ?? userId)
+          .join(', ') || 'Chua phan cong'
+
+      return {
+        id: `deadline-${task.id}`,
+        projectId: project.id,
+        projectCode: project.code,
+        projectName: project.name,
+        taskId: task.id,
+        taskName: task.name,
+        progress: task.progress,
+        endDate: task.endDate,
+        daysRemaining,
+        assigneeNames,
+        projectManagerName: users.find((user) => user.id === project.adminId)?.name ?? project.adminId,
+        childTasks,
+      }
+    })
+    .filter((item): item is TaskDeadlineNotification => item !== null)
+    .sort(
+      (left, right) =>
+        left.daysRemaining - right.daysRemaining ||
+        left.endDate.localeCompare(right.endDate),
+    )
 }
 
 export function getDashboardSummary(

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BellRing,
   CalendarRange,
   FolderKanban,
   LayoutDashboard,
@@ -8,9 +9,10 @@ import {
   TimerReset,
   UserCog,
 } from 'lucide-react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAppData } from '../context/AppContext'
+import { getTaskDeadlineNotifications } from '../lib/calculations'
 import { getRoleLabel } from '../lib/formatters'
 import type { UserRole } from '../types'
 
@@ -26,6 +28,11 @@ const navItems: NavItem[] = [
     to: '/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
+  },
+  {
+    to: '/notifications',
+    label: 'Thong bao',
+    icon: BellRing,
   },
   {
     to: '/projects',
@@ -62,7 +69,7 @@ const navItems: NavItem[] = [
 ]
 
 export function AppShell() {
-  const { currentUser, logout } = useAppData()
+  const { currentUser, logout, planItems, projects, users } = useAppData()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -77,6 +84,13 @@ export function AppShell() {
   const currentTitle =
     availableNavItems.find((item) => location.pathname.startsWith(item.to))?.label ??
     'Quản lý dự án'
+
+  const notificationCount = getTaskDeadlineNotifications(
+    planItems,
+    projects,
+    users,
+    currentUser,
+  ).length
 
   async function handleLogout() {
     await logout()
@@ -107,7 +121,12 @@ export function AppShell() {
                 }
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                <span className="nav-link__content">
+                  <span>{item.label}</span>
+                  {item.to === '/notifications' && notificationCount ? (
+                    <span className="nav-link__badge">{notificationCount}</span>
+                  ) : null}
+                </span>
               </NavLink>
             )
           })}
@@ -142,6 +161,11 @@ export function AppShell() {
             <h2>{currentTitle}</h2>
           </div>
           <div className="topbar-meta">
+            <Link to="/notifications" className="topbar-link">
+              <BellRing size={16} />
+              <span>Thong bao</span>
+              <strong>{notificationCount}</strong>
+            </Link>
             <span className="status-pill tone-info">{currentUser.unit}</span>
             <span className="status-pill tone-neutral">
               Sức chứa tháng: {currentUser.monthlyCapacity}h

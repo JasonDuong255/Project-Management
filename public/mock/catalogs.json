@@ -1,40 +1,48 @@
 {
   "projectStatuses": [
-    { "value": "INITIATION", "label": "Khởi động" },
-    { "value": "PLANNING", "label": "Lập kế hoạch" },
-    { "value": "IN_PROGRESS", "label": "Đang triển khai" },
-    { "value": "AT_RISK", "label": "Có rủi ro" },
-    { "value": "DONE", "label": "Hoàn tất" }
+    { "value": "INITIATION", "label": "Khoi dong" },
+    { "value": "PLANNING", "label": "Lap ke hoach" },
+    { "value": "IN_PROGRESS", "label": "Dang trien khai" },
+    { "value": "AT_RISK", "label": "Co rui ro" },
+    { "value": "DONE", "label": "Hoan tat" }
   ],
   "healthStatuses": [
-    { "value": "GREEN", "label": "Ổn định" },
-    { "value": "AMBER", "label": "Cần theo dõi" },
-    { "value": "RED", "label": "Khẩn cấp" }
+    { "value": "GREEN", "label": "On dinh" },
+    { "value": "AMBER", "label": "Can theo doi" },
+    { "value": "RED", "label": "Khan cap" }
   ],
   "taskStatuses": [
-    { "value": "NOT_STARTED", "label": "Chưa bắt đầu" },
-    { "value": "IN_PROGRESS", "label": "Đang thực hiện" },
-    { "value": "BLOCKED", "label": "Bị chặn" },
-    { "value": "DONE", "label": "Hoàn thành" },
-    { "value": "NEEDS_REPLAN", "label": "Cần cập nhật kế hoạch" }
+    { "value": "NOT_STARTED", "label": "Chua bat dau" },
+    { "value": "IN_PROGRESS", "label": "Dang thuc hien" },
+    { "value": "BLOCKED", "label": "Bi chan" },
+    { "value": "DONE", "label": "Hoan thanh" },
+    { "value": "NEEDS_REPLAN", "label": "Can cap nhat ke hoach" }
   ],
   "riskLevels": [
-    { "value": "LOW", "label": "Thấp" },
-    { "value": "MEDIUM", "label": "Trung bình" },
+    { "value": "LOW", "label": "Thap" },
+    { "value": "MEDIUM", "label": "Trung binh" },
     { "value": "HIGH", "label": "Cao" }
   ],
   "documentCategories": [
-    { "value": "BRD", "label": "BRD" },
-    { "value": "Thiết kế", "label": "Thiết kế" },
-    { "value": "Test Plan", "label": "Kế hoạch kiểm thử" },
-    { "value": "Scope", "label": "Phạm vi" },
-    { "value": "Khác", "label": "Khác" }
+    { "value": "CONTRACT", "label": "Hop dong" },
+    { "value": "PROJECT_DOCUMENT", "label": "Tai lieu du an" },
+    { "value": "SUBMISSION", "label": "To trinh" },
+    { "value": "MEETING_MINUTES", "label": "Bien ban hop" }
   ],
   "departments": [
     { "value": "PMO", "label": "PMO" },
-    { "value": "Khối CNTT", "label": "Khối CNTT" },
-    { "value": "Khối Nhân sự", "label": "Khối Nhân sự" },
-    { "value": "Khối Hành chính", "label": "Khối Hành chính" },
-    { "value": "Khối Pháp chế", "label": "Khối Pháp chế" }
+    { "value": "Khoi CNTT", "label": "Khoi CNTT" },
+    { "value": "Khoi Hanh chinh", "label": "Khoi Hanh chinh" },
+    { "value": "Khoi Nhan su", "label": "Khoi Nhan su" },
+    { "value": "Khoi Phap che", "label": "Khoi Phap che" }
+  ],
+  "projectMemberRoles": [
+    { "value": "PM du an", "label": "PM du an" },
+    { "value": "Dieu phoi du an", "label": "Dieu phoi du an" },
+    { "value": "Business Analyst", "label": "Business Analyst" },
+    { "value": "Lap trinh vien", "label": "Lap trinh vien" },
+    { "value": "Kiem thu", "label": "Kiem thu" },
+    { "value": "Ky su tich hop", "label": "Ky su tich hop" },
+    { "value": "Thanh vien trien khai", "label": "Thanh vien trien khai" }
   ]
 }

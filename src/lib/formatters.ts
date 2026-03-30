@@ -20,12 +20,16 @@ export function formatHours(value: number) {
 
 export function getRoleLabel(role: UserRole) {
   switch (role) {
-    case 'PROJECT_ADMIN':
-      return 'Quản trị viên dự án'
-    case 'DELIVERY_MEMBER':
-      return 'Thành viên tổ triển khai'
+    case 'PMO':
     case 'SYSTEM_ADMIN':
-      return 'Admin hệ thống'
+      return 'PMO'
+    case 'ADMIN_HC':
+      return 'To chuc hanh chinh'
+    case 'PM':
+    case 'PROJECT_ADMIN':
+      return 'PM'
+    case 'DELIVERY_MEMBER':
+      return 'Thanh vien to trien khai'
     default:
       return role
   }

@@ -6,19 +6,20 @@ export function AdminCatalogPage() {
   const { catalogs } = useAppData()
 
   const groups = [
-    ['Trạng thái dự án', catalogs.projectStatuses],
+    ['Trang thai du an', catalogs.projectStatuses],
     ['Health status', catalogs.healthStatuses],
-    ['Trạng thái công việc', catalogs.taskStatuses],
-    ['Mức độ rủi ro', catalogs.riskLevels],
-    ['Loại tài liệu', catalogs.documentCategories],
-    ['Đơn vị', catalogs.departments],
+    ['Trang thai cong viec', catalogs.taskStatuses],
+    ['Muc do rui ro', catalogs.riskLevels],
+    ['Loai tai lieu', catalogs.documentCategories],
+    ['Don vi', catalogs.departments],
+    ['Vai tro to trien khai', catalogs.projectMemberRoles],
   ] as const
 
   return (
     <div className="page-grid">
       <SectionHeader
-        title="Danh mục hệ thống"
-        description="Khung quản trị LOV để sau này nối CRUD đầy đủ"
+        title="Danh muc he thong"
+        description="Khung quan tri LOV de sau nay noi CRUD day du cho vai tro, trang thai va danh muc"
       />
 
       <section className="catalog-grid">
@@ -29,7 +30,7 @@ export function AdminCatalogPage() {
                 <span className="eyebrow">Catalog group</span>
                 <h3>{title}</h3>
               </div>
-              <StatusPill label={`${items.length} giá trị`} tone="info" />
+              <StatusPill label={`${items.length} gia tri`} tone="info" />
             </div>
 
             <div className="stack-list">

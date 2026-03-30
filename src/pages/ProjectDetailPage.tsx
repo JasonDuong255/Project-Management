@@ -17,9 +17,11 @@ import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppContext'
 import {
+  canManageProjectPlan,
   getTaskAssigneeIds,
   getTaskPrimaryAssigneeId,
   getHealthTone,
+  normalizeUserRole,
   getProjectById,
   getProjectTasks,
   getStatusTone,
@@ -35,7 +37,9 @@ import type {
   Project,
   ProjectFinancialInfo,
   ProjectPersonnelInfo,
+  ProjectRisk,
   ProjectReferenceItem,
+  RiskLevel,
   TtkMode,
 } from '../types'
 
@@ -48,7 +52,24 @@ type ReferenceGroupKey =
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
 type ProjectDocumentCategory = 'CONTRACT' | 'PROJECT_DOCUMENT' | 'SUBMISSION' | 'MEETING_MINUTES'
-type ProjectDetailTab = 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'PLAN'
+type ProjectDetailTab = 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN'
+type ProjectRiskStatus = ProjectRisk['status']
+
+interface RiskFormState {
+  id: string
+  title: string
+  level: RiskLevel
+  status: ProjectRiskStatus
+  ownerId: string
+  mitigation: string
+}
+
+interface PlanRiskPromptState {
+  taskName: string
+  timeline: string
+  assignees: string
+  draft: RiskFormState
+}
 
 const ttkModeOptions: Array<{ value: TtkMode; label: string }> = [
   { value: 'CHUYEN_TRACH', label: 'Chuyen trach' },
@@ -73,6 +94,12 @@ const projectDocumentCategories: Array<{ value: ProjectDocumentCategory; label: 
   { value: 'PROJECT_DOCUMENT', label: 'Tai lieu du an' },
   { value: 'SUBMISSION', label: 'To trinh' },
   { value: 'MEETING_MINUTES', label: 'Bien ban hop' },
+]
+
+const riskStatusOptions: Array<{ value: ProjectRiskStatus; label: string }> = [
+  { value: 'OPEN', label: 'Dang mo' },
+  { value: 'WATCHING', label: 'Dang theo doi' },
+  { value: 'MITIGATED', label: 'Da giam nhe' },
 ]
 
 function normalizeProjectDocumentCategory(category: string): ProjectDocumentCategory {
@@ -117,6 +144,7 @@ function cloneFinancialInfo(financialInfo: ProjectFinancialInfo): ProjectFinanci
 function cloneAitsPersonnel(items: ProjectAitsPersonnel[]) {
   return items.map((item) => ({
     userId: item.userId,
+    employeeCode: item.employeeCode,
     fullName: item.fullName,
     titleUnit: item.titleUnit,
     role: item.role,
@@ -148,6 +176,7 @@ function createReferenceItem(): ProjectReferenceItem {
 function createAitsPersonnel(): ProjectAitsPersonnel {
   return {
     userId: '',
+    employeeCode: '',
     fullName: '',
     titleUnit: '',
     role: '',
@@ -182,6 +211,7 @@ function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
   return items
     .map((item) => ({
       userId: item.userId,
+      employeeCode: item.employeeCode.trim(),
       fullName: item.fullName.trim(),
       titleUnit: item.titleUnit.trim(),
       role: item.role.trim(),
@@ -230,6 +260,8 @@ function formatCurrencyPreview(amount: number) {
 function buildOverviewForm(project: Project) {
   return {
     summary: project.summary,
+    sponsor: project.sponsor,
+    objective: project.objective,
     adminId: project.adminId,
     status: project.status,
     startDate: project.startDate,
@@ -261,6 +293,90 @@ function buildDocumentForm() {
     category: 'PROJECT_DOCUMENT' as ProjectDocumentCategory,
     description: '',
     fileName: '',
+  }
+}
+
+function buildApprovalForm(project: Project) {
+  return {
+    approvalFileName: project.approvalInfo.approvalFileName,
+    note: project.approvalInfo.note,
+  }
+}
+
+function buildRiskForm(project: Project, defaultOwnerId: string, risk?: ProjectRisk | null): RiskFormState {
+  if (risk) {
+    return {
+      id: risk.id,
+      title: risk.title,
+      level: risk.level,
+      status: risk.status,
+      ownerId: risk.ownerId,
+      mitigation: risk.mitigation,
+    }
+  }
+
+  return {
+    id: '',
+    title: '',
+    level: 'MEDIUM',
+    status: 'OPEN',
+    ownerId: defaultOwnerId || project.adminId,
+    mitigation: '',
+  }
+}
+
+function buildRiskDraftFromPlan(
+  project: Project,
+  task: ReturnType<typeof buildPlanForm>,
+  assigneeNames: string,
+): PlanRiskPromptState {
+  const dependencyNote = task.dependencyNote.trim()
+  const deliverable = task.deliverable.trim()
+  const taskName = task.name.trim() || 'Task vua cap nhat'
+  const mitigationParts = [
+    `Danh gia lai anh huong cua thay doi ke hoach doi voi ${taskName}.`,
+    deliverable ? `Deliverable lien quan: ${deliverable}.` : '',
+    dependencyNote ? `Phu thuoc can luu y: ${dependencyNote}.` : '',
+  ].filter(Boolean)
+
+  return {
+    taskName,
+    timeline: `${formatDate(task.startDate)} - ${formatDate(task.endDate)}`,
+    assignees: assigneeNames,
+    draft: {
+      id: '',
+      title: `Rui ro thay doi ke hoach - ${taskName}`,
+      level: 'MEDIUM',
+      status: 'OPEN',
+      ownerId: task.assigneeId || project.adminId,
+      mitigation: mitigationParts.join(' '),
+    },
+  }
+}
+
+function getRiskLevelTone(level: RiskLevel) {
+  switch (level) {
+    case 'HIGH':
+      return 'danger'
+    case 'MEDIUM':
+      return 'warning'
+    default:
+      return 'success'
+  }
+}
+
+function getRiskStatusLabel(status: ProjectRiskStatus) {
+  return riskStatusOptions.find((item) => item.value === status)?.label ?? status
+}
+
+function getRiskStatusTone(status: ProjectRiskStatus) {
+  switch (status) {
+    case 'MITIGATED':
+      return 'success'
+    case 'WATCHING':
+      return 'info'
+    default:
+      return 'warning'
   }
 }
 
@@ -404,6 +520,7 @@ export function ProjectDetailPage() {
     addProjectDocument,
     deleteProjectDocument,
     savePlanItem,
+    saveRisk,
     addWorklog,
     getUser,
   } = useAppData()
@@ -413,14 +530,20 @@ export function ProjectDetailPage() {
   const [overviewForm, setOverviewForm] = useState<ReturnType<typeof buildOverviewForm> | null>(null)
   const [personnelForm, setPersonnelForm] = useState<ReturnType<typeof buildPersonnelForm> | null>(null)
   const [documentForm, setDocumentForm] = useState<ReturnType<typeof buildDocumentForm> | null>(null)
+  const [approvalForm, setApprovalForm] = useState<ReturnType<typeof buildApprovalForm> | null>(null)
   const [planForm, setPlanForm] = useState<ReturnType<typeof buildPlanForm> | null>(null)
+  const [riskForm, setRiskForm] = useState<RiskFormState | null>(null)
+  const [riskSummaryDraft, setRiskSummaryDraft] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [executionForm, setExecutionForm] = useState<ReturnType<typeof buildExecutionForm> | null>(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
+  const [approvalInputKey, setApprovalInputKey] = useState(0)
   const [activeDetailTab, setActiveDetailTab] = useState<ProjectDetailTab>('OVERVIEW')
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [isExecutionModalOpen, setIsExecutionModalOpen] = useState(false)
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
+  const [isRiskModalOpen, setIsRiskModalOpen] = useState(false)
+  const [planRiskPrompt, setPlanRiskPrompt] = useState<PlanRiskPromptState | null>(null)
 
   const projectTasks = project ? getProjectTasks(planItems, project.id) : []
   const overviewTasks = projectTasks.filter((task) => task.parentId === null)
@@ -460,10 +583,15 @@ export function ProjectDetailPage() {
     setOverviewForm(buildOverviewForm(project))
     setPersonnelForm(buildPersonnelForm(project))
     setDocumentForm(buildDocumentForm())
+    setApprovalForm(buildApprovalForm(project))
     setPlanForm(buildPlanForm(project))
-    setActiveDetailTab('OVERVIEW')
+    setRiskForm(buildRiskForm(project, currentUser?.id ?? project.adminId))
+    setRiskSummaryDraft(project.riskSummary)
     setDocumentInputKey((current) => current + 1)
-  }, [project])
+    setApprovalInputKey((current) => current + 1)
+    setIsRiskModalOpen(false)
+    setPlanRiskPrompt(null)
+  }, [currentUser?.id, project?.id])
 
   useEffect(() => {
     if (!selectedTask) {
@@ -483,7 +611,15 @@ export function ProjectDetailPage() {
     setExecutionForm(buildExecutionForm(selectedTask, defaultMemberId))
   }, [currentUser, project, selectedTask, selectedTaskId])
 
-  if (!project || !currentUser || !overviewForm || !personnelForm || !documentForm || !planForm) {
+  if (
+    !project ||
+    !currentUser ||
+    !overviewForm ||
+    !personnelForm ||
+    !documentForm ||
+    !approvalForm ||
+    !planForm
+  ) {
     return (
       <div className="page-grid">
         <section className="panel empty-panel">
@@ -497,26 +633,47 @@ export function ProjectDetailPage() {
     )
   }
 
-  const canManageProject =
-    currentUser.role === 'SYSTEM_ADMIN' || currentUser.id === project.adminId
+  const normalizedRole = normalizeUserRole(currentUser.role)
+  const canManageProject = normalizedRole === 'PMO' || currentUser.id === project.adminId
+  const canApproveProject = normalizedRole === 'ADMIN_HC'
+  const canManagePlan = canManageProjectPlan(project, currentUser)
   const canUpdateSelectedTask =
     !!selectedTask &&
-    (canManageProject || getTaskAssigneeIds(selectedTask).includes(currentUser.id))
-  const canCreateChildForSelectedTask =
-    !!selectedTask &&
-    (canManageProject || getTaskAssigneeIds(selectedTask).includes(currentUser.id))
+    (canManagePlan || getTaskAssigneeIds(selectedTask).includes(currentUser.id))
+  const canCreateChildForSelectedTask = !!selectedTask && canManagePlan
   const isCreatingChildTask = !!planForm.parentId && !planForm.id
   const canOpenPlanModal =
-    canManageProject || (isCreatingChildTask && canCreateChildForSelectedTask)
+    canManagePlan || (isCreatingChildTask && canCreateChildForSelectedTask)
   const canSubmitPlanForm =
-    canManageProject || (isCreatingChildTask && canCreateChildForSelectedTask)
+    canManagePlan || (isCreatingChildTask && canCreateChildForSelectedTask)
   const selectedTaskWorklogs = selectedTask
     ? worklogs
         .filter((item) => item.taskId === selectedTask.id)
         .sort((left, right) => right.date.localeCompare(left.date))
     : []
   const projectManagers = users.filter(
-    (user) => user.role === 'PROJECT_ADMIN' || user.role === 'SYSTEM_ADMIN',
+    (user) => normalizeUserRole(user.role) === 'PM',
+  )
+  const sponsorUsers = users.filter((user) => normalizeUserRole(user.role) !== 'DELIVERY_MEMBER')
+  const projectRiskItems = [...project.risks].sort((left, right) =>
+    right.lastUpdated.localeCompare(left.lastUpdated),
+  )
+  const openRiskCount = projectRiskItems.filter((risk) => risk.status !== 'MITIGATED').length
+  const highRiskCount = projectRiskItems.filter(
+    (risk) => risk.level === 'HIGH' && risk.status !== 'MITIGATED',
+  ).length
+  const mitigatedRiskCount = projectRiskItems.filter((risk) => risk.status === 'MITIGATED').length
+  const riskOwnerIds = Array.from(
+    new Set(
+      [
+        project.adminId,
+        project.createdById,
+        currentUser.id,
+        ...project.memberIds,
+        ...project.personnelInfo.aitsMembers.map((member) => member.userId).filter(Boolean),
+        ...projectRiskItems.map((risk) => risk.ownerId),
+      ].filter(Boolean),
+    ),
   )
   const totalDocumentCount = project.documents.length
   const detailTabs: Array<{ id: ProjectDetailTab; label: string; note: string }> = [
@@ -534,6 +691,11 @@ export function ProjectDetailPage() {
       id: 'DOCUMENTS',
       label: 'Tai lieu',
       note: `${totalDocumentCount} tep | ${groupedProjectDocuments[0]?.items.length ?? 0} hop dong`,
+    },
+    {
+      id: 'RISKS',
+      label: 'Quan ly rui ro',
+      note: `${openRiskCount} dang mo | ${highRiskCount} muc cao`,
     },
     {
       id: 'PLAN',
@@ -783,6 +945,8 @@ export function ProjectDetailPage() {
     const sanitizedOverview = {
       ...overviewForm!,
       summary: overviewForm!.summary.trim(),
+      sponsor: overviewForm!.sponsor,
+      objective: overviewForm!.objective.trim(),
       basisInfo: {
         ...overviewForm!.basisInfo,
         outputContracts: sanitizeReferenceItems(overviewForm!.basisInfo.outputContracts),
@@ -820,6 +984,49 @@ export function ProjectDetailPage() {
 
     setOverviewForm(sanitizedOverview)
     setMessage('Da cap nhat thong tin chung du an.')
+  }
+
+  async function handleApprovalSubmit() {
+    if (!project || !currentUser || !approvalForm) {
+      return
+    }
+
+    if (!canApproveProject) {
+      setMessage('Chi To chuc hanh chinh moi co quyen phe duyet buoc thanh lap TTK.')
+      return
+    }
+
+    if (!approvalForm.approvalFileName) {
+      setMessage('Hay chon file phe duyet cua To chuc hanh chinh truoc khi xac nhan.')
+      return
+    }
+
+    const nextApprovalInfo = {
+      ...project.approvalInfo,
+      status: 'APPROVED' as const,
+      approvedById: currentUser.id,
+      approvedAt: new Date().toISOString(),
+      approvalFileName: approvalForm.approvalFileName,
+      note: approvalForm.note.trim(),
+    }
+
+    await updateProject({
+      projectId: project.id,
+      patch: {
+        approvalInfo: nextApprovalInfo,
+        currentPhase:
+          project.currentPhase === 'Cho to chuc hanh chinh phe duyet'
+            ? 'Da duyet thanh lap TTK'
+            : project.currentPhase,
+        status: project.status === 'INITIATION' ? 'PLANNING' : project.status,
+      },
+    })
+
+    setApprovalForm({
+      approvalFileName: nextApprovalInfo.approvalFileName,
+      note: nextApprovalInfo.note,
+    })
+    setMessage('Da phe duyet thanh lap TTK va mo quyen lap ke hoach cho PM / dieu phoi.')
   }
 
   async function handleDocumentSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -872,52 +1079,115 @@ export function ProjectDetailPage() {
     setMessage(`Da xoa tai lieu ${document.title}.`)
   }
 
+  async function handleRiskSummarySubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!project) {
+      return
+    }
+
+    if (!canManagePlan) {
+      setMessage('Ban khong co quyen cap nhat tong quan rui ro cua du an nay.')
+      return
+    }
+
+    await updateProject({
+      projectId: project.id,
+      patch: {
+        riskSummary: riskSummaryDraft.trim(),
+      },
+    })
+
+    setMessage('Da cap nhat tong quan rui ro cua du an.')
+  }
+
+  async function handleRiskSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!project || !currentUser || !riskForm) {
+      return
+    }
+
+    if (!canManagePlan) {
+      setMessage('Ban khong co quyen cap nhat rui ro cua du an nay.')
+      return
+    }
+
+    await saveRisk({
+      projectId: project.id,
+      id: riskForm.id || undefined,
+      title: riskForm.title.trim(),
+      level: riskForm.level,
+      status: riskForm.status,
+      ownerId: riskForm.ownerId,
+      mitigation: riskForm.mitigation.trim(),
+    })
+
+    setIsRiskModalOpen(false)
+    setPlanRiskPrompt(null)
+    setRiskForm(buildRiskForm(project, currentUser.id))
+    setMessage(riskForm.id ? 'Da cap nhat muc rui ro.' : 'Da them muc rui ro moi.')
+  }
+
   async function handlePlanSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (!project || !currentUser || !planForm) {
+      return
+    }
 
     if (!canSubmitPlanForm) {
       setMessage('Ban khong co quyen tao hoac cap nhat task nay.')
       return
     }
 
-    if (!planForm!.assigneeIds.length) {
+    if (!planForm.assigneeIds.length) {
       setMessage('Hay chon it nhat mot nhan su tham gia task.')
       return
     }
 
+    const submittedPlan = { ...planForm }
+
     await savePlanItem({
-      id: planForm!.id || undefined,
-      projectId: project!.id,
-      parentId: planForm!.parentId || null,
-      name: planForm!.name,
-      workType: planForm!.workType,
-      ownerId: project!.adminId,
-      assigneeId: planForm!.assigneeId || planForm!.assigneeIds[0],
-      assigneeIds: planForm!.assigneeIds,
-      status: planForm!.status,
-      baselineStartDate: planForm!.baselineStartDate,
-      baselineEndDate: planForm!.baselineEndDate,
-      startDate: planForm!.startDate,
-      endDate: planForm!.endDate,
-      progress: Number(planForm!.progress),
-      plannedHours: Number(planForm!.plannedHours),
+      id: submittedPlan.id || undefined,
+      projectId: project.id,
+      parentId: submittedPlan.parentId || null,
+      name: submittedPlan.name,
+      workType: submittedPlan.workType,
+      ownerId: project.adminId,
+      assigneeId: submittedPlan.assigneeId || submittedPlan.assigneeIds[0],
+      assigneeIds: submittedPlan.assigneeIds,
+      status: submittedPlan.status,
+      baselineStartDate: submittedPlan.baselineStartDate,
+      baselineEndDate: submittedPlan.baselineEndDate,
+      startDate: submittedPlan.startDate,
+      endDate: submittedPlan.endDate,
+      progress: Number(submittedPlan.progress),
+      plannedHours: Number(submittedPlan.plannedHours),
       monthAllocations: [
         {
-          month: planForm!.allocationMonth,
-          hours: Number(planForm!.allocationHours),
+          month: submittedPlan.allocationMonth,
+          hours: Number(submittedPlan.allocationHours),
         },
       ],
-      dependencyNote: planForm!.dependencyNote,
-      deliverable: planForm!.deliverable,
+      dependencyNote: submittedPlan.dependencyNote,
+      deliverable: submittedPlan.deliverable,
     })
 
+    const assigneeNames =
+      submittedPlan.assigneeIds
+        .map((memberId) => getUser(memberId)?.name ?? memberId)
+        .join(', ') || 'Chua phan cong'
+    const nextRiskPrompt = buildRiskDraftFromPlan(project, submittedPlan, assigneeNames)
+
     setMessage(
-      planForm!.id
+      submittedPlan.id
         ? 'Da cap nhat task/subtask trong ke hoach trien khai.'
         : 'Da them task/subtask moi cho ke hoach trien khai.',
     )
-    setPlanForm(buildPlanForm(project!))
+    setPlanForm(buildPlanForm(project))
     setIsPlanModalOpen(false)
+    setPlanRiskPrompt(nextRiskPrompt)
   }
 
   async function handleExecutionSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -959,6 +1229,39 @@ export function ProjectDetailPage() {
     setDocumentForm(buildDocumentForm())
     setDocumentInputKey((current) => current + 1)
     setIsDocumentModalOpen(false)
+  }
+
+  function openRiskModal(risk?: ProjectRisk) {
+    if (!project || !currentUser) {
+      return
+    }
+
+    setRiskForm(buildRiskForm(project, currentUser.id, risk))
+    setIsRiskModalOpen(true)
+  }
+
+  function closeRiskModal() {
+    if (!project || !currentUser) {
+      return
+    }
+
+    setRiskForm(buildRiskForm(project, currentUser.id))
+    setIsRiskModalOpen(false)
+  }
+
+  function closePlanRiskPrompt() {
+    setPlanRiskPrompt(null)
+  }
+
+  function handleUpdateRiskNow() {
+    if (!planRiskPrompt) {
+      return
+    }
+
+    setActiveDetailTab('RISKS')
+    setRiskForm(planRiskPrompt.draft)
+    setIsRiskModalOpen(true)
+    setPlanRiskPrompt(null)
   }
 
   function openExecutionModal(task: PlanItem) {
@@ -1115,6 +1418,91 @@ export function ProjectDetailPage() {
             <div className="overview-section span-2">
               <div className="overview-section__header">
                 <div>
+                  <span className="eyebrow">Phe duyet</span>
+                  <h4>To chuc hanh chinh</h4>
+                </div>
+                <p>PMO gui de nghi thanh lap TTK, To chuc hanh chinh xac nhan va cap file phe duyet.</p>
+              </div>
+
+              <div className="overview-approval-strip">
+                <StatusPill
+                  label={project.approvalInfo.status === 'APPROVED' ? 'Da duyet thanh lap TTK' : 'Cho TCHC phe duyet'}
+                  tone={project.approvalInfo.status === 'APPROVED' ? 'success' : 'warning'}
+                />
+                <span>PMO tao: {getUser(project.createdById)?.name ?? project.createdById}</span>
+                <span>File de nghi: {project.approvalInfo.requestFileName || 'Chua dinh kem'}</span>
+                {project.approvalInfo.approvedById ? (
+                  <span>
+                    Da duyet boi {getUser(project.approvalInfo.approvedById)?.name ?? project.approvalInfo.approvedById}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="overview-section__grid overview-section__grid--tight">
+                <label className="span-2">
+                  <span>Ghi chu phe duyet</span>
+                  <textarea
+                    rows={2}
+                    value={approvalForm.note}
+                    onChange={(event) =>
+                      setApprovalForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              note: event.target.value,
+                            }
+                          : current,
+                      )
+                    }
+                    disabled={!canApproveProject}
+                  />
+                </label>
+
+                <label className="span-2">
+                  <span>File phe duyet cua To chuc hanh chinh</span>
+                  <div className="document-upload-field">
+                    <input
+                      key={approvalInputKey}
+                      className="document-file-input"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
+                      onChange={(event) =>
+                        setApprovalForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                approvalFileName: event.target.files?.[0]?.name ?? '',
+                              }
+                            : current,
+                        )
+                      }
+                      disabled={!canApproveProject}
+                    />
+                    <div className="document-upload-meta">
+                      <FileText size={15} />
+                      <span>
+                        {approvalForm.approvalFileName ||
+                          project.approvalInfo.approvalFileName ||
+                          'Chua co file phe duyet'}
+                      </span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {canApproveProject ? (
+                <div className="inline-actions">
+                  <button type="button" className="primary-button" onClick={handleApprovalSubmit}>
+                    <Save size={16} />
+                    Phe duyet thanh lap TTK
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="overview-section span-2">
+              <div className="overview-section__header">
+                <div>
                   <span className="eyebrow">Nhom 1</span>
                   <h4>Thong tin chung</h4>
                 </div>
@@ -1188,6 +1576,39 @@ export function ProjectDetailPage() {
                       </option>
                     ))}
                   </select>
+                </label>
+
+                <label className="span-2">
+                  <span>Sponsor du an</span>
+                  <select
+                    value={overviewForm.sponsor}
+                    onChange={(event) =>
+                      setOverviewForm((current) =>
+                        current ? { ...current, sponsor: event.target.value } : current,
+                      )
+                    }
+                    disabled={!canManageProject}
+                  >
+                    {sponsorUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} - {user.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="span-2">
+                  <span>Nhiem vu to trien khai</span>
+                  <textarea
+                    rows={2}
+                    value={overviewForm.objective}
+                    onChange={(event) =>
+                      setOverviewForm((current) =>
+                        current ? { ...current, objective: event.target.value } : current,
+                      )
+                    }
+                    disabled={!canManageProject}
+                  />
                 </label>
               </div>
             </div>
@@ -1998,6 +2419,133 @@ export function ProjectDetailPage() {
       </section>
       ) : null}
 
+      {activeDetailTab === 'RISKS' ? (
+        <section className="panel panel--compact detail-tab-panel">
+          <div className="panel-heading panel-heading--compact">
+            <div>
+              <span className="eyebrow">Risk center</span>
+              <h3>Quan ly rui ro du an</h3>
+            </div>
+            <div className="panel-actions">
+              <StatusPill
+                label={canManagePlan ? 'Cho phep cap nhat' : 'Chi xem'}
+                tone={canManagePlan ? 'info' : 'neutral'}
+              />
+              {canManagePlan ? (
+                <button
+                  type="button"
+                  className="primary-button primary-button--compact"
+                  onClick={() => openRiskModal()}
+                >
+                  <CirclePlus size={16} />
+                  Them rui ro
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="risk-panel-shell">
+            <form className="overview-section risk-summary-form" onSubmit={handleRiskSummarySubmit}>
+              <div className="overview-section__header">
+                <div>
+                  <span className="eyebrow">Tong quan</span>
+                  <h4>Tom tat rui ro</h4>
+                </div>
+                <p>Ghi nhanh nhung diem can theo doi va cach xu ly tong the cua du an.</p>
+              </div>
+
+              <div className="risk-summary-strip">
+                <article className="risk-summary-card">
+                  <span>Dang mo</span>
+                  <strong>{openRiskCount}</strong>
+                  <small>Can theo doi va cap nhat hanh dong giam nhe.</small>
+                </article>
+                <article className="risk-summary-card">
+                  <span>Muc cao</span>
+                  <strong>{highRiskCount}</strong>
+                  <small>Can uu tien PM/Dieu phoi xu ly ngay.</small>
+                </article>
+                <article className="risk-summary-card">
+                  <span>Da giam nhe</span>
+                  <strong>{mitigatedRiskCount}</strong>
+                  <small>Da co bien phap va dang dong vong theo doi.</small>
+                </article>
+              </div>
+
+              <label className="span-2">
+                <span>Tom tat rui ro du an</span>
+                <textarea
+                  rows={4}
+                  value={riskSummaryDraft}
+                  onChange={(event) => setRiskSummaryDraft(event.target.value)}
+                  disabled={!canManagePlan}
+                  placeholder="Tong hop nhung rui ro dang mo, cac tac dong chinh va cach xu ly tong the."
+                />
+              </label>
+
+              {canManagePlan ? (
+                <div className="inline-actions span-2">
+                  <button type="submit" className="primary-button primary-button--compact">
+                    <Save size={16} />
+                    Luu tom tat rui ro
+                  </button>
+                </div>
+              ) : null}
+            </form>
+
+            <div className="risk-list">
+              {projectRiskItems.length ? (
+                projectRiskItems.map((risk) => (
+                  <article key={risk.id} className="risk-card">
+                    <div className="risk-card__header">
+                      <div>
+                        <span className="eyebrow">Muc rui ro</span>
+                        <h4>{risk.title}</h4>
+                      </div>
+                      <div className="inline-actions">
+                        <StatusPill
+                          label={getCatalogLabel(catalogs.riskLevels, risk.level)}
+                          tone={getRiskLevelTone(risk.level)}
+                        />
+                        <StatusPill
+                          label={getRiskStatusLabel(risk.status)}
+                          tone={getRiskStatusTone(risk.status)}
+                        />
+                        {canManagePlan ? (
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--compact"
+                            onClick={() => openRiskModal(risk)}
+                          >
+                            <Edit3 size={15} />
+                            Cap nhat
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="risk-card__meta">
+                      <span>Chu tri: {getUser(risk.ownerId)?.name ?? risk.ownerId}</span>
+                      <span>Cap nhat lan cuoi: {formatDate(risk.lastUpdated)}</span>
+                    </div>
+
+                    <p>{risk.mitigation || 'Chua co bien phap giam nhe chi tiet.'}</p>
+                  </article>
+                ))
+              ) : (
+                <div className="risk-empty-state">
+                  <strong>Chua ghi nhan muc rui ro chi tiet.</strong>
+                  <p>
+                    Khi ke hoach thay doi, hay them mot muc rui ro de luu tac dong, nguoi theo doi va
+                    bien phap giam nhe.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {activeDetailTab === 'PLAN' ? (
       <section className="task-workspace detail-tab-panel">
         <article className="panel panel--compact">
@@ -2007,8 +2555,8 @@ export function ProjectDetailPage() {
               <h3>Khai bao task lon va subtask</h3>
             </div>
             <div className="panel-actions">
-              <StatusPill label={canManageProject ? 'Cho phep cap nhat' : 'Chi xem'} tone="info" />
-              {canManageProject ? (
+              <StatusPill label={canManagePlan ? 'Cho phep cap nhat' : 'Chi xem'} tone="info" />
+              {canManagePlan ? (
                 <button
                   type="button"
                   className="primary-button primary-button--compact"
@@ -2047,7 +2595,7 @@ export function ProjectDetailPage() {
                         Mo cap nhat
                       </button>
                     ) : null}
-                    {canManageProject ? (
+                    {canManagePlan ? (
                       <button
                         type="button"
                         className="ghost-button ghost-button--compact"
@@ -2254,6 +2802,181 @@ export function ProjectDetailPage() {
         </div>
       ) : null}
 
+      {canManagePlan && riskForm && isRiskModalOpen ? (
+        <div className="modal-backdrop" onClick={closeRiskModal}>
+          <div className="modal-card document-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-heading">
+              <div>
+                <span className="eyebrow">Quan ly rui ro</span>
+                <h3>{riskForm.id ? 'Cap nhat muc rui ro' : 'Them muc rui ro moi'}</h3>
+                <p>Ghi ro tac dong, nguoi theo doi va bien phap giam nhe de PM/Dieu phoi theo sat.</p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button icon-button"
+                onClick={closeRiskModal}
+                aria-label="Dong popup rui ro"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form className="form-grid" onSubmit={handleRiskSubmit}>
+              <label className="span-2">
+                <span>Tieu de rui ro</span>
+                <input
+                  value={riskForm.title}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, title: event.target.value } : current,
+                    )
+                  }
+                  required
+                />
+              </label>
+
+              <label>
+                <span>Muc do</span>
+                <select
+                  value={riskForm.level}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            level: event.target.value as RiskLevel,
+                          }
+                        : current,
+                    )
+                  }
+                >
+                  {catalogs.riskLevels.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>Trang thai</span>
+                <select
+                  value={riskForm.status}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            status: event.target.value as ProjectRiskStatus,
+                          }
+                        : current,
+                    )
+                  }
+                >
+                  {riskStatusOptions.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="span-2">
+                <span>Nguoi theo doi</span>
+                <select
+                  value={riskForm.ownerId}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, ownerId: event.target.value } : current,
+                    )
+                  }
+                >
+                  {riskOwnerIds.map((ownerId) => (
+                    <option key={ownerId} value={ownerId}>
+                      {getUser(ownerId)?.name ?? ownerId}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="span-2">
+                <span>Bien phap giam nhe / tac dong</span>
+                <textarea
+                  rows={4}
+                  value={riskForm.mitigation}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, mitigation: event.target.value } : current,
+                    )
+                  }
+                  placeholder="Mo ta tac dong, dau hieu canh bao va huong xu ly de doi du an theo doi."
+                />
+              </label>
+
+              <div className="modal-actions span-2">
+                <button type="button" className="ghost-button" onClick={closeRiskModal}>
+                  Huy
+                </button>
+                <button type="submit" className="primary-button">
+                  <Save size={16} />
+                  {riskForm.id ? 'Luu cap nhat rui ro' : 'Them rui ro'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {planRiskPrompt ? (
+        <div className="modal-backdrop" onClick={closePlanRiskPrompt}>
+          <div className="modal-card risk-prompt-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-heading">
+              <div>
+                <span className="eyebrow">Ke hoach da thay doi</span>
+                <h3>Ban co muon cap nhat rui ro khong?</h3>
+                <p>
+                  He thong da luu thay doi ke hoach cho task <strong>{planRiskPrompt.taskName}</strong>.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button icon-button"
+                onClick={closePlanRiskPrompt}
+                aria-label="Dong hoi thoai cap nhat rui ro"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="risk-prompt-summary">
+              <span>Timeline: {planRiskPrompt.timeline}</span>
+              <span>Nguoi thuc hien: {planRiskPrompt.assignees}</span>
+            </div>
+
+            <div className="risk-prompt-body">
+              <p>
+                Neu thay doi nay co the anh huong den deadline, deliverable hoac dieu phoi nguon luc,
+                ban nen cap nhat ngay tab <strong>Quan ly rui ro</strong>.
+              </p>
+              <div className="risk-prompt-draft">
+                <strong>De xuat muc rui ro:</strong>
+                <p>{planRiskPrompt.draft.title}</p>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="ghost-button" onClick={closePlanRiskPrompt}>
+                De sau
+              </button>
+              <button type="button" className="primary-button" onClick={handleUpdateRiskNow}>
+                <Workflow size={16} />
+                Cap nhat rui ro ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {canOpenPlanModal && isPlanModalOpen ? (
         <div className="modal-backdrop" onClick={closePlanModal}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
@@ -2307,7 +3030,7 @@ export function ProjectDetailPage() {
                       current ? { ...current, parentId: event.target.value } : current,
                     )
                   }
-                  disabled={!canManageProject && isCreatingChildTask}
+                  disabled={!canManagePlan && isCreatingChildTask}
                 >
                   <option value="">Khong co</option>
                   {projectTasks
@@ -2333,7 +3056,7 @@ export function ProjectDetailPage() {
                         : current,
                     )
                   }
-                  disabled={!canManageProject && isCreatingChildTask}
+                  disabled={!canManagePlan && isCreatingChildTask}
                 >
                   <option value="PRELIMINARY">Task tong quan</option>
                   <option value="SUBTASK">Subtask</option>

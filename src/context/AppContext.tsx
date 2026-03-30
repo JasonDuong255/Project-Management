@@ -68,6 +68,7 @@ const emptySnapshot: AppSnapshot = {
     riskLevels: [],
     documentCategories: [],
     departments: [],
+    projectMemberRoles: [],
   },
 }
 

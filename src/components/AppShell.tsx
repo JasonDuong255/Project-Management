@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
     to: '/workload',
     label: 'Phân bổ giờ công',
     icon: TimerReset,
-    roles: ['PROJECT_ADMIN', 'SYSTEM_ADMIN'],
+    roles: ['PM', 'PMO', 'PROJECT_ADMIN', 'SYSTEM_ADMIN'],
   },
   {
     to: '/member-workspace',
@@ -66,7 +66,7 @@ const navItems: NavItem[] = [
     to: '/admin/catalogs',
     label: 'Cài đặt hệ thống',
     icon: Settings2,
-    roles: ['SYSTEM_ADMIN'],
+    roles: ['PMO', 'SYSTEM_ADMIN'],
   },
 ]
 

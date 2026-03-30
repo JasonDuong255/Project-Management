@@ -1086,6 +1086,112 @@ td p,
   color: var(--muted);
 }
 
+.document-panel,
+.document-form,
+.document-group,
+.document-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.document-form {
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  background:
+    linear-gradient(180deg, rgba(22, 98, 196, 0.04), rgba(255, 255, 255, 0.94)),
+    rgba(255, 255, 255, 0.9);
+}
+
+.document-upload-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.document-file-input {
+  width: 100%;
+  font: inherit;
+}
+
+.document-upload-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(20, 48, 71, 0.05);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.95rem;
+}
+
+.document-group {
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  background:
+    linear-gradient(180deg, rgba(22, 98, 196, 0.03), rgba(255, 255, 255, 0.94)),
+    rgba(255, 255, 255, 0.9);
+}
+
+.document-group__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.document-group__header h4 {
+  margin: 0.18rem 0 0;
+}
+
+.document-item {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.8rem 0.85rem;
+  border-radius: 16px;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.document-item__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.document-item__header strong {
+  display: block;
+}
+
+.document-item__header p {
+  margin: 0.24rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.document-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.document-item__meta span {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(20, 48, 71, 0.04);
+}
+
 .workload-project-summary {
   margin-top: 0.25rem;
 }
@@ -1525,6 +1631,8 @@ td p,
   .list-row,
   .plan-gantt-caption,
   .personnel-group__header,
+  .document-group__header,
+  .document-item__header,
   .notification-card__header,
   .notification-card__children-header,
   .notification-child-row {

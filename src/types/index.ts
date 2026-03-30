@@ -271,6 +271,11 @@ export interface CreateDocumentInput {
   uploadedBy: string
 }
 
+export interface DeleteDocumentInput {
+  projectId: string
+  documentId: string
+}
+
 export interface SavePlanItemInput {
   id?: string
   projectId: string

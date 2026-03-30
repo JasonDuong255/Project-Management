@@ -3,6 +3,7 @@ import type {
   Catalogs,
   CreateDocumentInput,
   CreateProjectInput,
+  DeleteDocumentInput,
   DelayRaise,
   MockDatabase,
   PlanItem,
@@ -470,6 +471,19 @@ export async function addProjectDocument(input: CreateDocumentInput) {
         ],
       }
     })
+  })
+}
+
+export async function deleteProjectDocument(input: DeleteDocumentInput) {
+  return updateDatabase((database) => {
+    database.projects = database.projects.map((project) =>
+      project.id === input.projectId
+        ? {
+            ...project,
+            documents: project.documents.filter((document) => document.id !== input.documentId),
+          }
+        : project,
+    )
   })
 }
 

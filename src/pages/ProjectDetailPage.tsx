@@ -1,5 +1,16 @@
 import dayjs from 'dayjs'
-import { ChevronDown, ChevronUp, CirclePlus, Edit3, Save, Timer, Workflow, X } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  CirclePlus,
+  Edit3,
+  FileText,
+  Save,
+  Timer,
+  Trash2,
+  Workflow,
+  X,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -21,6 +32,7 @@ import type {
   GanttItem,
   PlanItem,
   ProjectAitsPersonnel,
+  ProjectDocument,
   ProjectExternalPersonnel,
   Project,
   ProjectFinancialInfo,
@@ -37,6 +49,7 @@ type ReferenceGroupKey =
 
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
+type ProjectDocumentCategory = 'CONTRACT' | 'PROJECT_DOCUMENT' | 'SUBMISSION' | 'MEETING_MINUTES'
 
 const ttkModeOptions: Array<{ value: TtkMode; label: string }> = [
   { value: 'CHUYEN_TRACH', label: 'Chuyen trach' },
@@ -54,6 +67,35 @@ const referenceGroupLabels: Record<ReferenceGroupKey, string> = {
   inputContracts: 'Danh sach hop dong dau vao',
   deploymentApprovals: 'Phe duyet trien khai',
   projectTeamDecisions: 'Quyet dinh thanh lap to du an',
+}
+
+const projectDocumentCategories: Array<{ value: ProjectDocumentCategory; label: string }> = [
+  { value: 'CONTRACT', label: 'Hop dong' },
+  { value: 'PROJECT_DOCUMENT', label: 'Tai lieu du an' },
+  { value: 'SUBMISSION', label: 'To trinh' },
+  { value: 'MEETING_MINUTES', label: 'Bien ban hop' },
+]
+
+function normalizeProjectDocumentCategory(category: string): ProjectDocumentCategory {
+  const normalizedCategory = category.trim().toLowerCase()
+
+  if (normalizedCategory === 'contract' || normalizedCategory === 'hop dong') {
+    return 'CONTRACT'
+  }
+
+  if (normalizedCategory === 'submission' || normalizedCategory === 'to trinh') {
+    return 'SUBMISSION'
+  }
+
+  if (
+    normalizedCategory === 'meeting_minutes' ||
+    normalizedCategory === 'meeting minutes' ||
+    normalizedCategory === 'bien ban hop'
+  ) {
+    return 'MEETING_MINUTES'
+  }
+
+  return 'PROJECT_DOCUMENT'
 }
 
 function cloneReferenceItems(items: ProjectReferenceItem[]) {
@@ -214,6 +256,15 @@ function buildPersonnelForm(project: Project): ProjectPersonnelInfo {
   }
 }
 
+function buildDocumentForm() {
+  return {
+    title: '',
+    category: 'PROJECT_DOCUMENT' as ProjectDocumentCategory,
+    description: '',
+    fileName: '',
+  }
+}
+
 function buildPlanForm(project: Project, task?: PlanItem | null) {
   if (task) {
     return {
@@ -334,6 +385,8 @@ export function ProjectDetailPage() {
     worklogs,
     catalogs,
     updateProject,
+    addProjectDocument,
+    deleteProjectDocument,
     savePlanItem,
     addWorklog,
     getUser,
@@ -343,13 +396,16 @@ export function ProjectDetailPage() {
   const [message, setMessage] = useState('')
   const [overviewForm, setOverviewForm] = useState<ReturnType<typeof buildOverviewForm> | null>(null)
   const [personnelForm, setPersonnelForm] = useState<ReturnType<typeof buildPersonnelForm> | null>(null)
+  const [documentForm, setDocumentForm] = useState<ReturnType<typeof buildDocumentForm> | null>(null)
   const [planForm, setPlanForm] = useState<ReturnType<typeof buildPlanForm> | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [executionForm, setExecutionForm] = useState<ReturnType<typeof buildExecutionForm> | null>(null)
+  const [documentInputKey, setDocumentInputKey] = useState(0)
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [isExecutionModalOpen, setIsExecutionModalOpen] = useState(false)
   const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(true)
   const [isPersonnelCollapsed, setIsPersonnelCollapsed] = useState(false)
+  const [isDocumentsCollapsed, setIsDocumentsCollapsed] = useState(false)
   const [isPlanBuilderCollapsed, setIsPlanBuilderCollapsed] = useState(false)
 
   const projectTasks = project ? getProjectTasks(planItems, project.id) : []
@@ -373,6 +429,14 @@ export function ProjectDetailPage() {
     focusedSubtaskItems,
     (task) => getTaskAssigneeNames(task) || 'Chua phan cong',
   )
+  const groupedProjectDocuments = projectDocumentCategories.map((category) => ({
+    ...category,
+    items: project
+      ? project.documents
+          .filter((document) => normalizeProjectDocumentCategory(document.category) === category.value)
+          .sort((left, right) => right.uploadedAt.localeCompare(left.uploadedAt))
+      : [],
+  }))
 
   useEffect(() => {
     if (!project) {
@@ -381,7 +445,9 @@ export function ProjectDetailPage() {
 
     setOverviewForm(buildOverviewForm(project))
     setPersonnelForm(buildPersonnelForm(project))
+    setDocumentForm(buildDocumentForm())
     setPlanForm(buildPlanForm(project))
+    setDocumentInputKey((current) => current + 1)
   }, [project])
 
   useEffect(() => {
@@ -402,7 +468,7 @@ export function ProjectDetailPage() {
     setExecutionForm(buildExecutionForm(selectedTask, defaultMemberId))
   }, [currentUser, project, selectedTask, selectedTaskId])
 
-  if (!project || !currentUser || !overviewForm || !personnelForm || !planForm) {
+  if (!project || !currentUser || !overviewForm || !personnelForm || !documentForm || !planForm) {
     return (
       <div className="page-grid">
         <section className="panel empty-panel">
@@ -437,6 +503,7 @@ export function ProjectDetailPage() {
   const projectManagers = users.filter(
     (user) => user.role === 'PROJECT_ADMIN' || user.role === 'SYSTEM_ADMIN',
   )
+  const totalDocumentCount = project.documents.length
 
   function updateAitsPersonnelItem(
     index: number,
@@ -716,6 +783,55 @@ export function ProjectDetailPage() {
 
     setOverviewForm(sanitizedOverview)
     setMessage('Da cap nhat thong tin chung du an.')
+  }
+
+  async function handleDocumentSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!project || !currentUser || !documentForm) {
+      return
+    }
+
+    if (!canManageProject) {
+      setMessage('Ban khong co quyen cap nhat tai lieu cua du an nay.')
+      return
+    }
+
+    if (!documentForm.fileName) {
+      setMessage('Hay chon file tai lieu truoc khi them moi.')
+      return
+    }
+
+    await addProjectDocument({
+      projectId: project.id,
+      title: documentForm.title.trim() || documentForm.fileName,
+      category: documentForm.category,
+      description: documentForm.description.trim(),
+      url: documentForm.fileName,
+      uploadedBy: currentUser.id,
+    })
+
+    setDocumentForm(buildDocumentForm())
+    setDocumentInputKey((current) => current + 1)
+    setMessage('Da them tai lieu vao danh muc du an.')
+  }
+
+  async function handleDeleteDocument(document: ProjectDocument) {
+    if (!project) {
+      return
+    }
+
+    if (!canManageProject) {
+      setMessage('Ban khong co quyen xoa tai lieu cua du an nay.')
+      return
+    }
+
+    await deleteProjectDocument({
+      projectId: project.id,
+      documentId: document.id,
+    })
+
+    setMessage(`Da xoa tai lieu ${document.title}.`)
   }
 
   async function handlePlanSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1754,6 +1870,184 @@ export function ProjectDetailPage() {
               </button>
             ) : null}
           </form>
+        )}
+      </section>
+
+      <section className="panel panel--compact">
+        <div className="panel-heading panel-heading--compact">
+          <div>
+            <span className="eyebrow">Documents</span>
+            <h3>Tai lieu du an</h3>
+          </div>
+          <div className="panel-actions">
+            <StatusPill label={`${totalDocumentCount} tai lieu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
+            <button
+              type="button"
+              className="ghost-button ghost-button--compact"
+              onClick={() => setIsDocumentsCollapsed((current) => !current)}
+            >
+              {isDocumentsCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+              {isDocumentsCollapsed ? 'Mo rong' : 'Thu gon'}
+            </button>
+          </div>
+        </div>
+
+        {isDocumentsCollapsed ? (
+          <div className="panel-collapsed-note">
+            {groupedProjectDocuments.map((group) => (
+              <span key={group.value}>
+                {group.label}: {group.items.length}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="document-panel">
+            {canManageProject ? (
+              <form className="form-grid form-grid--compact document-form" onSubmit={handleDocumentSubmit}>
+                <label>
+                  <span>Danh muc tai lieu</span>
+                  <select
+                    value={documentForm.category}
+                    onChange={(event) =>
+                      setDocumentForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              category: event.target.value as ProjectDocumentCategory,
+                            }
+                          : current,
+                      )
+                    }
+                  >
+                    {projectDocumentCategories.map((category) => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <span>Ten tai lieu</span>
+                  <input
+                    value={documentForm.title}
+                    placeholder="Mac dinh lay theo ten file"
+                    onChange={(event) =>
+                      setDocumentForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              title: event.target.value,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </label>
+
+                <label className="span-2">
+                  <span>File tai lieu</span>
+                  <div className="document-upload-field">
+                    <input
+                      key={documentInputKey}
+                      className="document-file-input"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,image/*"
+                      onChange={(event) =>
+                        setDocumentForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                fileName: event.target.files?.[0]?.name ?? '',
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                    <div className="document-upload-meta">
+                      <FileText size={15} />
+                      <span>{documentForm.fileName || 'Chua chon file tai lieu'}</span>
+                    </div>
+                  </div>
+                </label>
+
+                <label className="span-2">
+                  <span>Ghi chu</span>
+                  <textarea
+                    rows={2}
+                    value={documentForm.description}
+                    onChange={(event) =>
+                      setDocumentForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              description: event.target.value,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </label>
+
+                <button type="submit" className="primary-button">
+                  <CirclePlus size={16} />
+                  Them tai lieu
+                </button>
+              </form>
+            ) : null}
+
+            <div className="document-grid">
+              {groupedProjectDocuments.map((group) => (
+                <article key={group.value} className="document-group">
+                  <div className="document-group__header">
+                    <div>
+                      <span className="eyebrow">Danh muc</span>
+                      <h4>{group.label}</h4>
+                    </div>
+                    <StatusPill
+                      label={`${group.items.length} tai lieu`}
+                      tone={group.items.length ? 'info' : 'neutral'}
+                    />
+                  </div>
+
+                  {group.items.length ? (
+                    <div className="document-list">
+                      {group.items.map((document) => (
+                        <div key={document.id} className="document-item">
+                          <div className="document-item__header">
+                            <div>
+                              <strong>{document.title}</strong>
+                              <p>{document.description || 'Khong co ghi chu bo sung.'}</p>
+                            </div>
+                            {canManageProject ? (
+                              <button
+                                type="button"
+                                className="ghost-button ghost-button--compact"
+                                onClick={() => void handleDeleteDocument(document)}
+                              >
+                                <Trash2 size={15} />
+                                Xoa
+                              </button>
+                            ) : null}
+                          </div>
+
+                          <div className="document-item__meta">
+                            <span>Tep: {document.url || 'Chua co ten file'}</span>
+                            <span>Nguoi tai len: {getUser(document.uploadedBy)?.name ?? document.uploadedBy}</span>
+                            <span>Cap nhat: {formatDate(document.uploadedAt)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="overview-empty-note">
+                      <p>Chua co tai lieu trong danh muc nay.</p>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
         )}
       </section>
 

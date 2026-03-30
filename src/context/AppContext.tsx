@@ -12,6 +12,7 @@ import type {
   Catalogs,
   CreateDocumentInput,
   CreateProjectInput,
+  DeleteDocumentInput,
   SaveAllocationInput,
   SavePlanItemInput,
   SaveRiskInput,
@@ -33,6 +34,7 @@ interface AppContextValue extends AppSnapshot {
   createProject: (input: CreateProjectInput) => Promise<void>
   updateProject: (input: UpdateProjectInput) => Promise<void>
   addProjectDocument: (input: CreateDocumentInput) => Promise<void>
+  deleteProjectDocument: (input: DeleteDocumentInput) => Promise<void>
   savePlanItem: (input: SavePlanItemInput) => Promise<void>
   addWorklog: (input: SaveWorklogInput) => Promise<void>
   raiseDelay: (input: {
@@ -124,6 +126,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
+  async function deleteProjectDocument(input: DeleteDocumentInput) {
+    const snapshot = await mockApi.deleteProjectDocument(input)
+    setState(snapshot)
+  }
+
   async function savePlanItem(input: SavePlanItemInput) {
     const snapshot = await mockApi.savePlanItem(input)
     setState(snapshot)
@@ -187,6 +194,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         createProject,
         updateProject,
         addProjectDocument,
+        deleteProjectDocument,
         savePlanItem,
         addWorklog,
         raiseDelay,

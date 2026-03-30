@@ -682,6 +682,72 @@ td p,
   font-size: 0.82rem;
 }
 
+.detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.7rem;
+}
+
+.detail-tabs__button {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(20, 48, 71, 0.08);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 252, 0.92)),
+    rgba(255, 255, 255, 0.9);
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.detail-tabs__button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.18);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.detail-tabs__button small {
+  color: var(--muted);
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+.detail-tabs__label {
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.detail-tabs__button--active {
+  border-color: rgba(30, 64, 175, 0.22);
+  background:
+    linear-gradient(135deg, rgba(219, 234, 254, 0.92), rgba(255, 255, 255, 0.94)),
+    rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.12);
+}
+
+.detail-tab-panel {
+  animation: tabPanelFade 180ms ease;
+}
+
+@keyframes tabPanelFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .task-workspace {
   display: grid;
 }
@@ -1147,6 +1213,13 @@ td p,
   align-items: start;
 }
 
+.document-group__actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .document-group__header h4 {
   margin: 0.18rem 0 0;
 }
@@ -1190,6 +1263,10 @@ td p,
   padding: 0.25rem 0.5rem;
   border-radius: 999px;
   background: rgba(20, 48, 71, 0.04);
+}
+
+.document-modal-card {
+  max-width: 720px;
 }
 
 .workload-project-summary {
@@ -1632,11 +1709,16 @@ td p,
   .plan-gantt-caption,
   .personnel-group__header,
   .document-group__header,
+  .document-group__actions,
   .document-item__header,
   .notification-card__header,
   .notification-card__children-header,
   .notification-child-row {
     flex-direction: column;
+  }
+
+  .detail-tabs {
+    grid-template-columns: 1fr;
   }
 
   .gantt-header,

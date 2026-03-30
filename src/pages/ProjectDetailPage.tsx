@@ -1,7 +1,5 @@
 import dayjs from 'dayjs'
 import {
-  ChevronDown,
-  ChevronUp,
   CirclePlus,
   Edit3,
   FileText,
@@ -50,6 +48,7 @@ type ReferenceGroupKey =
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
 type ProjectDocumentCategory = 'CONTRACT' | 'PROJECT_DOCUMENT' | 'SUBMISSION' | 'MEETING_MINUTES'
+type ProjectDetailTab = 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'PLAN'
 
 const ttkModeOptions: Array<{ value: TtkMode; label: string }> = [
   { value: 'CHUYEN_TRACH', label: 'Chuyen trach' },
@@ -265,6 +264,23 @@ function buildDocumentForm() {
   }
 }
 
+function getDocumentActionLabel(category: ProjectDocumentCategory) {
+  switch (category) {
+    case 'CONTRACT':
+      return 'Them hop dong'
+    case 'SUBMISSION':
+      return 'Them to trinh'
+    case 'MEETING_MINUTES':
+      return 'Them bien ban hop'
+    default:
+      return 'Them tai lieu'
+  }
+}
+
+function getDocumentCategoryLabel(category: ProjectDocumentCategory) {
+  return projectDocumentCategories.find((item) => item.value === category)?.label ?? 'Tai lieu'
+}
+
 function buildPlanForm(project: Project, task?: PlanItem | null) {
   if (task) {
     return {
@@ -401,12 +417,10 @@ export function ProjectDetailPage() {
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [executionForm, setExecutionForm] = useState<ReturnType<typeof buildExecutionForm> | null>(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
+  const [activeDetailTab, setActiveDetailTab] = useState<ProjectDetailTab>('OVERVIEW')
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [isExecutionModalOpen, setIsExecutionModalOpen] = useState(false)
-  const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(true)
-  const [isPersonnelCollapsed, setIsPersonnelCollapsed] = useState(false)
-  const [isDocumentsCollapsed, setIsDocumentsCollapsed] = useState(false)
-  const [isPlanBuilderCollapsed, setIsPlanBuilderCollapsed] = useState(false)
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
 
   const projectTasks = project ? getProjectTasks(planItems, project.id) : []
   const overviewTasks = projectTasks.filter((task) => task.parentId === null)
@@ -447,6 +461,7 @@ export function ProjectDetailPage() {
     setPersonnelForm(buildPersonnelForm(project))
     setDocumentForm(buildDocumentForm())
     setPlanForm(buildPlanForm(project))
+    setActiveDetailTab('OVERVIEW')
     setDocumentInputKey((current) => current + 1)
   }, [project])
 
@@ -504,6 +519,28 @@ export function ProjectDetailPage() {
     (user) => user.role === 'PROJECT_ADMIN' || user.role === 'SYSTEM_ADMIN',
   )
   const totalDocumentCount = project.documents.length
+  const detailTabs: Array<{ id: ProjectDetailTab; label: string; note: string }> = [
+    {
+      id: 'OVERVIEW',
+      label: 'Overview',
+      note: `${getUser(overviewForm.adminId)?.name ?? 'Chua phan cong'} | ${formatDate(overviewForm.startDate)}`,
+    },
+    {
+      id: 'PERSONNEL',
+      label: 'Nhan su',
+      note: `${personnelForm.aitsMembers.length} AITS | ${personnelForm.customerMembers.length} KH | ${personnelForm.partners.length} doi tac`,
+    },
+    {
+      id: 'DOCUMENTS',
+      label: 'Tai lieu',
+      note: `${totalDocumentCount} tep | ${groupedProjectDocuments[0]?.items.length ?? 0} hop dong`,
+    },
+    {
+      id: 'PLAN',
+      label: 'Ke hoach',
+      note: `${projectTasks.length} task | ${selectedTask ? `Focus: ${selectedTask.name}` : 'Chua co task'}`,
+    },
+  ]
 
   function updateAitsPersonnelItem(
     index: number,
@@ -813,6 +850,7 @@ export function ProjectDetailPage() {
 
     setDocumentForm(buildDocumentForm())
     setDocumentInputKey((current) => current + 1)
+    setIsDocumentModalOpen(false)
     setMessage('Da them tai lieu vao danh muc du an.')
   }
 
@@ -906,6 +944,21 @@ export function ProjectDetailPage() {
   function openTaskModal() {
     setPlanForm(buildPlanForm(project!))
     setIsPlanModalOpen(true)
+  }
+
+  function openDocumentModal(category: ProjectDocumentCategory = 'PROJECT_DOCUMENT') {
+    setDocumentForm({
+      ...buildDocumentForm(),
+      category,
+    })
+    setDocumentInputKey((current) => current + 1)
+    setIsDocumentModalOpen(true)
+  }
+
+  function closeDocumentModal() {
+    setDocumentForm(buildDocumentForm())
+    setDocumentInputKey((current) => current + 1)
+    setIsDocumentModalOpen(false)
   }
 
   function openExecutionModal(task: PlanItem) {
@@ -1032,7 +1085,22 @@ export function ProjectDetailPage() {
         </div>
       </section>
 
-      <section className="panel panel--compact">
+      <nav className="detail-tabs" aria-label="Dieu huong chi tiet du an">
+        {detailTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`detail-tabs__button${activeDetailTab === tab.id ? ' detail-tabs__button--active' : ''}`}
+            onClick={() => setActiveDetailTab(tab.id)}
+          >
+            <span className="detail-tabs__label">{tab.label}</span>
+            <small>{tab.note}</small>
+          </button>
+        ))}
+      </nav>
+
+      {activeDetailTab === 'OVERVIEW' ? (
+      <section className="panel panel--compact detail-tab-panel">
         <div className="panel-heading panel-heading--compact">
           <div>
             <span className="eyebrow">Overview</span>
@@ -1040,29 +1108,10 @@ export function ProjectDetailPage() {
           </div>
           <div className="panel-actions">
             <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
-            <button
-              type="button"
-              className="ghost-button ghost-button--compact"
-              onClick={() => setIsOverviewCollapsed((current) => !current)}
-            >
-              {isOverviewCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              {isOverviewCollapsed ? 'Mo rong' : 'Thu gon'}
-            </button>
           </div>
         </div>
 
-        {isOverviewCollapsed ? (
-          <div className="panel-collapsed-note">
-            <span>PM: {getUser(overviewForm.adminId)?.name ?? 'Chua phan cong'}</span>
-            <span>Bat dau: {formatDate(overviewForm.startDate)}</span>
-            <span>
-              TTK:{' '}
-              {ttkModeOptions.find((item) => item.value === overviewForm.basisInfo.ttkMode)?.label}
-            </span>
-            <span>Doanh thu: {formatCurrencyPreview(overviewForm.financialInfo.revenue.amount)}</span>
-          </div>
-        ) : (
-          <form className="form-grid form-grid--compact overview-form" onSubmit={handleOverviewSubmit}>
+        <form className="form-grid form-grid--compact overview-form" onSubmit={handleOverviewSubmit}>
             <div className="overview-section span-2">
               <div className="overview-section__header">
                 <div>
@@ -1414,11 +1463,12 @@ export function ProjectDetailPage() {
                 Luu thong tin chung
               </button>
             ) : null}
-          </form>
-        )}
+        </form>
       </section>
+      ) : null}
 
-      <section className="panel panel--compact">
+      {activeDetailTab === 'PERSONNEL' ? (
+      <section className="panel panel--compact detail-tab-panel">
         <div className="panel-heading panel-heading--compact">
           <div>
             <span className="eyebrow">Personnel</span>
@@ -1426,25 +1476,10 @@ export function ProjectDetailPage() {
           </div>
           <div className="panel-actions">
             <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
-            <button
-              type="button"
-              className="ghost-button ghost-button--compact"
-              onClick={() => setIsPersonnelCollapsed((current) => !current)}
-            >
-              {isPersonnelCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              {isPersonnelCollapsed ? 'Mo rong' : 'Thu gon'}
-            </button>
           </div>
         </div>
 
-        {isPersonnelCollapsed ? (
-          <div className="panel-collapsed-note">
-            <span>{personnelForm.aitsMembers.length} nhan su AITS</span>
-            <span>{personnelForm.customerMembers.length} nhan su khach hang</span>
-            <span>{personnelForm.partners.length} doi tac</span>
-          </div>
-        ) : (
-          <form className="personnel-form" onSubmit={handlePersonnelSubmit}>
+        <form className="personnel-form" onSubmit={handlePersonnelSubmit}>
             <div className="personnel-group">
               <div className="personnel-group__header">
                 <div>
@@ -1869,11 +1904,12 @@ export function ProjectDetailPage() {
                 Luu thong tin nhan su
               </button>
             ) : null}
-          </form>
-        )}
+        </form>
       </section>
+      ) : null}
 
-      <section className="panel panel--compact">
+      {activeDetailTab === 'DOCUMENTS' ? (
+        <section className="panel panel--compact detail-tab-panel">
         <div className="panel-heading panel-heading--compact">
           <div>
             <span className="eyebrow">Documents</span>
@@ -1881,177 +1917,89 @@ export function ProjectDetailPage() {
           </div>
           <div className="panel-actions">
             <StatusPill label={`${totalDocumentCount} tai lieu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
-            <button
-              type="button"
-              className="ghost-button ghost-button--compact"
-              onClick={() => setIsDocumentsCollapsed((current) => !current)}
-            >
-              {isDocumentsCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              {isDocumentsCollapsed ? 'Mo rong' : 'Thu gon'}
-            </button>
+            {canManageProject ? (
+              <button
+                type="button"
+                className="primary-button primary-button--compact"
+                onClick={() => openDocumentModal()}
+              >
+                <CirclePlus size={16} />
+                Them tai lieu
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {isDocumentsCollapsed ? (
-          <div className="panel-collapsed-note">
+        <div className="document-panel">
+          <div className="document-grid">
             {groupedProjectDocuments.map((group) => (
-              <span key={group.value}>
-                {group.label}: {group.items.length}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="document-panel">
-            {canManageProject ? (
-              <form className="form-grid form-grid--compact document-form" onSubmit={handleDocumentSubmit}>
-                <label>
-                  <span>Danh muc tai lieu</span>
-                  <select
-                    value={documentForm.category}
-                    onChange={(event) =>
-                      setDocumentForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              category: event.target.value as ProjectDocumentCategory,
-                            }
-                          : current,
-                      )
-                    }
-                  >
-                    {projectDocumentCategories.map((category) => (
-                      <option key={category.value} value={category.value}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  <span>Ten tai lieu</span>
-                  <input
-                    value={documentForm.title}
-                    placeholder="Mac dinh lay theo ten file"
-                    onChange={(event) =>
-                      setDocumentForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              title: event.target.value,
-                            }
-                          : current,
-                      )
-                    }
-                  />
-                </label>
-
-                <label className="span-2">
-                  <span>File tai lieu</span>
-                  <div className="document-upload-field">
-                    <input
-                      key={documentInputKey}
-                      className="document-file-input"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,image/*"
-                      onChange={(event) =>
-                        setDocumentForm((current) =>
-                          current
-                            ? {
-                                ...current,
-                                fileName: event.target.files?.[0]?.name ?? '',
-                              }
-                            : current,
-                        )
-                      }
-                    />
-                    <div className="document-upload-meta">
-                      <FileText size={15} />
-                      <span>{documentForm.fileName || 'Chua chon file tai lieu'}</span>
-                    </div>
+              <article key={group.value} className="document-group">
+                <div className="document-group__header">
+                  <div>
+                    <span className="eyebrow">Danh muc</span>
+                    <h4>{group.label}</h4>
                   </div>
-                </label>
-
-                <label className="span-2">
-                  <span>Ghi chu</span>
-                  <textarea
-                    rows={2}
-                    value={documentForm.description}
-                    onChange={(event) =>
-                      setDocumentForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              description: event.target.value,
-                            }
-                          : current,
-                      )
-                    }
-                  />
-                </label>
-
-                <button type="submit" className="primary-button">
-                  <CirclePlus size={16} />
-                  Them tai lieu
-                </button>
-              </form>
-            ) : null}
-
-            <div className="document-grid">
-              {groupedProjectDocuments.map((group) => (
-                <article key={group.value} className="document-group">
-                  <div className="document-group__header">
-                    <div>
-                      <span className="eyebrow">Danh muc</span>
-                      <h4>{group.label}</h4>
-                    </div>
+                  <div className="document-group__actions">
                     <StatusPill
                       label={`${group.items.length} tai lieu`}
                       tone={group.items.length ? 'info' : 'neutral'}
                     />
+                    {canManageProject ? (
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--compact"
+                        onClick={() => openDocumentModal(group.value)}
+                      >
+                        <CirclePlus size={15} />
+                        {getDocumentActionLabel(group.value)}
+                      </button>
+                    ) : null}
                   </div>
+                </div>
 
-                  {group.items.length ? (
-                    <div className="document-list">
-                      {group.items.map((document) => (
-                        <div key={document.id} className="document-item">
-                          <div className="document-item__header">
-                            <div>
-                              <strong>{document.title}</strong>
-                              <p>{document.description || 'Khong co ghi chu bo sung.'}</p>
-                            </div>
-                            {canManageProject ? (
-                              <button
-                                type="button"
-                                className="ghost-button ghost-button--compact"
-                                onClick={() => void handleDeleteDocument(document)}
-                              >
-                                <Trash2 size={15} />
-                                Xoa
-                              </button>
-                            ) : null}
+                {group.items.length ? (
+                  <div className="document-list">
+                    {group.items.map((document) => (
+                      <div key={document.id} className="document-item">
+                        <div className="document-item__header">
+                          <div>
+                            <strong>{document.title}</strong>
+                            <p>{document.description || 'Khong co ghi chu bo sung.'}</p>
                           </div>
-
-                          <div className="document-item__meta">
-                            <span>Tep: {document.url || 'Chua co ten file'}</span>
-                            <span>Nguoi tai len: {getUser(document.uploadedBy)?.name ?? document.uploadedBy}</span>
-                            <span>Cap nhat: {formatDate(document.uploadedAt)}</span>
-                          </div>
+                          {canManageProject ? (
+                            <button
+                              type="button"
+                              className="ghost-button ghost-button--compact"
+                              onClick={() => void handleDeleteDocument(document)}
+                            >
+                              <Trash2 size={15} />
+                              Xoa
+                            </button>
+                          ) : null}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="overview-empty-note">
-                      <p>Chua co tai lieu trong danh muc nay.</p>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
 
-      <section className="task-workspace">
+                        <div className="document-item__meta">
+                          <span>Tep: {document.url || 'Chua co ten file'}</span>
+                          <span>Nguoi tai len: {getUser(document.uploadedBy)?.name ?? document.uploadedBy}</span>
+                          <span>Cap nhat: {formatDate(document.uploadedAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overview-empty-note">
+                    <p>Chua co tai lieu trong danh muc nay.</p>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+      ) : null}
+
+      {activeDetailTab === 'PLAN' ? (
+      <section className="task-workspace detail-tab-panel">
         <article className="panel panel--compact">
           <div className="panel-heading panel-heading--compact">
             <div>
@@ -2070,136 +2018,241 @@ export function ProjectDetailPage() {
                   Tao task tong quan
                 </button>
               ) : null}
-              <button
-                type="button"
-                className="ghost-button ghost-button--compact"
-                onClick={() => setIsPlanBuilderCollapsed((current) => !current)}
-              >
-                {isPlanBuilderCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                {isPlanBuilderCollapsed ? 'Mo rong' : 'Thu gon'}
-              </button>
             </div>
           </div>
 
-          {isPlanBuilderCollapsed ? (
-            <div className="panel-collapsed-note">
-              <span>{projectTasks.length} task / subtask</span>
-              {selectedTask ? <span>Dang focus: {selectedTask.name}</span> : null}
-              {selectedTask ? <span>{selectedTask.progress}% tien do</span> : null}
-            </div>
-          ) : (
-            <>
-              {selectedTask ? (
-                <div className="stack-list">
-                  <div className="list-row list-row--compact">
-                    <div>
-                      <strong>Task dang focus: {selectedTask.name}</strong>
-                      <p>
-                        {getTaskAssigneeNames(selectedTask)} | {selectedTask.progress}% |{' '}
-                        {formatHours(selectedTask.actualHours)} da ghi nhan
-                      </p>
-                    </div>
-                    <div className="inline-actions">
-                      <StatusPill
-                        label={getCatalogLabel(catalogs.taskStatuses, selectedTask.status)}
-                        tone={getStatusTone(selectedTask.status)}
-                      />
-                      {canUpdateSelectedTask ? (
-                        <button
-                          type="button"
-                          className="ghost-button ghost-button--compact"
-                          onClick={() => openExecutionModal(selectedTask)}
-                        >
-                          <Timer size={15} />
-                          Mo cap nhat
-                        </button>
-                      ) : null}
-                      {canManageProject ? (
-                        <button
-                          type="button"
-                          className="ghost-button ghost-button--compact"
-                          onClick={() => handleEditTask(selectedTask)}
-                        >
-                          <Edit3 size={15} />
-                          Sua task
-                        </button>
-                      ) : null}
-                      {canCreateChildForSelectedTask ? (
-                        <button
-                          type="button"
-                          className="ghost-button ghost-button--compact"
-                          onClick={() => handleCreateChildTask(selectedTask)}
-                        >
-                          <Workflow size={15} />
-                          Them subtask
-                        </button>
-                      ) : null}
-                    </div>
+          <>
+            {selectedTask ? (
+              <div className="stack-list">
+                <div className="list-row list-row--compact">
+                  <div>
+                    <strong>Task dang focus: {selectedTask.name}</strong>
+                    <p>
+                      {getTaskAssigneeNames(selectedTask)} | {selectedTask.progress}% |{' '}
+                      {formatHours(selectedTask.actualHours)} da ghi nhan
+                    </p>
+                  </div>
+                  <div className="inline-actions">
+                    <StatusPill
+                      label={getCatalogLabel(catalogs.taskStatuses, selectedTask.status)}
+                      tone={getStatusTone(selectedTask.status)}
+                    />
+                    {canUpdateSelectedTask ? (
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--compact"
+                        onClick={() => openExecutionModal(selectedTask)}
+                      >
+                        <Timer size={15} />
+                        Mo cap nhat
+                      </button>
+                    ) : null}
+                    {canManageProject ? (
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--compact"
+                        onClick={() => handleEditTask(selectedTask)}
+                      >
+                        <Edit3 size={15} />
+                        Sua task
+                      </button>
+                    ) : null}
+                    {canCreateChildForSelectedTask ? (
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--compact"
+                        onClick={() => handleCreateChildTask(selectedTask)}
+                      >
+                        <Workflow size={15} />
+                        Them subtask
+                      </button>
+                    ) : null}
                   </div>
                 </div>
-              ) : null}
+              </div>
+            ) : null}
 
-              <div className="plan-gantt-shell">
+            <div className="plan-gantt-shell">
+              <section className="plan-gantt-group">
+                <div className="plan-gantt-caption">
+                  <div>
+                    <span className="eyebrow">Gantt overview</span>
+                    <h4>Task tong quan</h4>
+                    <p>Chi hien thi cac task tong quan. Chon mot task de xem subtask ben duoi.</p>
+                  </div>
+                  <StatusPill label={`${overviewTasks.length} task`} tone="neutral" />
+                </div>
+
+                <GanttChart
+                  items={overviewGanttItems}
+                  variant="embedded"
+                  activeId={focusedOverviewTask?.id}
+                  onSelect={setSelectedTaskId}
+                />
+              </section>
+
+              {focusedOverviewTask ? (
                 <section className="plan-gantt-group">
                   <div className="plan-gantt-caption">
                     <div>
-                      <span className="eyebrow">Gantt overview</span>
-                      <h4>Task tong quan</h4>
-                      <p>Chi hien thi cac task tong quan. Chon mot task de xem subtask ben duoi.</p>
+                      <span className="eyebrow">Subtask timeline</span>
+                      <h4>{focusedOverviewTask.name}</h4>
+                      <p>
+                        {focusedSubtaskGanttItems.length
+                          ? 'Timeline chi tiet cua cac subtask thuoc task tong quan dang focus.'
+                          : 'Task tong quan nay chua co subtask de hien thi tren Gantt.'}
+                      </p>
                     </div>
-                    <StatusPill label={`${overviewTasks.length} task`} tone="neutral" />
+                    <StatusPill
+                      label={`${focusedSubtaskGanttItems.length} subtask`}
+                      tone={focusedSubtaskGanttItems.length ? 'info' : 'neutral'}
+                    />
                   </div>
 
-                  <GanttChart
-                    items={overviewGanttItems}
-                    variant="embedded"
-                    activeId={focusedOverviewTask?.id}
-                    onSelect={setSelectedTaskId}
-                  />
-                </section>
-
-                {focusedOverviewTask ? (
-                  <section className="plan-gantt-group">
-                    <div className="plan-gantt-caption">
-                      <div>
-                        <span className="eyebrow">Subtask timeline</span>
-                        <h4>{focusedOverviewTask.name}</h4>
-                        <p>
-                          {focusedSubtaskGanttItems.length
-                            ? 'Timeline chi tiet cua cac subtask thuoc task tong quan dang focus.'
-                            : 'Task tong quan nay chua co subtask de hien thi tren Gantt.'}
-                        </p>
-                      </div>
-                      <StatusPill
-                        label={`${focusedSubtaskGanttItems.length} subtask`}
-                        tone={focusedSubtaskGanttItems.length ? 'info' : 'neutral'}
-                      />
+                  {focusedSubtaskGanttItems.length ? (
+                    <GanttChart
+                      items={focusedSubtaskGanttItems}
+                      variant="embedded"
+                      activeId={selectedTask && selectedTask.parentId ? selectedTask.id : undefined}
+                      onSelect={setSelectedTaskId}
+                    />
+                  ) : (
+                    <div className="plan-gantt-empty">
+                      <p>
+                        Hay them subtask cho <strong>{focusedOverviewTask.name}</strong> de xem
+                        timeline chi tiet.
+                      </p>
                     </div>
-
-                    {focusedSubtaskGanttItems.length ? (
-                      <GanttChart
-                        items={focusedSubtaskGanttItems}
-                        variant="embedded"
-                        activeId={
-                          selectedTask && selectedTask.parentId ? selectedTask.id : undefined
-                        }
-                        onSelect={setSelectedTaskId}
-                      />
-                    ) : (
-                      <div className="plan-gantt-empty">
-                        <p>
-                          Hay them subtask cho <strong>{focusedOverviewTask.name}</strong> de xem
-                          timeline chi tiet.
-                        </p>
-                      </div>
-                    )}
-                  </section>
-                ) : null}
-              </div>
-            </>
-          )}
+                  )}
+                </section>
+              ) : null}
+            </div>
+          </>
         </article>
       </section>
+      ) : null}
+
+      {canManageProject && documentForm && isDocumentModalOpen ? (
+        <div className="modal-backdrop" onClick={closeDocumentModal}>
+          <div
+            className="modal-card document-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-heading">
+              <div>
+                <span className="eyebrow">Tai lieu du an</span>
+                <h3>{getDocumentActionLabel(documentForm.category)}</h3>
+                <p>Them moi tai lieu thuoc nhom {getDocumentCategoryLabel(documentForm.category).toLowerCase()}.</p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button icon-button"
+                onClick={closeDocumentModal}
+                aria-label="Dong popup tai lieu"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form className="form-grid" onSubmit={handleDocumentSubmit}>
+              <label>
+                <span>Danh muc tai lieu</span>
+                <select
+                  value={documentForm.category}
+                  onChange={(event) =>
+                    setDocumentForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            category: event.target.value as ProjectDocumentCategory,
+                          }
+                        : current,
+                    )
+                  }
+                >
+                  {projectDocumentCategories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>Ten tai lieu</span>
+                <input
+                  value={documentForm.title}
+                  placeholder="Mac dinh lay theo ten file"
+                  onChange={(event) =>
+                    setDocumentForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            title: event.target.value,
+                          }
+                        : current,
+                    )
+                  }
+                />
+              </label>
+
+              <label className="span-2">
+                <span>File tai lieu</span>
+                <div className="document-upload-field">
+                  <input
+                    key={documentInputKey}
+                    className="document-file-input"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,image/*"
+                    onChange={(event) =>
+                      setDocumentForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              fileName: event.target.files?.[0]?.name ?? '',
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                  <div className="document-upload-meta">
+                    <FileText size={15} />
+                    <span>{documentForm.fileName || 'Chua chon file tai lieu'}</span>
+                  </div>
+                </div>
+              </label>
+
+              <label className="span-2">
+                <span>Ghi chu</span>
+                <textarea
+                  rows={2}
+                  value={documentForm.description}
+                  onChange={(event) =>
+                    setDocumentForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            description: event.target.value,
+                          }
+                        : current,
+                    )
+                  }
+                />
+              </label>
+
+              <div className="modal-actions span-2">
+                <button type="button" className="ghost-button" onClick={closeDocumentModal}>
+                  Huy
+                </button>
+                <button type="submit" className="primary-button">
+                  <CirclePlus size={16} />
+                  {getDocumentActionLabel(documentForm.category)}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {canOpenPlanModal && isPlanModalOpen ? (
         <div className="modal-backdrop" onClick={closePlanModal}>

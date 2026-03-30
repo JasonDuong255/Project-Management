@@ -57,20 +57,66 @@ export function getTaskPrimaryAssigneeId(task: PlanItem) {
   return getTaskAssigneeIds(task)[0] ?? task.assigneeId
 }
 
+export function normalizeUserRole(role: User['role']) {
+  switch (role) {
+    case 'SYSTEM_ADMIN':
+      return 'PMO'
+    case 'PROJECT_ADMIN':
+      return 'PM'
+    default:
+      return role
+  }
+}
+
+export function isProjectCoordinator(project: Project, userId?: string) {
+  if (!userId) {
+    return false
+  }
+
+  return project.personnelInfo.aitsMembers.some((member) => {
+    const normalizedRole = member.role.trim().toLowerCase()
+    return member.userId === userId && normalizedRole.includes('dieu phoi du an')
+  })
+}
+
+export function canManageProjectPlan(project: Project, currentUser: User | null) {
+  if (!currentUser) {
+    return false
+  }
+
+  const normalizedRole = normalizeUserRole(currentUser.role)
+
+  return (
+    project.approvalInfo.status === 'APPROVED' &&
+    (normalizedRole === 'PMO' ||
+      project.adminId === currentUser.id ||
+      isProjectCoordinator(project, currentUser.id))
+  )
+}
+
 export function getVisibleProjects(projects: Project[], currentUser: User | null) {
   if (!currentUser) {
     return []
   }
 
-  if (currentUser.role === 'SYSTEM_ADMIN') {
+  const normalizedRole = normalizeUserRole(currentUser.role)
+
+  if (normalizedRole === 'PMO' || normalizedRole === 'ADMIN_HC') {
     return projects
   }
 
-  if (currentUser.role === 'PROJECT_ADMIN') {
-    return projects.filter((project) => project.adminId === currentUser.id)
+  if (normalizedRole === 'PM') {
+    return projects.filter(
+      (project) =>
+        project.adminId === currentUser.id || isProjectCoordinator(project, currentUser.id),
+    )
   }
 
-  return projects.filter((project) => project.memberIds.includes(currentUser.id))
+  return projects.filter(
+    (project) =>
+      project.memberIds.includes(currentUser.id) ||
+      project.personnelInfo.aitsMembers.some((member) => member.userId === currentUser.id),
+  )
 }
 
 export function getOpenRisks(projects: Project[]) {
@@ -281,7 +327,7 @@ export function getTaskDeadlineNotifications(
       }
 
       const isRecipient =
-        currentUser.role === 'SYSTEM_ADMIN' ||
+        normalizeUserRole(currentUser.role) === 'PMO' ||
         project.adminId === currentUser.id ||
         getTaskAssigneeIds(task).includes(currentUser.id)
 

@@ -1,4 +1,10 @@
-export type UserRole = 'PROJECT_ADMIN' | 'DELIVERY_MEMBER' | 'SYSTEM_ADMIN'
+export type UserRole =
+  | 'PMO'
+  | 'ADMIN_HC'
+  | 'PM'
+  | 'DELIVERY_MEMBER'
+  | 'PROJECT_ADMIN'
+  | 'SYSTEM_ADMIN'
 
 export type ProjectStatus =
   | 'INITIATION'
@@ -23,6 +29,7 @@ export type DelayRaiseStatus = 'OPEN' | 'ACKNOWLEDGED' | 'REPLANNED'
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type TtkMode = 'CHUYEN_TRACH' | 'KIEM_NHIEM'
 export type DeploymentMode = 'HD_PLHD' | 'TK_THD' | 'NOI_BO'
+export type ProjectApprovalStatus = 'PENDING' | 'APPROVED'
 
 export interface User {
   id: string
@@ -31,8 +38,10 @@ export interface User {
   username: string
   password: string
   role: UserRole
+  employeeCode: string
   title: string
   unit: string
+  phone: string
   monthlyCapacity: number
   avatarColor: string
 }
@@ -92,8 +101,20 @@ export interface ProjectFinancialInfo {
   costSource: string
 }
 
+export interface ProjectApprovalInfo {
+  status: ProjectApprovalStatus
+  requestedById: string
+  requestFileName: string
+  requestSubmittedAt: string
+  approvedById: string
+  approvedAt: string
+  approvalFileName: string
+  note: string
+}
+
 export interface ProjectAitsPersonnel {
   userId: string
+  employeeCode: string
   fullName: string
   titleUnit: string
   role: string
@@ -126,6 +147,7 @@ export interface Project {
   sponsor: string
   department: string
   objective: string
+  createdById: string
   adminId: string
   memberIds: string[]
   startDate: string
@@ -136,6 +158,7 @@ export interface Project {
   currentPhase: string
   adjustedPlan: string
   riskSummary: string
+  approvalInfo: ProjectApprovalInfo
   basisInfo: ProjectBasisInfo
   financialInfo: ProjectFinancialInfo
   personnelInfo: ProjectPersonnelInfo
@@ -207,6 +230,7 @@ export interface Catalogs {
   riskLevels: CatalogOption[]
   documentCategories: CatalogOption[]
   departments: CatalogOption[]
+  projectMemberRoles: CatalogOption[]
 }
 
 export interface MockDatabase {
@@ -222,17 +246,25 @@ export interface AppSnapshot extends MockDatabase {
   currentUser: User | null
 }
 
+export interface CreateProjectTeamMemberInput {
+  userId: string
+  role: string
+  totalPlannedHours: number
+}
+
 export interface CreateProjectInput {
   code: string
   name: string
   summary: string
   sponsor: string
-  department: string
   objective: string
+  createdById: string
   adminId: string
-  memberIds: string[]
   startDate: string
   endDate: string
+  approvalRequestFileName: string
+  teamMembers: CreateProjectTeamMemberInput[]
+  department?: string
 }
 
 export interface UpdateProjectInput {
@@ -250,10 +282,12 @@ export interface UpdateProjectInput {
       | 'currentPhase'
       | 'adjustedPlan'
       | 'riskSummary'
+      | 'createdById'
       | 'memberIds'
       | 'adminId'
       | 'startDate'
       | 'endDate'
+      | 'approvalInfo'
       | 'basisInfo'
       | 'financialInfo'
       | 'personnelInfo'

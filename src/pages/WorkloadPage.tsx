@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppContext'
+import { canManageProjectPlan } from '../lib/calculations'
 import { formatDate, formatHours, formatMonthLabel } from '../lib/formatters'
 import type { Project, ProjectAitsPersonnel, User } from '../types'
 
@@ -70,11 +71,12 @@ function buildFallbackAitsPersonnel(
     userId: user.id,
     fullName: user.name,
     titleUnit: `${user.title} - ${user.unit}`,
-    role: user.id === project.adminId ? 'PM phu trach' : 'Nhan su AITS',
+    role: user.id === project.adminId ? 'PM du an' : 'Thanh vien trien khai',
     responsibility: '',
     totalPlannedHours,
     email: user.email,
-    phone: '',
+    phone: user.phone,
+    employeeCode: user.employeeCode,
   }
 }
 
@@ -131,10 +133,9 @@ function buildProjectDraftAllocations(
 
 export function WorkloadPage() {
   const { currentUser, projects, users, updateProject, getUser } = useAppData()
-  const managedProjects =
-    currentUser?.role === 'SYSTEM_ADMIN'
-      ? projects
-      : projects.filter((project) => project.adminId === currentUser?.id)
+  const managedProjects = currentUser
+    ? projects.filter((project) => canManageProjectPlan(project, currentUser))
+    : []
   const [selectedProjectId, setSelectedProjectId] = useState(managedProjects[0]?.id ?? '')
   const [draftAllocations, setDraftAllocations] = useState<Record<string, number>>({})
   const [message, setMessage] = useState('')

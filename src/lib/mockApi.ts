@@ -17,8 +17,8 @@ import type {
   Worklog,
 } from '../types'
 
-const STORAGE_KEY = 'ppm-demo-db-v1'
-const CURRENT_USER_KEY = 'ppm-demo-current-user-v1'
+const STORAGE_KEY = 'ppm-demo-db-v2'
+const CURRENT_USER_KEY = 'ppm-demo-current-user-v2'
 
 async function wait(duration = 220) {
   return new Promise((resolve) => {
@@ -73,6 +73,105 @@ function createDefaultFinancialInfo(): Project['financialInfo'] {
   }
 }
 
+const defaultProjectMemberRoles: Catalogs['projectMemberRoles'] = [
+  { value: 'PM du an', label: 'PM du an' },
+  { value: 'Dieu phoi du an', label: 'Dieu phoi du an' },
+  { value: 'Business Analyst', label: 'Business Analyst' },
+  { value: 'Lap trinh vien', label: 'Lap trinh vien' },
+  { value: 'Kiem thu', label: 'Kiem thu' },
+  { value: 'Ky su tich hop', label: 'Ky su tich hop' },
+  { value: 'Thanh vien trien khai', label: 'Thanh vien trien khai' },
+]
+
+function normalizeUserRole(role: User['role']): User['role'] {
+  switch (role) {
+    case 'SYSTEM_ADMIN':
+      return 'PMO'
+    case 'PROJECT_ADMIN':
+      return 'PM'
+    default:
+      return role
+  }
+}
+
+function normalizeUser(user: User): User {
+  return {
+    ...user,
+    role: normalizeUserRole(user.role),
+    employeeCode: user.employeeCode ?? `EMP-${user.id.toUpperCase().slice(-4)}`,
+    phone: user.phone ?? '',
+    monthlyCapacity: user.monthlyCapacity ?? 0,
+  }
+}
+
+function normalizeCatalogs(catalogs: Catalogs): Catalogs {
+  return {
+    ...catalogs,
+    projectMemberRoles: catalogs.projectMemberRoles?.length
+      ? catalogs.projectMemberRoles
+      : defaultProjectMemberRoles,
+  }
+}
+
+function normalizePersonnelRole(role?: string) {
+  const normalized = (role ?? '').trim().toLowerCase()
+
+  if (!normalized) {
+    return 'Thanh vien trien khai'
+  }
+
+  if (normalized.includes('pm')) {
+    return 'PM du an'
+  }
+
+  if (normalized.includes('dieu phoi')) {
+    return 'Dieu phoi du an'
+  }
+
+  if (normalized.includes('business analyst') || normalized === 'ba') {
+    return 'Business Analyst'
+  }
+
+  if (normalized.includes('kiem thu') || normalized.includes('test')) {
+    return 'Kiem thu'
+  }
+
+  if (normalized.includes('tich hop')) {
+    return 'Ky su tich hop'
+  }
+
+  if (normalized.includes('lap trinh') || normalized.includes('frontend')) {
+    return 'Lap trinh vien'
+  }
+
+  return role ?? 'Thanh vien trien khai'
+}
+
+function createDefaultApprovalInfo(project?: Partial<Project>): Project['approvalInfo'] {
+  const inferredStatus =
+    project?.approvalInfo?.status ?? ((project?.progress ?? 0) > 0 ? 'APPROVED' : 'PENDING')
+  const fallbackDate = project?.startDate
+    ? new Date(project.startDate).toISOString()
+    : new Date().toISOString()
+
+  return {
+    status: inferredStatus,
+    requestedById: project?.approvalInfo?.requestedById ?? project?.createdById ?? project?.adminId ?? '',
+    requestFileName:
+      project?.approvalInfo?.requestFileName ??
+      project?.basisInfo?.deploymentApprovals?.[0]?.name ??
+      '',
+    requestSubmittedAt: project?.approvalInfo?.requestSubmittedAt ?? fallbackDate,
+    approvedById: project?.approvalInfo?.approvedById ?? '',
+    approvedAt:
+      inferredStatus === 'APPROVED'
+        ? project?.approvalInfo?.approvedAt ?? fallbackDate
+        : project?.approvalInfo?.approvedAt ?? '',
+    approvalFileName: project?.approvalInfo?.approvalFileName ?? '',
+    note: project?.approvalInfo?.note ?? '',
+  }
+}
+
 function buildAitsPersonnelFromProject(project: Project, users: User[]): Project['personnelInfo']['aitsMembers'] {
   const memberIds = [...new Set([project.adminId, ...project.memberIds])]
 
@@ -84,13 +183,14 @@ function buildAitsPersonnelFromProject(project: Project, users: User[]): Project
 
     return {
       userId: memberId,
+      employeeCode: user?.employeeCode ?? '',
       fullName: user?.name ?? memberId,
       titleUnit: user ? `${user.title} - ${user.unit}` : '',
-      role: memberId === project.adminId ? 'PM phu trach' : 'Nhan su AITS',
+      role: memberId === project.adminId ? 'PM du an' : 'Thanh vien trien khai',
       responsibility: '',
       totalPlannedHours,
       email: user?.email ?? '',
-      phone: '',
+      phone: user?.phone ?? '',
     }
   })
 }
@@ -142,9 +242,10 @@ function normalizeAitsPersonnelItems(
 ) {
   return (items ?? []).map((item) => ({
     userId: resolveAitsUserId(item, users),
+    employeeCode: item?.employeeCode ?? '',
     fullName: item?.fullName ?? '',
     titleUnit: item?.titleUnit ?? '',
-    role: item?.role ?? '',
+    role: normalizePersonnelRole(item?.role),
     responsibility: item?.responsibility ?? '',
     totalPlannedHours: item?.totalPlannedHours ?? 0,
     email: item?.email ?? '',
@@ -218,16 +319,30 @@ function normalizeAssigneeIds(assigneeIds?: string[], assigneeId?: string) {
 function normalizeProject(project: Project, users: User[]): Project {
   const defaultBasisInfo = createDefaultBasisInfo(project)
   const defaultPersonnelInfo = createDefaultPersonnelInfo(project, users)
+  const approvalInfo = createDefaultApprovalInfo(project)
   const normalizedAitsMembers = attachAitsUserIds(
     normalizeAitsPersonnelItems(project.personnelInfo?.aitsMembers, users),
     project,
-  )
+  ).map((item) => {
+    const resolvedUser = users.find((user) => user.id === item.userId)
+
+    return {
+      ...item,
+      employeeCode: item.employeeCode || resolvedUser?.employeeCode || '',
+      fullName: item.fullName || resolvedUser?.name || item.userId,
+      titleUnit: item.titleUnit || (resolvedUser ? `${resolvedUser.title} - ${resolvedUser.unit}` : ''),
+      email: item.email || resolvedUser?.email || '',
+      phone: item.phone || resolvedUser?.phone || '',
+    }
+  })
   const basisInfo = project.basisInfo
   const financialInfo = project.financialInfo
   const personnelInfo = project.personnelInfo
 
   return {
     ...project,
+    createdById: project.createdById ?? approvalInfo.requestedById ?? project.adminId,
+    approvalInfo,
     basisInfo: {
       outputContracts: normalizeReferenceItems(basisInfo?.outputContracts),
       inputContracts: normalizeReferenceItems(basisInfo?.inputContracts),
@@ -266,9 +381,14 @@ function normalizePlanItem(item: PlanItem): PlanItem {
 }
 
 function normalizeDatabase(database: MockDatabase): MockDatabase {
+  const users = database.users.map((user) => normalizeUser(user))
+  const catalogs = normalizeCatalogs(database.catalogs)
+
   return {
     ...database,
-    projects: database.projects.map((project) => normalizeProject(project, database.users)),
+    users,
+    catalogs,
+    projects: database.projects.map((project) => normalizeProject(project, users)),
     planItems: database.planItems.map((item) => normalizePlanItem(item)),
   }
 }
@@ -404,16 +524,45 @@ export async function logout() {
 
 export async function createProject(input: CreateProjectInput) {
   return updateDatabase((database) => {
+    const teamMembers = input.teamMembers.map((member) => ({
+      ...member,
+      role:
+        member.userId === input.adminId
+          ? 'PM du an'
+          : normalizePersonnelRole(member.role || 'Thanh vien trien khai'),
+      totalPlannedHours: Math.max(0, Math.round(member.totalPlannedHours)),
+    }))
+    const memberIds = [...new Set(teamMembers.map((member) => member.userId).filter(Boolean))]
+    const personnelInfo: Project['personnelInfo'] = {
+      aitsMembers: teamMembers.map((member) => {
+        const user = database.users.find((item) => item.id === member.userId)
+
+        return {
+          userId: member.userId,
+          employeeCode: user?.employeeCode ?? '',
+          fullName: user?.name ?? member.userId,
+          titleUnit: user ? `${user.title} - ${user.unit}` : '',
+          role: member.role,
+          responsibility: '',
+          totalPlannedHours: member.totalPlannedHours,
+          email: user?.email ?? '',
+          phone: user?.phone ?? '',
+        }
+      }),
+      customerMembers: [],
+      partners: [],
+    }
     const project: Project = {
       id: createId('p'),
       code: input.code,
       name: input.name,
       summary: input.summary,
       sponsor: input.sponsor,
-      department: input.department,
+      department: input.department ?? 'PMO',
       objective: input.objective,
+      createdById: input.createdById,
       adminId: input.adminId,
-      memberIds: input.memberIds,
+      memberIds,
       startDate: input.startDate,
       endDate: input.endDate,
       status: 'INITIATION',
@@ -422,13 +571,19 @@ export async function createProject(input: CreateProjectInput) {
       currentPhase: 'Khởi động dự án',
       adjustedPlan: 'Chưa có điều chỉnh',
       riskSummary: 'Chưa ghi nhận rủi ro',
+      approvalInfo: {
+        status: 'PENDING',
+        requestedById: input.createdById,
+        requestFileName: input.approvalRequestFileName,
+        requestSubmittedAt: new Date().toISOString(),
+        approvedById: '',
+        approvedAt: '',
+        approvalFileName: '',
+        note: '',
+      },
       basisInfo: createDefaultBasisInfo(input),
       financialInfo: createDefaultFinancialInfo(),
-      personnelInfo: {
-        aitsMembers: [],
-        customerMembers: [],
-        partners: [],
-      },
+      personnelInfo,
       documents: [],
       monthlyAllocations: [],
       risks: [],

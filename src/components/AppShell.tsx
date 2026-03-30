@@ -8,7 +8,6 @@ import {
   MessageSquare,
   Search,
   Settings2,
-  TimerReset,
   UserCog,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -35,12 +34,6 @@ const navItems: NavItem[] = [
     to: '/projects',
     label: 'Dự án',
     icon: FolderKanban,
-  },
-  {
-    to: '/workload',
-    label: 'Phân bổ giờ công',
-    icon: TimerReset,
-    roles: ['PM', 'PMO', 'PROJECT_ADMIN', 'SYSTEM_ADMIN'],
   },
   {
     to: '/member-workspace',

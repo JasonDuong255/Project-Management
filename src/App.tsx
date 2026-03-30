@@ -12,7 +12,7 @@ import { NotificationCenterPage } from './pages/NotificationCenterPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ReportsPage } from './pages/ReportsPage'
-import { WorkloadPage } from './pages/WorkloadPage'
+// WorkloadPage removed — workload is now a tab inside ProjectDetailPage
 
 function LoginRoute() {
   const { currentUser, isLoading } = useAppData()
@@ -49,21 +49,13 @@ function AppRoutes() {
             <Route path="/notifications" element={<NotificationCenterPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-            <Route
-              path="/workload"
-              element={
-                <ProtectedRoute allowedRoles={['PROJECT_ADMIN', 'SYSTEM_ADMIN']}>
-                  <WorkloadPage />
-                </ProtectedRoute>
-              }
-            />
             <Route path="/member-workspace" element={<MemberWorkspacePage />} />
             <Route path="/gantt" element={<GanttPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route
               path="/admin/catalogs"
               element={
-                <ProtectedRoute allowedRoles={['SYSTEM_ADMIN']}>
+                <ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'PMO']}>
                   <AdminCatalogPage />
                 </ProtectedRoute>
               }

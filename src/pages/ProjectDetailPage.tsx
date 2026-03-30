@@ -3,7 +3,9 @@ import {
   CirclePlus,
   Edit3,
   FileText,
+  RefreshCcw,
   Save,
+  Sparkles,
   Timer,
   Trash2,
   Workflow,
@@ -26,7 +28,7 @@ import {
   getProjectTasks,
   getStatusTone,
 } from '../lib/calculations'
-import { formatDate, formatHours, getCatalogLabel } from '../lib/formatters'
+import { formatDate, formatHours, formatMonthLabel, getCatalogLabel } from '../lib/formatters'
 import type {
   DeploymentMode,
   GanttItem,
@@ -41,6 +43,7 @@ import type {
   ProjectReferenceItem,
   RiskLevel,
   TtkMode,
+  User,
 } from '../types'
 
 type ReferenceGroupKey =
@@ -52,7 +55,7 @@ type ReferenceGroupKey =
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
 type ProjectDocumentCategory = 'CONTRACT' | 'PROJECT_DOCUMENT' | 'SUBMISSION' | 'MEETING_MINUTES'
-type ProjectDetailTab = 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN'
+type ProjectDetailTab = 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN' | 'WORKLOAD'
 type ProjectRiskStatus = ProjectRisk['status']
 
 interface RiskFormState {
@@ -514,6 +517,111 @@ function buildScopedGanttItems(
   })
 }
 
+/* ═══════ Workload helpers (moved from WorkloadPage) ═══════ */
+
+interface ResolvedAitsMember {
+  memberId: string
+  user: User
+  personnel: ProjectAitsPersonnel
+}
+
+function getEstimatedProjectEndDate(project: Project) {
+  if (project.basisInfo.durationDays > 0) {
+    return dayjs(project.startDate).add(project.basisInfo.durationDays - 1, 'day')
+  }
+  return dayjs(project.endDate)
+}
+
+function getProjectAllocationMonths(project: Project) {
+  const startMonth = dayjs(project.startDate).startOf('month')
+  const endMonth = getEstimatedProjectEndDate(project).startOf('month')
+  const months: string[] = []
+  let cursor = startMonth
+  while (cursor.isBefore(endMonth) || cursor.isSame(endMonth, 'month')) {
+    months.push(cursor.format('YYYY-MM'))
+    cursor = cursor.add(1, 'month')
+  }
+  return months
+}
+
+function resolveAitsUser(personnel: ProjectAitsPersonnel, allUsers: User[]) {
+  if (personnel.userId) {
+    return allUsers.find((user) => user.id === personnel.userId) ?? null
+  }
+  if (personnel.email) {
+    const byEmail = allUsers.find(
+      (user) => user.email.toLowerCase() === personnel.email.toLowerCase(),
+    )
+    if (byEmail) return byEmail
+  }
+  if (personnel.fullName) {
+    return allUsers.find((user) => user.name.toLowerCase() === personnel.fullName.toLowerCase()) ?? null
+  }
+  return null
+}
+
+function buildFallbackAitsPersonnel(
+  user: User,
+  project: Project,
+  totalPlannedHours: number,
+): ProjectAitsPersonnel {
+  return {
+    userId: user.id,
+    fullName: user.name,
+    titleUnit: `${user.title} - ${user.unit}`,
+    role: user.id === project.adminId ? 'PM du an' : 'Thanh vien trien khai',
+    responsibility: '',
+    totalPlannedHours,
+    email: user.email,
+    phone: user.phone,
+    employeeCode: user.employeeCode,
+  }
+}
+
+function distributeHoursEvenly(totalHours: number, months: string[]) {
+  if (!months.length) return {}
+  const safeTotal = Math.max(0, Math.round(totalHours))
+  const base = Math.floor(safeTotal / months.length)
+  const remainder = safeTotal % months.length
+  return months.reduce<Record<string, number>>((acc, month, i) => {
+    acc[month] = base + (i < remainder ? 1 : 0)
+    return acc
+  }, {})
+}
+
+function buildAllocationKey(memberId: string, month: string) {
+  return `${memberId}:${month}`
+}
+
+function buildProjectDraftAllocations(
+  project: Project,
+  members: ResolvedAitsMember[],
+  months: string[],
+) {
+  const nextDraft: Record<string, number> = {}
+  const monthSet = new Set(months)
+  members.forEach((member) => {
+    const savedAllocations = project.monthlyAllocations.filter(
+      (a) => a.memberId === member.memberId && monthSet.has(a.month),
+    )
+    const savedTotal = savedAllocations.reduce((sum, a) => sum + a.hours, 0)
+    const targetTotal = Math.max(0, Math.round(member.personnel.totalPlannedHours))
+    const hoursByMonth =
+      savedAllocations.length > 0 && savedTotal === targetTotal
+        ? months.reduce<Record<string, number>>((acc, month) => {
+            acc[month] = savedAllocations.find((a) => a.month === month)?.hours ?? 0
+            return acc
+          }, {})
+        : distributeHoursEvenly(targetTotal, months)
+    months.forEach((month) => {
+      nextDraft[buildAllocationKey(member.memberId, month)] = hoursByMonth[month] ?? 0
+    })
+  })
+  return nextDraft
+}
+
+/* ═══════ Main component ═══════ */
+
 export function ProjectDetailPage() {
   const { projectId } = useParams()
   const {
@@ -711,6 +819,15 @@ export function ProjectDetailPage() {
       label: 'Ke hoach',
       note: `${projectTasks.length} task | ${selectedTask ? `Focus: ${selectedTask.name}` : 'Chua co task'}`,
     },
+    ...(canManageProject
+      ? [
+          {
+            id: 'WORKLOAD' as ProjectDetailTab,
+            label: 'Phan bo gio cong',
+            note: `${project.monthlyAllocations.length} phan bo`,
+          },
+        ]
+      : []),
   ]
 
   function updateAitsPersonnelItem(
@@ -3480,6 +3597,308 @@ export function ProjectDetailPage() {
           </div>
         </div>
       ) : null}
+
+      {activeDetailTab === 'WORKLOAD' ? (
+        <WorkloadTabPanel
+          project={project}
+          users={users}
+          projects={projects}
+          updateProject={updateProject}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/* ═══════ Workload Tab Panel (extracted as sub-component for clarity) ═══════ */
+
+function WorkloadTabPanel({
+  project,
+  users,
+  projects,
+  updateProject,
+}: {
+  project: Project
+  users: User[]
+  projects: Project[]
+  updateProject: (input: { projectId: string; patch: Partial<Project> }) => Promise<void>
+}) {
+  const projectMonths = getProjectAllocationMonths(project)
+  const estimatedEndDate = getEstimatedProjectEndDate(project)
+
+  const resolvedMembers = (() => {
+    const mappedMembers = project.personnelInfo.aitsMembers
+      .map((personnel) => {
+        const user = resolveAitsUser(personnel, users)
+        if (!user) return null
+        return { memberId: user.id, user, personnel } satisfies ResolvedAitsMember
+      })
+      .filter((item): item is ResolvedAitsMember => item !== null)
+    const mappedIds = new Set(mappedMembers.map((item) => item.memberId))
+    const fallbackMembers = [...new Set([project.adminId, ...project.memberIds])]
+      .filter((memberId) => !mappedIds.has(memberId))
+      .map((memberId) => {
+        const user = users.find((item) => item.id === memberId)
+        if (!user) return null
+        const savedTotal = project.monthlyAllocations
+          .filter((a) => a.memberId === memberId)
+          .reduce((sum, a) => sum + a.hours, 0)
+        return {
+          memberId,
+          user,
+          personnel: buildFallbackAitsPersonnel(user, project, savedTotal),
+        } satisfies ResolvedAitsMember
+      })
+      .filter((item): item is ResolvedAitsMember => item !== null)
+    return [...mappedMembers, ...fallbackMembers]
+  })()
+
+  const unmappedMembers = project.personnelInfo.aitsMembers.filter(
+    (personnel) => !resolveAitsUser(personnel, users),
+  )
+
+  const [draftAllocations, setDraftAllocations] = useState<Record<string, number>>(() =>
+    buildProjectDraftAllocations(project, resolvedMembers, projectMonths),
+  )
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    setDraftAllocations(buildProjectDraftAllocations(project, resolvedMembers, projectMonths))
+    setMessage('')
+  }, [project.id, projectMonths.length, projects])
+
+  function getDraftHours(memberId: string, month: string) {
+    return draftAllocations[buildAllocationKey(memberId, month)] ?? 0
+  }
+
+  function updateDraftHours(memberId: string, month: string, value: number) {
+    setDraftAllocations((current) => ({
+      ...current,
+      [buildAllocationKey(memberId, month)]: Math.max(0, Number.isFinite(value) ? Math.round(value) : 0),
+    }))
+  }
+
+  function autoDistributeMember(member: ResolvedAitsMember) {
+    const even = distributeHoursEvenly(member.personnel.totalPlannedHours, projectMonths)
+    setDraftAllocations((current) => {
+      const next = { ...current }
+      projectMonths.forEach((month) => {
+        next[buildAllocationKey(member.memberId, month)] = even[month] ?? 0
+      })
+      return next
+    })
+  }
+
+  function autoDistributeAll() {
+    setDraftAllocations(buildProjectDraftAllocations(project, resolvedMembers, projectMonths))
+  }
+
+  const rowSummaries = resolvedMembers.map((member) => {
+    const targetHours = Math.max(0, Math.round(member.personnel.totalPlannedHours))
+    const monthDetails = projectMonths.map((month) => {
+      const currentHours = getDraftHours(member.memberId, month)
+      const otherHours = projects
+        .filter((p) => p.id !== project.id)
+        .reduce((sum, p) => {
+          return (
+            sum +
+            p.monthlyAllocations
+              .filter((a) => a.memberId === member.memberId && a.month === month)
+              .reduce((s, a) => s + a.hours, 0)
+          )
+        }, 0)
+      return {
+        month,
+        currentProjectHours: currentHours,
+        otherProjectsHours: otherHours,
+        totalMonthHours: currentHours + otherHours,
+        remainingHours: member.user.monthlyCapacity - (currentHours + otherHours),
+        capacity: member.user.monthlyCapacity,
+      }
+    })
+    const allocatedHours = monthDetails.reduce((sum, d) => sum + d.currentProjectHours, 0)
+    return {
+      member,
+      targetHours,
+      allocatedHours,
+      deltaHours: targetHours - allocatedHours,
+      monthDetails,
+      overloadedMonths: monthDetails.filter((d) => d.remainingHours < 0).length,
+    }
+  })
+
+  const totalTargetHours = rowSummaries.reduce((sum, r) => sum + r.targetHours, 0)
+  const totalDraftHours = rowSummaries.reduce((sum, r) => sum + r.allocatedHours, 0)
+  const invalidRows = rowSummaries.filter((r) => r.deltaHours !== 0).length
+  const overloadedCells = rowSummaries.reduce((sum, r) => sum + r.overloadedMonths, 0)
+  const canSave = invalidRows === 0
+
+  async function handleSave() {
+    const editableIds = new Set(resolvedMembers.map((m) => m.memberId))
+    const editableMonths = new Set(projectMonths)
+    const preserved = project.monthlyAllocations.filter(
+      (a) => !(editableIds.has(a.memberId) && editableMonths.has(a.month)),
+    )
+    const next = [...preserved]
+    rowSummaries.forEach((row) => {
+      row.monthDetails.forEach((d) => {
+        if (d.currentProjectHours > 0) {
+          next.push({ memberId: row.member.memberId, month: d.month, hours: d.currentProjectHours })
+        }
+      })
+    })
+    await updateProject({
+      projectId: project.id,
+      patch: {
+        monthlyAllocations: next.sort((a, b) =>
+          a.month.localeCompare(b.month) || a.memberId.localeCompare(b.memberId),
+        ),
+      },
+    })
+    setMessage('Da luu phan bo gio cong theo thang cho du an.')
+  }
+
+  return (
+    <div className="detail-tab-panel" style={{ display: 'grid', gap: '1rem' }}>
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">Allocation planner</span>
+          <h3>Phan bo gio cong theo thanh vien va theo thang</h3>
+          <p style={{ margin: '0.2rem 0 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
+            Ky trien khai: {formatDate(project.startDate)} -{' '}
+            {formatDate(estimatedEndDate.format('YYYY-MM-DD'))} ({projectMonths.length} thang)
+          </p>
+        </div>
+        <div className="panel-actions">
+          <button type="button" className="ghost-button ghost-button--compact" onClick={autoDistributeAll}>
+            <Sparkles size={16} />
+            Chia deu tat ca
+          </button>
+          <button type="button" className="primary-button primary-button--compact" onClick={handleSave} disabled={!canSave}>
+            <Save size={16} />
+            Luu phan bo
+          </button>
+        </div>
+      </div>
+
+      {message ? <p className="form-success">{message}</p> : null}
+
+      <section className="detail-grid detail-grid--compact">
+        <div className="detail-card">
+          <span>Tong gio cong muc tieu</span>
+          <strong>{formatHours(totalTargetHours)}</strong>
+        </div>
+        <div className="detail-card">
+          <span>Tong gio da draft</span>
+          <strong>{formatHours(totalDraftHours)}</strong>
+        </div>
+        <div className="detail-card">
+          <span>Dong can dieu chinh</span>
+          <strong>{invalidRows}</strong>
+        </div>
+        <div className="detail-card">
+          <span>Canh bao qua tai</span>
+          <strong>{overloadedCells}</strong>
+        </div>
+      </section>
+
+      {unmappedMembers.length ? (
+        <section className="panel panel--compact">
+          <div className="panel-heading panel-heading--compact">
+            <div>
+              <span className="eyebrow">Mapping</span>
+              <h3>Nhan su AITS chua lien ket tai khoan</h3>
+            </div>
+            <StatusPill label={`${unmappedMembers.length} nhan su`} tone="warning" />
+          </div>
+          <div className="stack-list">
+            {unmappedMembers.map((member, index) => (
+              <div key={`${member.fullName}-${index}`} className="list-row list-row--compact">
+                <div>
+                  <strong>{member.fullName || 'Chua co ten'}</strong>
+                  <p>{member.email || 'Chua co email'} | {member.titleUnit || 'Chua cap nhat chuc danh'}</p>
+                </div>
+                <StatusPill label="Chua doi chieu capacity" tone="warning" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="table-wrapper workload-planner-table-wrapper">
+        <table className="workload-planner-table">
+          <thead>
+            <tr>
+              <th>Thanh vien</th>
+              <th>Tong gio cong</th>
+              <th>Da phan bo</th>
+              <th>Can bang</th>
+              <th>Tai tao</th>
+              {projectMonths.map((month) => (
+                <th key={month}>{formatMonthLabel(month)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rowSummaries.map((row) => (
+              <tr key={row.member.memberId}>
+                <td className="workload-member-cell">
+                  <strong>{row.member.personnel.fullName || row.member.user.name}</strong>
+                  <p>{row.member.personnel.role || row.member.user.title}</p>
+                  <small>{row.member.user.email}</small>
+                </td>
+                <td>
+                  <strong>{formatHours(row.targetHours)}</strong>
+                  <p className="workload-cell-note">Tu thong tin nhan su AITS</p>
+                </td>
+                <td>
+                  <strong>{formatHours(row.allocatedHours)}</strong>
+                  <p className="workload-cell-note">{row.monthDetails.length} thang</p>
+                </td>
+                <td>
+                  <StatusPill
+                    label={`${row.deltaHours > 0 ? 'Thieu' : row.deltaHours < 0 ? 'Vuot' : 'Can bang'} ${formatHours(Math.abs(row.deltaHours))}`}
+                    tone={row.deltaHours === 0 ? 'success' : 'warning'}
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--compact"
+                    onClick={() => autoDistributeMember(row.member)}
+                  >
+                    <RefreshCcw size={15} />
+                    Chia deu
+                  </button>
+                </td>
+                {row.monthDetails.map((detail) => (
+                  <td key={`${row.member.memberId}-${detail.month}`}>
+                    <div className="workload-month-cell">
+                      <input
+                        type="number"
+                        min={0}
+                        value={detail.currentProjectHours}
+                        onChange={(e) =>
+                          updateDraftHours(row.member.memberId, detail.month, Number(e.target.value))
+                        }
+                      />
+                      <div className="workload-month-cell__meta">
+                        <span>Khac DA: {formatHours(detail.otherProjectsHours)}</span>
+                        <span>
+                          Tong: {formatHours(detail.totalMonthHours)}/{formatHours(detail.capacity)}
+                        </span>
+                        <span className={detail.remainingHours < 0 ? 'text-danger' : ''}>
+                          Con lai: {formatHours(detail.remainingHours)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

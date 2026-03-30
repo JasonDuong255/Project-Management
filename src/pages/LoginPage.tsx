@@ -23,7 +23,7 @@ export function LoginPage() {
       : '/dashboard'
 
   const demoUsers = users.filter((user) =>
-    ['SYSTEM_ADMIN', 'PROJECT_ADMIN', 'DELIVERY_MEMBER'].includes(user.role),
+    ['SYSTEM_ADMIN', 'PROJECT_ADMIN', 'DELIVERY_MEMBER', 'PMO', 'PM', 'ADMIN_HC'].includes(user.role),
   )
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

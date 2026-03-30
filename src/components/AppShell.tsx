@@ -5,11 +5,13 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
+  Search,
   Settings2,
   TimerReset,
   UserCog,
 } from 'lucide-react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAppData } from '../context/AppContext'
 import { getTaskDeadlineNotifications } from '../lib/calculations'
@@ -26,13 +28,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     to: '/dashboard',
-    label: 'Dashboard',
+    label: 'Tổng quan',
     icon: LayoutDashboard,
-  },
-  {
-    to: '/notifications',
-    label: 'Thong bao',
-    icon: BellRing,
   },
   {
     to: '/projects',
@@ -61,8 +58,13 @@ const navItems: NavItem[] = [
     icon: BarChart3,
   },
   {
+    to: '/notifications',
+    label: 'Thông báo',
+    icon: BellRing,
+  },
+  {
     to: '/admin/catalogs',
-    label: 'Danh mục hệ thống',
+    label: 'Cài đặt hệ thống',
     icon: Settings2,
     roles: ['SYSTEM_ADMIN'],
   },
@@ -101,11 +103,8 @@ export function AppShell() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <span className="eyebrow">Internal PM Platform</span>
-          <h1>Project Product Management</h1>
-          <p>
-            Bộ khung frontend mô phỏng cho hệ thống quản lý dự án nội bộ của công ty.
-          </p>
+          <div className="brand-icon">Q</div>
+          <h1>QLDA</h1>
         </div>
 
         <nav className="sidebar-nav">
@@ -147,9 +146,8 @@ export function AppShell() {
             <strong>{currentUser.name}</strong>
             <span>{getRoleLabel(currentUser.role)}</span>
           </div>
-          <button type="button" className="ghost-button" onClick={handleLogout}>
+          <button type="button" className="ghost-button" onClick={handleLogout} title="Đăng xuất">
             <LogOut size={16} />
-            Đăng xuất
           </button>
         </div>
       </aside>
@@ -161,15 +159,28 @@ export function AppShell() {
             <h2>{currentTitle}</h2>
           </div>
           <div className="topbar-meta">
-            <Link to="/notifications" className="topbar-link">
-              <BellRing size={16} />
-              <span>Thong bao</span>
-              <strong>{notificationCount}</strong>
-            </Link>
+            <div className="topbar-search">
+              <Search size={14} />
+              <span>Tìm kiếm...</span>
+            </div>
+            <button
+              type="button"
+              className="topbar-icon-btn"
+              onClick={() => navigate('/notifications')}
+              title="Thông báo"
+            >
+              <MessageSquare size={18} />
+            </button>
+            <button
+              type="button"
+              className="topbar-icon-btn topbar-icon-btn--badge"
+              onClick={() => navigate('/notifications')}
+              title="Thông báo"
+              data-count={notificationCount || undefined}
+            >
+              <BellRing size={18} />
+            </button>
             <span className="status-pill tone-info">{currentUser.unit}</span>
-            <span className="status-pill tone-neutral">
-              Sức chứa tháng: {currentUser.monthlyCapacity}h
-            </span>
           </div>
         </header>
         <Outlet />

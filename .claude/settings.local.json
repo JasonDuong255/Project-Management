@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(taskkill //F //IM node.exe)"
+    ]
+  }
+}

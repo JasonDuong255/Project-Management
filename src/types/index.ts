@@ -374,4 +374,7 @@ export interface GanttItem {
   endDate: string
   progress: number
   status: PlanTaskStatus
+  depth: number
+  childCount: number
+  workType: WorkType
 }

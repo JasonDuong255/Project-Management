@@ -494,17 +494,24 @@ function getDescendantTasks(
 
 function buildScopedGanttItems(
   items: ScopedTaskItem[],
+  allTasks: PlanItem[],
   getAssigneeNames: (task: PlanItem) => string,
 ): GanttItem[] {
-  return items.map(({ task, depth }) => ({
-    id: task.id,
-    label: depth > 0 ? `Cap ${depth + 1}: ${task.name}` : task.name,
-    sublabel: `${getAssigneeNames(task)} | ${task.deliverable || 'Dang cap nhat deliverable'}`,
-    startDate: task.startDate,
-    endDate: task.endDate,
-    progress: task.progress,
-    status: task.status,
-  }))
+  return items.map(({ task, depth }) => {
+    const childCount = allTasks.filter((t) => t.parentId === task.id).length
+    return {
+      id: task.id,
+      label: task.name,
+      sublabel: `${getAssigneeNames(task)} | ${task.deliverable || 'Dang cap nhat deliverable'}`,
+      startDate: task.startDate,
+      endDate: task.endDate,
+      progress: task.progress,
+      status: task.status,
+      depth,
+      childCount,
+      workType: task.workType,
+    }
+  })
 }
 
 export function ProjectDetailPage() {
@@ -557,6 +564,7 @@ export function ProjectDetailPage() {
       .join(', ')
   const overviewGanttItems = buildScopedGanttItems(
     overviewTasks.map((task) => ({ task, depth: 0 })),
+    projectTasks,
     (task) => getTaskAssigneeNames(task) || 'Chua phan cong',
   )
   const focusedSubtaskItems = focusedOverviewTask
@@ -564,6 +572,7 @@ export function ProjectDetailPage() {
     : []
   const focusedSubtaskGanttItems = buildScopedGanttItems(
     focusedSubtaskItems,
+    projectTasks,
     (task) => getTaskAssigneeNames(task) || 'Chua phan cong',
   )
   const groupedProjectDocuments = projectDocumentCategories.map((category) => ({

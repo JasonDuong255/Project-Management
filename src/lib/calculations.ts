@@ -419,27 +419,71 @@ export function buildGanttItems(
       ? planItems.filter((item) => item.projectId === targetId)
       : planItems.filter((item) => getTaskAssigneeIds(item).includes(targetId))
 
-  const items: GanttItem[] = sourceItems
-    .sort((left, right) => left.startDate.localeCompare(right.startDate))
-    .map((item) => {
-      const project = projects.find((projectItem) => projectItem.id === item.projectId)
-      const assigneeNames = getTaskAssigneeIds(item)
-        .map((userId) => users.find((user) => user.id === userId)?.name ?? userId)
-        .join(', ')
+  // Build a map of parentId -> children count
+  const childCountMap = new Map<string, number>()
+  for (const item of sourceItems) {
+    if (item.parentId) {
+      childCountMap.set(item.parentId, (childCountMap.get(item.parentId) ?? 0) + 1)
+    }
+  }
 
-      return {
-        id: item.id,
-        label: item.name,
-        sublabel:
-          mode === 'project'
-            ? `${assigneeNames || 'Chua phan cong'} | ${item.deliverable}`
-            : `${project?.code ?? ''} | ${project?.name ?? 'N/A'}`,
-        startDate: item.startDate,
-        endDate: item.endDate,
-        progress: item.progress,
-        status: item.status,
-      }
-    })
+  // Build depth map by traversing parent chain
+  const depthMap = new Map<string, number>()
+  function getDepth(item: PlanItem): number {
+    if (depthMap.has(item.id)) return depthMap.get(item.id)!
+    if (!item.parentId) {
+      depthMap.set(item.id, 0)
+      return 0
+    }
+    const parent = sourceItems.find((si) => si.id === item.parentId)
+    if (!parent) {
+      depthMap.set(item.id, 0)
+      return 0
+    }
+    const depth = getDepth(parent) + 1
+    depthMap.set(item.id, depth)
+    return depth
+  }
+  for (const item of sourceItems) {
+    getDepth(item)
+  }
+
+  // Build tree-ordered flat list: parent first, then children sorted by startDate
+  function buildTreeOrder(parentId: string | null): PlanItem[] {
+    const children = sourceItems
+      .filter((item) => item.parentId === parentId)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    const result: PlanItem[] = []
+    for (const child of children) {
+      result.push(child)
+      result.push(...buildTreeOrder(child.id))
+    }
+    return result
+  }
+  const orderedItems = buildTreeOrder(null)
+
+  const items: GanttItem[] = orderedItems.map((item) => {
+    const project = projects.find((projectItem) => projectItem.id === item.projectId)
+    const assigneeNames = getTaskAssigneeIds(item)
+      .map((userId) => users.find((user) => user.id === userId)?.name ?? userId)
+      .join(', ')
+
+    return {
+      id: item.id,
+      label: item.name,
+      sublabel:
+        mode === 'project'
+          ? `${assigneeNames || 'Chua phan cong'} | ${item.deliverable}`
+          : `${project?.code ?? ''} | ${project?.name ?? 'N/A'}`,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      progress: item.progress,
+      status: item.status,
+      depth: depthMap.get(item.id) ?? 0,
+      childCount: childCountMap.get(item.id) ?? 0,
+      workType: item.workType,
+    }
+  })
 
   return items
 }

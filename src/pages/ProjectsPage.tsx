@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { CirclePlus, Eye, FileText, ShieldAlert, Sparkles, Users, X } from 'lucide-react'
+import { CirclePlus, Eye, FileText, ShieldAlert, Sparkles, Trash2, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -19,6 +19,7 @@ import type { CreateProjectTeamMemberInput, Project, User } from '../types'
 interface MemberDraft {
   selected: boolean
   role: string
+  responsibility: string
   totalPlannedHours: number
 }
 
@@ -43,6 +44,7 @@ function buildInitialForm(projectCount: number, sponsorId: string) {
     startDate: dayjs().format('YYYY-MM-DD'),
     endDate: dayjs().add(4, 'month').endOf('month').format('YYYY-MM-DD'),
     approvalRequestFileName: '',
+    ttkDecisionNumber: '',
   }
 }
 
@@ -50,6 +52,7 @@ function buildEmptyMemberDraft(): MemberDraft {
   return {
     selected: false,
     role: 'Thanh vien trien khai',
+    responsibility: '',
     totalPlannedHours: 0,
   }
 }
@@ -193,6 +196,8 @@ export function ProjectsPage() {
       .map((row) => row.user.id),
   )
 
+  const selectedMemberCount = Object.values(memberDrafts).filter((d) => d.selected).length
+
   function getMemberDraft(userId: string) {
     return memberDrafts[userId] ?? buildEmptyMemberDraft()
   }
@@ -287,17 +292,13 @@ export function ProjectsPage() {
       return
     }
 
-    if (!form.approvalRequestFileName) {
-      setMessage('Hay chon file Phieu phe duyet trien khai truoc khi tao du an.')
-      return
-    }
-
     await createProject({
       code: form.code,
       name: form.name,
       summary: form.summary,
       sponsor: form.sponsor,
       objective: form.objective,
+      ttkDecisionNumber: form.ttkDecisionNumber,
       createdById: currentUser.id,
       adminId: form.adminId,
       startDate: form.startDate,
@@ -307,7 +308,7 @@ export function ProjectsPage() {
       department: currentUser.unit,
     })
 
-    setMessage('Da tao du an moi va chuyen sang trang thai cho To chuc hanh chinh phe duyet.')
+    setMessage('Da tao du an moi thanh cong.')
     setIsCreateOpen(false)
     resetCreateState()
   }
@@ -440,7 +441,7 @@ export function ProjectsPage() {
               <div>
                 <span className="eyebrow">PMO workspace</span>
                 <h3>Tao du an moi</h3>
-                <p>PMO lap bo thong tin khoi tao, chon PM, roster trien khai va gui file de nghi thanh lap TTK.</p>
+                <p>PMO lap bo thong tin khoi tao, chon PM va danh sach nhan su trien khai.</p>
               </div>
               <button type="button" className="ghost-button icon-button" onClick={closeCreateModal}>
                 <X size={16} />
@@ -496,7 +497,7 @@ export function ProjectsPage() {
                   value={form.adminId}
                   onChange={(event) => handlePmChange(event.target.value)}
                 >
-                  <option value="">Hay chon PM tu roster ben duoi</option>
+                  <option value="">Hay chon PM tu danh sach nhan su</option>
                   {deployableUsers
                     .filter((user) => normalizeUserRole(user.role) === 'PM' && getMemberDraft(user.id).selected)
                     .map((user) => (
@@ -535,8 +536,17 @@ export function ProjectsPage() {
                 />
               </label>
 
-              <label className="span-2">
-                <span>Phieu phe duyet trien khai</span>
+              <label>
+                <span>So quyet dinh thanh lap TTK</span>
+                <input
+                  value={form.ttkDecisionNumber}
+                  placeholder="Vi du: QD-2026/001"
+                  onChange={(event) => setForm((current) => ({ ...current, ttkDecisionNumber: event.target.value }))}
+                />
+              </label>
+
+              <label>
+                <span>File quyet dinh</span>
                 <div className="document-upload-field">
                   <input
                     key={documentInputKey}
@@ -552,7 +562,7 @@ export function ProjectsPage() {
                   />
                   <div className="document-upload-meta">
                     <FileText size={15} />
-                    <span>{form.approvalRequestFileName || 'Chua chon file de nghi phe duyet'}</span>
+                    <span>{form.approvalRequestFileName || 'Chua chon file'}</span>
                   </div>
                 </div>
               </label>
@@ -562,13 +572,30 @@ export function ProjectsPage() {
                   <div>
                     <span className="eyebrow">Roster builder</span>
                     <h4>Danh sach nhan su trien khai</h4>
-                    <p>
-                      Theo doi gio cong phan bo chung, gio cong da duoc phan bo thang nay/thang sau va nhap gio cong du an cho tung nhan su.
-                    </p>
+                    <p>Chon nhan su tu danh sach he thong de them vao to trien khai du an.</p>
                   </div>
                   <div className="inline-actions">
-                    <StatusPill label={`Thang nay ${currentMonth}`} tone="neutral" />
-                    <StatusPill label={`Thang sau ${nextMonth}`} tone="neutral" />
+                    <StatusPill label={`${selectedMemberCount} da chon`} tone={selectedMemberCount ? 'info' : 'neutral'} />
+                    <select
+                      className="ghost-button ghost-button--compact"
+                      value=""
+                      onChange={(event) => {
+                        const userId = event.target.value
+                        if (!userId) return
+                        const user = deployableUsers.find((u) => u.id === userId)
+                        if (user) toggleMember(user)
+                        event.target.value = ''
+                      }}
+                    >
+                      <option value="">+ Them nhan su...</option>
+                      {deployableUsers
+                        .filter((u) => !getMemberDraft(u.id).selected)
+                        .map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name} - {user.employeeCode} - {user.title}
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 </div>
 
@@ -576,102 +603,79 @@ export function ProjectsPage() {
                   <table className="roster-table">
                     <thead>
                       <tr>
-                        <th>Chon</th>
+                        <th>STT</th>
                         <th>Ho va ten</th>
-                        <th>Chuc danh / Don vi</th>
+                        <th>Chuc danh</th>
+                        <th>Don vi</th>
                         <th>Vai tro</th>
+                        <th>Nhiem vu</th>
                         <th>Ma NV</th>
-                        <th>Gio cong chung</th>
-                        <th>Da PB thang nay</th>
-                        <th>Da PB thang sau</th>
-                        <th>Gio cong du an</th>
-                        <th>De xuat</th>
+                        <th>Thao tac</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {memberResourceRows.map((row) => {
-                        const draft = getMemberDraft(row.user.id)
-                        const isPmCandidate = normalizeUserRole(row.user.role) === 'PM'
+                      {deployableUsers
+                        .filter((user) => getMemberDraft(user.id).selected)
+                        .map((user, index) => {
+                          const draft = getMemberDraft(user.id)
 
-                        return (
-                          <tr key={row.user.id}>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={draft.selected}
-                                onChange={() => toggleMember(row.user)}
-                              />
-                            </td>
-                            <td>
-                              <strong>{row.user.name}</strong>
-                              <p className="workload-cell-note">{row.user.email}</p>
-                            </td>
-                            <td>{row.user.title} - {row.user.unit}</td>
-                            <td>
-                              <select
-                                value={row.user.id === form.adminId ? 'PM du an' : draft.role}
-                                onChange={(event) =>
-                                  updateMemberDraft(row.user.id, {
-                                    role: event.target.value,
-                                  })
-                                }
-                                disabled={!draft.selected || row.user.id === form.adminId}
-                              >
-                                {roleOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td>{row.user.employeeCode}</td>
-                            <td>
-                              <strong>{formatHours(row.user.monthlyCapacity)}</strong>
-                              <p className="workload-cell-note">Cap tu To chuc hanh chinh</p>
-                            </td>
-                            <td>
-                              <strong>{formatHours(row.currentMonthAllocated)}</strong>
-                              <p className="workload-cell-note">Con lai {formatHours(row.remainingCurrent)}</p>
-                            </td>
-                            <td>
-                              <strong>{formatHours(row.nextMonthAllocated)}</strong>
-                              <p className="workload-cell-note">Con lai {formatHours(row.remainingNext)}</p>
-                            </td>
-                            <td>
-                              <input
-                                type="number"
-                                min={0}
-                                value={draft.totalPlannedHours}
-                                onChange={(event) =>
-                                  updateMemberDraft(row.user.id, {
-                                    totalPlannedHours: Number(event.target.value),
-                                  })
-                                }
-                                disabled={!draft.selected}
-                              />
-                            </td>
-                            <td>
-                              <div className="inline-actions">
-                                {suggestedMemberIds.has(row.user.id) ? (
-                                  <StatusPill label="Phu hop" tone="success" />
-                                ) : (
-                                  <StatusPill label="Can doi chieu" tone="neutral" />
-                                )}
-                                {isPmCandidate ? <StatusPill label="Ung vien PM" tone="info" /> : null}
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
+                          return (
+                            <tr key={user.id}>
+                              <td>{index + 1}</td>
+                              <td>
+                                <strong>{user.name}</strong>
+                                <p className="workload-cell-note">{user.email}</p>
+                              </td>
+                              <td>{user.title}</td>
+                              <td>{user.unit}</td>
+                              <td>
+                                <select
+                                  value={user.id === form.adminId ? 'PM du an' : draft.role}
+                                  onChange={(event) =>
+                                    updateMemberDraft(user.id, { role: event.target.value })
+                                  }
+                                  disabled={user.id === form.adminId}
+                                >
+                                  {roleOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  value={draft.responsibility}
+                                  placeholder="Nhap nhiem vu"
+                                  onChange={(event) =>
+                                    updateMemberDraft(user.id, { responsibility: event.target.value })
+                                  }
+                                />
+                              </td>
+                              <td>{user.employeeCode}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="ghost-button ghost-button--compact"
+                                  style={{ color: 'var(--danger, #dc2626)' }}
+                                  onClick={() => toggleMember(user)}
+                                >
+                                  <Trash2 size={14} />
+                                  Xoa
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      {!selectedMemberCount ? (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>
+                            Chua co nhan su. Hay chon tu danh sach ben tren.
+                          </td>
+                        </tr>
+                      ) : null}
                     </tbody>
                   </table>
-                </div>
-
-                <div className="roster-builder__hint">
-                  <Sparkles size={16} />
-                  <span>
-                    Danh dau `Phu hop` cho nhung nhan su con dung luong gio cong trong thang hien tai va thang tiep theo de PMO uu tien sap xep.
-                  </span>
                 </div>
               </div>
 
@@ -681,7 +685,7 @@ export function ProjectsPage() {
                 </button>
                 <button type="submit" className="primary-button">
                   <CirclePlus size={16} />
-                  Tao du an va gui duyet
+                  Tao du an
                 </button>
               </div>
             </form>

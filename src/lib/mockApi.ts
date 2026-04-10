@@ -1,9 +1,12 @@
 import type {
+  ActivityLogAction,
+  ActivityLogChange,
   AppSnapshot,
   Catalogs,
   CreateDocumentInput,
   CreateProjectInput,
   DeleteDocumentInput,
+  DeletePlanItemInput,
   DelayRaise,
   MockDatabase,
   PlanItem,
@@ -12,6 +15,7 @@ import type {
   SavePlanItemInput,
   SaveRiskInput,
   SaveWorklogInput,
+  UpdateDocumentInput,
   UpdateProjectInput,
   User,
   Worklog,
@@ -28,6 +32,34 @@ async function wait(duration = 220) {
 
 function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function getCurrentUserId(): string {
+  return window.localStorage.getItem(CURRENT_USER_KEY) ?? ''
+}
+
+function addActivityLog(
+  database: MockDatabase,
+  params: {
+    projectId: string
+    action: ActivityLogAction
+    entityType: 'PROJECT' | 'PLAN_ITEM'
+    entityId: string
+    entityName: string
+    changes: ActivityLogChange[]
+  },
+) {
+  database.activityLogs.unshift({
+    id: createId('log'),
+    projectId: params.projectId,
+    userId: getCurrentUserId(),
+    action: params.action,
+    entityType: params.entityType,
+    entityId: params.entityId,
+    entityName: params.entityName,
+    changes: params.changes,
+    timestamp: new Date().toISOString(),
+  })
 }
 
 function calculateDurationDays(startDate: string, endDate: string) {
@@ -185,7 +217,8 @@ function buildAitsPersonnelFromProject(project: Project, users: User[]): Project
       userId: memberId,
       employeeCode: user?.employeeCode ?? '',
       fullName: user?.name ?? memberId,
-      titleUnit: user ? `${user.title} - ${user.unit}` : '',
+      title: user?.title ?? '',
+      unit: user?.unit ?? '',
       role: memberId === project.adminId ? 'PM du an' : 'Thanh vien trien khai',
       responsibility: '',
       totalPlannedHours,
@@ -244,7 +277,8 @@ function normalizeAitsPersonnelItems(
     userId: resolveAitsUserId(item, users),
     employeeCode: item?.employeeCode ?? '',
     fullName: item?.fullName ?? '',
-    titleUnit: item?.titleUnit ?? '',
+    title: item?.title ?? splitTitleUnit(item).title,
+    unit: item?.unit ?? splitTitleUnit(item).unit,
     role: normalizePersonnelRole(item?.role),
     responsibility: item?.responsibility ?? '',
     totalPlannedHours: item?.totalPlannedHours ?? 0,
@@ -256,7 +290,8 @@ function normalizeAitsPersonnelItems(
 function normalizeExternalPersonnelItems(items?: Project['personnelInfo']['customerMembers']) {
   return (items ?? []).map((item) => ({
     fullName: item?.fullName ?? '',
-    titleUnit: item?.titleUnit ?? '',
+    title: item?.title ?? splitTitleUnit(item).title,
+    unit: item?.unit ?? splitTitleUnit(item).unit,
     role: item?.role ?? '',
     responsibility: item?.responsibility ?? '',
     email: item?.email ?? '',
@@ -278,7 +313,7 @@ function attachAitsUserIds(
 
     const looksLikePm =
       item.role.toLowerCase().includes('pm') ||
-      item.titleUnit.toLowerCase().includes('project manager') ||
+      item.title.toLowerCase().includes('project manager') ||
       index === 0
 
     if (looksLikePm && project.adminId && !usedIds.has(project.adminId)) {
@@ -300,6 +335,13 @@ function attachAitsUserIds(
       userId: nextId,
     }
   })
+}
+
+function splitTitleUnit(item: Record<string, unknown> | undefined | null): { title: string; unit: string } {
+  const combined = ((item as Record<string, unknown>)?.titleUnit as string) ?? ''
+  if (!combined) return { title: '', unit: '' }
+  const parts = combined.split(' - ')
+  return { title: parts[0]?.trim() ?? '', unit: parts.slice(1).join(' - ').trim() }
 }
 
 function normalizeFinancialItem(
@@ -330,7 +372,8 @@ function normalizeProject(project: Project, users: User[]): Project {
       ...item,
       employeeCode: item.employeeCode || resolvedUser?.employeeCode || '',
       fullName: item.fullName || resolvedUser?.name || item.userId,
-      titleUnit: item.titleUnit || (resolvedUser ? `${resolvedUser.title} - ${resolvedUser.unit}` : ''),
+      title: item.title || resolvedUser?.title || '',
+      unit: item.unit || resolvedUser?.unit || '',
       email: item.email || resolvedUser?.email || '',
       phone: item.phone || resolvedUser?.phone || '',
     }
@@ -341,6 +384,7 @@ function normalizeProject(project: Project, users: User[]): Project {
 
   return {
     ...project,
+    ttkDecisionNumber: project.ttkDecisionNumber ?? '',
     createdById: project.createdById ?? approvalInfo.requestedById ?? project.adminId,
     approvalInfo,
     basisInfo: {
@@ -390,6 +434,7 @@ function normalizeDatabase(database: MockDatabase): MockDatabase {
     catalogs,
     projects: database.projects.map((project) => normalizeProject(project, users)),
     planItems: database.planItems.map((item) => normalizePlanItem(item)),
+    activityLogs: database.activityLogs ?? [],
   }
 }
 
@@ -437,13 +482,14 @@ async function fetchJsonFile<T>(url: string) {
 }
 
 async function loadSeedDatabase() {
-  const [users, projects, planItems, worklogs, delayRaises, catalogs] =
+  const [users, projects, planItems, worklogs, delayRaises, activityLogs, catalogs] =
     await Promise.all([
       fetchJsonFile<User[]>('/mock/users.json'),
       fetchJsonFile<Project[]>('/mock/projects.json'),
       fetchJsonFile<PlanItem[]>('/mock/plan-items.json'),
       fetchJsonFile<Worklog[]>('/mock/worklogs.json'),
       fetchJsonFile<DelayRaise[]>('/mock/delay-raises.json'),
+      fetchJsonFile<import('../types').ActivityLog[]>('/mock/activity-logs.json'),
       fetchJsonFile<Catalogs>('/mock/catalogs.json'),
     ])
 
@@ -453,6 +499,7 @@ async function loadSeedDatabase() {
     planItems,
     worklogs,
     delayRaises,
+    activityLogs,
     catalogs,
   } satisfies MockDatabase)
 }
@@ -541,7 +588,8 @@ export async function createProject(input: CreateProjectInput) {
           userId: member.userId,
           employeeCode: user?.employeeCode ?? '',
           fullName: user?.name ?? member.userId,
-          titleUnit: user ? `${user.title} - ${user.unit}` : '',
+          title: user?.title ?? '',
+      unit: user?.unit ?? '',
           role: member.role,
           responsibility: '',
           totalPlannedHours: member.totalPlannedHours,
@@ -560,6 +608,7 @@ export async function createProject(input: CreateProjectInput) {
       sponsor: input.sponsor,
       department: input.department ?? 'PMO',
       objective: input.objective,
+      ttkDecisionNumber: input.ttkDecisionNumber ?? '',
       createdById: input.createdById,
       adminId: input.adminId,
       memberIds,
@@ -595,50 +644,266 @@ export async function createProject(input: CreateProjectInput) {
 
 export async function updateProject(input: UpdateProjectInput) {
   return updateDatabase((database) => {
+    const existing = database.projects.find((p) => p.id === input.projectId)
+    if (!existing) return
+
     database.projects = database.projects.map((project) =>
       project.id === input.projectId
         ? normalizeProject({ ...project, ...input.patch }, database.users)
         : project,
     )
+
+    // Detect close/reopen
+    if (input.patch.status) {
+      if (input.patch.status === 'DONE' && existing.status !== 'DONE') {
+        addActivityLog(database, {
+          projectId: input.projectId,
+          action: 'PROJECT_CLOSED',
+          entityType: 'PROJECT',
+          entityId: input.projectId,
+          entityName: existing.name,
+          changes: [{ field: 'status', oldValue: existing.status, newValue: 'DONE' }],
+        })
+        return
+      }
+      if (input.patch.status !== 'DONE' && existing.status === 'DONE') {
+        addActivityLog(database, {
+          projectId: input.projectId,
+          action: 'PROJECT_REOPENED',
+          entityType: 'PROJECT',
+          entityId: input.projectId,
+          entityName: existing.name,
+          changes: [{ field: 'status', oldValue: 'DONE', newValue: input.patch.status }],
+        })
+        return
+      }
+    }
+
+    // Detect personnel changes
+    if (input.patch.personnelInfo) {
+      const oldMembers = existing.personnelInfo?.aitsMembers ?? []
+      const newMembers = input.patch.personnelInfo.aitsMembers ?? []
+      const oldCustomers = existing.personnelInfo?.customerMembers ?? []
+      const newCustomers = input.patch.personnelInfo.customerMembers ?? []
+      const oldPartners = existing.personnelInfo?.partners ?? []
+      const newPartners = input.patch.personnelInfo.partners ?? []
+
+      const personnelChanges: import('../types').ActivityLogChange[] = []
+      if (oldMembers.length !== newMembers.length) {
+        personnelChanges.push({ field: 'aitsMembers', oldValue: `${oldMembers.length} thanh vien`, newValue: `${newMembers.length} thanh vien` })
+      }
+      if (oldCustomers.length !== newCustomers.length) {
+        personnelChanges.push({ field: 'customerMembers', oldValue: `${oldCustomers.length} khach hang`, newValue: `${newCustomers.length} khach hang` })
+      }
+      if (oldPartners.length !== newPartners.length) {
+        personnelChanges.push({ field: 'partners', oldValue: `${oldPartners.length} doi tac`, newValue: `${newPartners.length} doi tac` })
+      }
+
+      // Detect member detail changes even if count stays the same
+      if (personnelChanges.length === 0) {
+        const oldJson = JSON.stringify(oldMembers.map(m => ({ userId: m.userId, role: m.role, hours: m.totalPlannedHours })))
+        const newJson = JSON.stringify(newMembers.map(m => ({ userId: m.userId, role: m.role, hours: m.totalPlannedHours })))
+        if (oldJson !== newJson) {
+          personnelChanges.push({ field: 'aitsMembers', oldValue: 'Thay doi chi tiet', newValue: 'Cap nhat vai tro/gio cong' })
+        }
+        const oldCJson = JSON.stringify(oldCustomers)
+        const newCJson = JSON.stringify(newCustomers)
+        if (oldCJson !== newCJson) {
+          personnelChanges.push({ field: 'customerMembers', oldValue: 'Thay doi chi tiet', newValue: 'Cap nhat thong tin KH' })
+        }
+        const oldPJson = JSON.stringify(oldPartners)
+        const newPJson = JSON.stringify(newPartners)
+        if (oldPJson !== newPJson) {
+          personnelChanges.push({ field: 'partners', oldValue: 'Thay doi chi tiet', newValue: 'Cap nhat thong tin doi tac' })
+        }
+      }
+
+      if (personnelChanges.length > 0) {
+        addActivityLog(database, {
+          projectId: input.projectId,
+          action: 'PERSONNEL_UPDATED',
+          entityType: 'PROJECT',
+          entityId: input.projectId,
+          entityName: existing.name,
+          changes: personnelChanges,
+        })
+      }
+      return
+    }
+
+    // Detect general info changes
+    const trackFields = ['summary', 'sponsor', 'department', 'objective', 'startDate', 'endDate', 'status', 'health', 'currentPhase', 'adjustedPlan'] as const
+    const changes: import('../types').ActivityLogChange[] = []
+    for (const field of trackFields) {
+      if (field in (input.patch as Record<string, unknown>)) {
+        const oldVal = existing[field]
+        const newVal = (input.patch as Record<string, unknown>)[field]
+        if (oldVal !== newVal) {
+          changes.push({ field, oldValue: String(oldVal ?? ''), newValue: String(newVal ?? '') })
+        }
+      }
+    }
+
+    // Detect basisInfo changes
+    if (input.patch.basisInfo) {
+      const oldBasis = existing.basisInfo
+      const newBasis = input.patch.basisInfo
+      if (oldBasis.ttkMode !== newBasis.ttkMode) {
+        changes.push({ field: 'ttkMode', oldValue: oldBasis.ttkMode, newValue: newBasis.ttkMode })
+      }
+      if (oldBasis.deploymentMode !== newBasis.deploymentMode) {
+        changes.push({ field: 'deploymentMode', oldValue: oldBasis.deploymentMode, newValue: newBasis.deploymentMode })
+      }
+      if (oldBasis.durationHours !== newBasis.durationHours) {
+        changes.push({ field: 'durationHours', oldValue: oldBasis.durationHours, newValue: newBasis.durationHours })
+      }
+    }
+
+    // Detect financialInfo changes
+    if (input.patch.financialInfo) {
+      const oldFin = existing.financialInfo
+      const newFin = input.patch.financialInfo
+      if (oldFin.revenue.amount !== newFin.revenue.amount) {
+        changes.push({ field: 'revenue', oldValue: oldFin.revenue.amount, newValue: newFin.revenue.amount })
+      }
+      if (oldFin.internalCost.amount !== newFin.internalCost.amount) {
+        changes.push({ field: 'internalCost', oldValue: oldFin.internalCost.amount, newValue: newFin.internalCost.amount })
+      }
+      if (oldFin.externalCost.amount !== newFin.externalCost.amount) {
+        changes.push({ field: 'externalCost', oldValue: oldFin.externalCost.amount, newValue: newFin.externalCost.amount })
+      }
+      if (oldFin.profit.amount !== newFin.profit.amount) {
+        changes.push({ field: 'profit', oldValue: oldFin.profit.amount, newValue: newFin.profit.amount })
+      }
+    }
+
+    if (changes.length > 0) {
+      addActivityLog(database, {
+        projectId: input.projectId,
+        action: 'PROJECT_INFO_UPDATED',
+        entityType: 'PROJECT',
+        entityId: input.projectId,
+        entityName: existing.name,
+        changes,
+      })
+    }
   })
 }
 
 export async function addProjectDocument(input: CreateDocumentInput) {
   return updateDatabase((database) => {
-    database.projects = database.projects.map((project) => {
-      if (project.id !== input.projectId) {
-        return project
+    const project = database.projects.find((p) => p.id === input.projectId)
+    const now = new Date().toISOString()
+
+    database.projects = database.projects.map((p) => {
+      if (p.id !== input.projectId) {
+        return p
       }
 
       return {
-        ...project,
+        ...p,
         documents: [
           {
             id: createId('doc'),
             title: input.title,
             category: input.category,
+            documentNumber: '',
             description: input.description,
             url: input.url,
             uploadedBy: input.uploadedBy,
-            uploadedAt: new Date().toISOString(),
+            uploadedAt: now,
+            updatedBy: '',
+            updatedAt: '',
           },
-          ...project.documents,
+          ...p.documents,
         ],
       }
     })
+
+    if (project) {
+      addActivityLog(database, {
+        projectId: input.projectId,
+        action: 'DOCUMENT_ADDED',
+        entityType: 'PROJECT',
+        entityId: input.projectId,
+        entityName: project.name,
+        changes: [{ field: input.category, oldValue: null, newValue: input.title }],
+      })
+    }
+  })
+}
+
+export async function updateProjectDocument(input: UpdateDocumentInput) {
+  return updateDatabase((database) => {
+    const project = database.projects.find((p) => p.id === input.projectId)
+    const existingDoc = project?.documents.find((d) => d.id === input.documentId)
+
+    database.projects = database.projects.map((p) => {
+      if (p.id !== input.projectId) return p
+
+      return {
+        ...p,
+        documents: p.documents.map((doc) =>
+          doc.id === input.documentId
+            ? {
+                ...doc,
+                title: input.title,
+                category: input.category,
+                documentNumber: input.documentNumber,
+                description: input.description,
+                url: input.url || doc.url,
+                updatedBy: input.updatedBy,
+                updatedAt: new Date().toISOString(),
+              }
+            : doc,
+        ),
+      }
+    })
+
+    if (project && existingDoc) {
+      const changes: import('../types').ActivityLogChange[] = []
+      if (existingDoc.title !== input.title) changes.push({ field: 'title', oldValue: existingDoc.title, newValue: input.title })
+      if (existingDoc.category !== input.category) changes.push({ field: 'category', oldValue: existingDoc.category, newValue: input.category })
+      if ((existingDoc.documentNumber ?? '') !== input.documentNumber) changes.push({ field: 'documentNumber', oldValue: existingDoc.documentNumber ?? '', newValue: input.documentNumber })
+
+      if (changes.length > 0) {
+        addActivityLog(database, {
+          projectId: input.projectId,
+          action: 'DOCUMENT_ADDED',
+          entityType: 'PROJECT',
+          entityId: input.projectId,
+          entityName: project.name,
+          changes,
+        })
+      }
+    }
   })
 }
 
 export async function deleteProjectDocument(input: DeleteDocumentInput) {
   return updateDatabase((database) => {
-    database.projects = database.projects.map((project) =>
-      project.id === input.projectId
+    const project = database.projects.find((p) => p.id === input.projectId)
+    const doc = project?.documents.find((d) => d.id === input.documentId)
+
+    database.projects = database.projects.map((p) =>
+      p.id === input.projectId
         ? {
-            ...project,
-            documents: project.documents.filter((document) => document.id !== input.documentId),
+            ...p,
+            documents: p.documents.filter((document) => document.id !== input.documentId),
           }
-        : project,
+        : p,
     )
+
+    if (project && doc) {
+      addActivityLog(database, {
+        projectId: input.projectId,
+        action: 'DOCUMENT_DELETED',
+        entityType: 'PROJECT',
+        entityId: input.projectId,
+        entityName: project.name,
+        changes: [{ field: doc.category, oldValue: doc.title, newValue: null }],
+      })
+    }
   })
 }
 
@@ -661,12 +926,57 @@ export async function savePlanItem(input: SavePlanItemInput) {
             }
           : item,
       )
+
+      // Track all changes to the plan item
+      const isSubtask = existing.parentId !== null
+      const planChanges: import('../types').ActivityLogChange[] = []
+
+      if (existing.plannedHours !== input.plannedHours) {
+        planChanges.push({ field: 'plannedHours', oldValue: existing.plannedHours, newValue: input.plannedHours })
+      }
+      if (existing.name !== input.name) {
+        planChanges.push({ field: 'name', oldValue: existing.name, newValue: input.name })
+      }
+      if (existing.startDate !== input.startDate) {
+        planChanges.push({ field: 'startDate', oldValue: existing.startDate, newValue: input.startDate })
+      }
+      if (existing.endDate !== input.endDate) {
+        planChanges.push({ field: 'endDate', oldValue: existing.endDate, newValue: input.endDate })
+      }
+      if (existing.status !== input.status) {
+        planChanges.push({ field: 'status', oldValue: existing.status, newValue: input.status })
+      }
+      if (JSON.stringify(existing.assigneeIds) !== JSON.stringify(normalizeAssigneeIds(input.assigneeIds, input.assigneeId))) {
+        planChanges.push({ field: 'assigneeIds', oldValue: existing.assigneeIds.join(', '), newValue: normalizeAssigneeIds(input.assigneeIds, input.assigneeId).join(', ') })
+      }
+      if (existing.deliverable !== input.deliverable) {
+        planChanges.push({ field: 'deliverable', oldValue: existing.deliverable || null, newValue: input.deliverable || null })
+      }
+
+      if (planChanges.length > 0) {
+        // Use specific HOURS_CHANGED action if only hours changed
+        const onlyHoursChanged = planChanges.length === 1 && planChanges[0].field === 'plannedHours'
+        addActivityLog(database, {
+          projectId: input.projectId,
+          action: onlyHoursChanged
+            ? (isSubtask ? 'SUBTASK_HOURS_CHANGED' : 'TASK_HOURS_CHANGED')
+            : (isSubtask ? 'SUBTASK_UPDATED' : 'TASK_UPDATED'),
+          entityType: 'PLAN_ITEM',
+          entityId: existing.id,
+          entityName: existing.name,
+          changes: planChanges,
+        })
+      }
+
       recalculateProjectProgress(database, input.projectId)
       return
     }
 
+    const newId = createId('task')
+    const isSubtask = input.parentId !== null
+
     database.planItems.unshift({
-      id: createId('task'),
+      id: newId,
       projectId: input.projectId,
       parentId: input.parentId,
       name: input.name,
@@ -688,12 +998,62 @@ export async function savePlanItem(input: SavePlanItemInput) {
       replanRequested: input.status === 'NEEDS_REPLAN',
     })
 
+    addActivityLog(database, {
+      projectId: input.projectId,
+      action: isSubtask ? 'SUBTASK_CREATED' : 'TASK_CREATED',
+      entityType: 'PLAN_ITEM',
+      entityId: newId,
+      entityName: input.name,
+      changes: [
+        { field: 'plannedHours', oldValue: null, newValue: input.plannedHours },
+        { field: 'startDate', oldValue: null, newValue: input.startDate },
+        { field: 'endDate', oldValue: null, newValue: input.endDate },
+      ],
+    })
+
+    recalculateProjectProgress(database, input.projectId)
+  })
+}
+
+export async function deletePlanItem(input: DeletePlanItemInput) {
+  return updateDatabase((database) => {
+    const item = database.planItems.find((i) => i.id === input.planItemId)
+    if (!item) return
+
+    const isSubtask = item.parentId !== null
+
+    // Delete the item and all its children (if it's a parent task)
+    const idsToDelete = new Set([input.planItemId])
+    if (!isSubtask) {
+      database.planItems
+        .filter((i) => i.parentId === input.planItemId)
+        .forEach((child) => idsToDelete.add(child.id))
+    }
+
+    database.planItems = database.planItems.filter((i) => !idsToDelete.has(i.id))
+    database.worklogs = database.worklogs.filter((w) => !idsToDelete.has(w.taskId))
+
+    addActivityLog(database, {
+      projectId: input.projectId,
+      action: isSubtask ? 'SUBTASK_DELETED' : 'TASK_DELETED',
+      entityType: 'PLAN_ITEM',
+      entityId: input.planItemId,
+      entityName: item.name,
+      changes: [{
+        field: 'deleted',
+        oldValue: item.name,
+        newValue: null,
+      }],
+    })
+
     recalculateProjectProgress(database, input.projectId)
   })
 }
 
 export async function addWorklog(input: SaveWorklogInput) {
   return updateDatabase((database) => {
+    const task = database.planItems.find((item) => item.id === input.taskId)
+
     database.worklogs.unshift({
       id: createId('wl'),
       taskId: input.taskId,
@@ -723,6 +1083,21 @@ export async function addWorklog(input: SaveWorklogInput) {
         status: nextStatus,
       }
     })
+
+    if (task) {
+      addActivityLog(database, {
+        projectId: input.projectId,
+        action: 'WORKLOG_ADDED',
+        entityType: 'PLAN_ITEM',
+        entityId: input.taskId,
+        entityName: task.name,
+        changes: [
+          { field: 'hours', oldValue: null, newValue: input.hours },
+          { field: 'progress', oldValue: task.progress, newValue: input.progress },
+          ...(input.progressNote ? [{ field: 'note', oldValue: null, newValue: input.progressNote }] : []),
+        ],
+      })
+    }
 
     recalculateProjectProgress(database, input.projectId)
   })

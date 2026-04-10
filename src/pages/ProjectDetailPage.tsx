@@ -30,6 +30,7 @@ import {
 } from '../lib/calculations'
 import { formatDate, formatHours, formatMonthLabel, getCatalogLabel } from '../lib/formatters'
 import type {
+  ActivityLogAction,
   DeploymentMode,
   GanttItem,
   PlanItem,
@@ -55,7 +56,43 @@ type ReferenceGroupKey =
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
 type ProjectDocumentCategory = 'CONTRACT' | 'PROJECT_DOCUMENT' | 'SUBMISSION' | 'MEETING_MINUTES'
-type ProjectDetailTab = 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN' | 'WORKLOAD'
+type ProjectDetailTab = 'PROJECT_INIT' | 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN' | 'WORKLOAD'
+
+const ACTION_LABELS: Record<ActivityLogAction, string> = {
+  PROJECT_INFO_UPDATED: 'Cap nhat thong tin',
+  PERSONNEL_UPDATED: 'Cap nhat nhan su',
+  DOCUMENT_ADDED: 'Them tai lieu',
+  DOCUMENT_DELETED: 'Xoa tai lieu',
+  TASK_CREATED: 'Tao task',
+  SUBTASK_CREATED: 'Tao subtask',
+  TASK_UPDATED: 'Cap nhat task',
+  SUBTASK_UPDATED: 'Cap nhat subtask',
+  TASK_DELETED: 'Xoa task',
+  SUBTASK_DELETED: 'Xoa subtask',
+  TASK_HOURS_CHANGED: 'Doi gio task',
+  SUBTASK_HOURS_CHANGED: 'Doi gio subtask',
+  WORKLOG_ADDED: 'Khai bao tien do',
+  PROJECT_CLOSED: 'Dong du an',
+  PROJECT_REOPENED: 'Mo lai du an',
+}
+
+const ACTION_TONES: Record<ActivityLogAction, 'info' | 'danger' | 'warning' | 'success' | 'neutral'> = {
+  PROJECT_INFO_UPDATED: 'info',
+  PERSONNEL_UPDATED: 'info',
+  DOCUMENT_ADDED: 'success',
+  DOCUMENT_DELETED: 'danger',
+  TASK_CREATED: 'success',
+  SUBTASK_CREATED: 'success',
+  TASK_UPDATED: 'info',
+  SUBTASK_UPDATED: 'info',
+  TASK_DELETED: 'danger',
+  SUBTASK_DELETED: 'danger',
+  TASK_HOURS_CHANGED: 'warning',
+  SUBTASK_HOURS_CHANGED: 'warning',
+  WORKLOG_ADDED: 'info',
+  PROJECT_CLOSED: 'success',
+  PROJECT_REOPENED: 'info',
+}
 type ProjectRiskStatus = ProjectRisk['status']
 
 interface RiskFormState {
@@ -149,7 +186,8 @@ function cloneAitsPersonnel(items: ProjectAitsPersonnel[]) {
     userId: item.userId,
     employeeCode: item.employeeCode,
     fullName: item.fullName,
-    titleUnit: item.titleUnit,
+    title: item.title,
+    unit: item.unit,
     role: item.role,
     responsibility: item.responsibility,
     totalPlannedHours: item.totalPlannedHours,
@@ -161,7 +199,8 @@ function cloneAitsPersonnel(items: ProjectAitsPersonnel[]) {
 function cloneExternalPersonnel(items: ProjectExternalPersonnel[]) {
   return items.map((item) => ({
     fullName: item.fullName,
-    titleUnit: item.titleUnit,
+    title: item.title,
+    unit: item.unit,
     role: item.role,
     responsibility: item.responsibility,
     email: item.email,
@@ -181,7 +220,8 @@ function createAitsPersonnel(): ProjectAitsPersonnel {
     userId: '',
     employeeCode: '',
     fullName: '',
-    titleUnit: '',
+    title: '',
+    unit: '',
     role: '',
     responsibility: '',
     totalPlannedHours: 0,
@@ -193,7 +233,8 @@ function createAitsPersonnel(): ProjectAitsPersonnel {
 function createExternalPersonnel(): ProjectExternalPersonnel {
   return {
     fullName: '',
-    titleUnit: '',
+    title: '',
+    unit: '',
     role: '',
     responsibility: '',
     email: '',
@@ -216,7 +257,8 @@ function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
       userId: item.userId,
       employeeCode: item.employeeCode.trim(),
       fullName: item.fullName.trim(),
-      titleUnit: item.titleUnit.trim(),
+      title: item.title.trim(),
+      unit: item.unit.trim(),
       role: item.role.trim(),
       responsibility: item.responsibility.trim(),
       totalPlannedHours: Number(item.totalPlannedHours) || 0,
@@ -226,7 +268,8 @@ function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
     .filter(
       (item) =>
         item.fullName ||
-        item.titleUnit ||
+        item.title ||
+        item.unit ||
         item.role ||
         item.responsibility ||
         item.email ||
@@ -239,7 +282,8 @@ function sanitizeExternalPersonnel(items: ProjectExternalPersonnel[]) {
   return items
     .map((item) => ({
       fullName: item.fullName.trim(),
-      titleUnit: item.titleUnit.trim(),
+      title: item.title.trim(),
+      unit: item.unit.trim(),
       role: item.role.trim(),
       responsibility: item.responsibility.trim(),
       email: item.email.trim(),
@@ -248,7 +292,8 @@ function sanitizeExternalPersonnel(items: ProjectExternalPersonnel[]) {
     .filter(
       (item) =>
         item.fullName ||
-        item.titleUnit ||
+        item.title ||
+        item.unit ||
         item.role ||
         item.responsibility ||
         item.email ||
@@ -258,6 +303,21 @@ function sanitizeExternalPersonnel(items: ProjectExternalPersonnel[]) {
 
 function formatCurrencyPreview(amount: number) {
   return `${Number(amount || 0).toLocaleString('vi-VN')} VND`
+}
+
+function buildInitForm(project: Project) {
+  return {
+    code: project.code,
+    name: project.name,
+    summary: project.summary,
+    sponsor: project.sponsor,
+    objective: project.objective,
+    ttkDecisionNumber: project.ttkDecisionNumber ?? '',
+    adminId: project.adminId,
+    startDate: project.startDate,
+    endDate: project.endDate,
+    department: project.department,
+  }
 }
 
 function buildOverviewForm(project: Project) {
@@ -290,19 +350,25 @@ function buildPersonnelForm(project: Project): ProjectPersonnelInfo {
   }
 }
 
-function buildDocumentForm() {
+function buildDocumentForm(doc?: import('../types').ProjectDocument | null) {
+  if (doc) {
+    return {
+      id: doc.id,
+      title: doc.title,
+      category: normalizeProjectDocumentCategory(doc.category) as ProjectDocumentCategory,
+      documentNumber: doc.documentNumber ?? '',
+      description: doc.description,
+      fileName: doc.url,
+    }
+  }
+
   return {
+    id: '',
     title: '',
     category: 'PROJECT_DOCUMENT' as ProjectDocumentCategory,
+    documentNumber: '',
     description: '',
     fileName: '',
-  }
-}
-
-function buildApprovalForm(project: Project) {
-  return {
-    approvalFileName: project.approvalInfo.approvalFileName,
-    note: project.approvalInfo.note,
   }
 }
 
@@ -406,20 +472,13 @@ function buildPlanForm(project: Project, task?: PlanItem | null) {
       id: task.id,
       parentId: task.parentId ?? '',
       name: task.name,
-      workType: task.workType,
       assigneeIds: getTaskAssigneeIds(task),
       assigneeId: task.assigneeId,
       status: task.status,
-      baselineStartDate: task.baselineStartDate,
-      baselineEndDate: task.baselineEndDate,
       startDate: task.startDate,
       endDate: task.endDate,
       progress: task.progress,
       plannedHours: task.plannedHours,
-      allocationMonth: task.monthAllocations[0]?.month ?? dayjs().format('YYYY-MM'),
-      allocationHours: task.monthAllocations[0]?.hours ?? task.plannedHours,
-      dependencyNote: task.dependencyNote,
-      deliverable: task.deliverable,
     }
   }
 
@@ -427,20 +486,13 @@ function buildPlanForm(project: Project, task?: PlanItem | null) {
     id: '',
     parentId: '',
     name: '',
-    workType: 'PRELIMINARY' as const,
     assigneeIds: project.memberIds[0] ? [project.memberIds[0]] : [],
     assigneeId: project.memberIds[0] ?? '',
     status: 'NOT_STARTED' as const,
-    baselineStartDate: project.startDate,
-    baselineEndDate: project.endDate,
     startDate: project.startDate,
     endDate: project.endDate,
     progress: 0,
     plannedHours: 16,
-    allocationMonth: dayjs(project.startDate).format('YYYY-MM'),
-    allocationHours: 16,
-    dependencyNote: '',
-    deliverable: '',
   }
 }
 
@@ -568,7 +620,8 @@ function buildFallbackAitsPersonnel(
   return {
     userId: user.id,
     fullName: user.name,
-    titleUnit: `${user.title} - ${user.unit}`,
+    title: user.title,
+    unit: user.unit,
     role: user.id === project.adminId ? 'PM du an' : 'Thanh vien trien khai',
     responsibility: '',
     totalPlannedHours,
@@ -633,27 +686,46 @@ export function ProjectDetailPage() {
     catalogs,
     updateProject,
     addProjectDocument,
+    updateProjectDocument,
     deleteProjectDocument,
     savePlanItem,
+    deletePlanItem,
     saveRisk,
     addWorklog,
+    activityLogs: allActivityLogs,
     getUser,
   } = useAppData()
   const project = getProjectById(projects, projectId)
+  const projectActivityLogs = (allActivityLogs ?? []).filter(
+    (log) => log.projectId === projectId,
+  )
+  const overviewLogs = projectActivityLogs.filter((l) =>
+    (['PROJECT_INFO_UPDATED', 'PROJECT_CLOSED', 'PROJECT_REOPENED'] as string[]).includes(l.action),
+  )
+  const personnelLogs = projectActivityLogs.filter((l) => l.action === 'PERSONNEL_UPDATED')
+  const documentLogs = projectActivityLogs.filter((l) =>
+    (['DOCUMENT_ADDED', 'DOCUMENT_DELETED'] as string[]).includes(l.action),
+  )
+  const planLogs = projectActivityLogs.filter((l) =>
+    ([
+      'TASK_CREATED', 'SUBTASK_CREATED', 'TASK_UPDATED', 'SUBTASK_UPDATED',
+      'TASK_DELETED', 'SUBTASK_DELETED', 'TASK_HOURS_CHANGED', 'SUBTASK_HOURS_CHANGED',
+      'WORKLOG_ADDED',
+    ] as string[]).includes(l.action),
+  )
 
   const [message, setMessage] = useState('')
+  const [initForm, setInitForm] = useState<ReturnType<typeof buildInitForm> | null>(null)
   const [overviewForm, setOverviewForm] = useState<ReturnType<typeof buildOverviewForm> | null>(null)
   const [personnelForm, setPersonnelForm] = useState<ReturnType<typeof buildPersonnelForm> | null>(null)
   const [documentForm, setDocumentForm] = useState<ReturnType<typeof buildDocumentForm> | null>(null)
-  const [approvalForm, setApprovalForm] = useState<ReturnType<typeof buildApprovalForm> | null>(null)
   const [planForm, setPlanForm] = useState<ReturnType<typeof buildPlanForm> | null>(null)
   const [riskForm, setRiskForm] = useState<RiskFormState | null>(null)
   const [riskSummaryDraft, setRiskSummaryDraft] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [executionForm, setExecutionForm] = useState<ReturnType<typeof buildExecutionForm> | null>(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
-  const [approvalInputKey, setApprovalInputKey] = useState(0)
-  const [activeDetailTab, setActiveDetailTab] = useState<ProjectDetailTab>('OVERVIEW')
+  const [activeDetailTab, setActiveDetailTab] = useState<ProjectDetailTab>('PROJECT_INIT')
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [isExecutionModalOpen, setIsExecutionModalOpen] = useState(false)
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
@@ -697,15 +769,14 @@ export function ProjectDetailPage() {
       return
     }
 
+    setInitForm(buildInitForm(project))
     setOverviewForm(buildOverviewForm(project))
     setPersonnelForm(buildPersonnelForm(project))
     setDocumentForm(buildDocumentForm())
-    setApprovalForm(buildApprovalForm(project))
     setPlanForm(buildPlanForm(project))
     setRiskForm(buildRiskForm(project, currentUser?.id ?? project.adminId))
     setRiskSummaryDraft(project.riskSummary)
     setDocumentInputKey((current) => current + 1)
-    setApprovalInputKey((current) => current + 1)
     setIsRiskModalOpen(false)
     setPlanRiskPrompt(null)
   }, [currentUser?.id, project?.id])
@@ -731,10 +802,10 @@ export function ProjectDetailPage() {
   if (
     !project ||
     !currentUser ||
+    !initForm ||
     !overviewForm ||
     !personnelForm ||
     !documentForm ||
-    !approvalForm ||
     !planForm
   ) {
     return (
@@ -752,7 +823,6 @@ export function ProjectDetailPage() {
 
   const normalizedRole = normalizeUserRole(currentUser.role)
   const canManageProject = normalizedRole === 'PMO' || currentUser.id === project.adminId
-  const canApproveProject = normalizedRole === 'ADMIN_HC'
   const canManagePlan = canManageProjectPlan(project, currentUser)
   const canUpdateSelectedTask =
     !!selectedTask &&
@@ -794,6 +864,11 @@ export function ProjectDetailPage() {
   )
   const totalDocumentCount = project.documents.length
   const detailTabs: Array<{ id: ProjectDetailTab; label: string; note: string }> = [
+    {
+      id: 'PROJECT_INIT',
+      label: 'Thong tin khoi tao',
+      note: `${project.code} | ${getUser(project.createdById)?.name ?? 'N/A'}`,
+    },
     {
       id: 'OVERVIEW',
       label: 'Overview',
@@ -1065,6 +1140,26 @@ export function ProjectDetailPage() {
     setMessage('Da cap nhat thong tin nhan su du an.')
   }
 
+  async function handleInitSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!project || !initForm) return
+
+    await updateProject({
+      projectId: project.id,
+      patch: {
+        summary: initForm.summary.trim(),
+        sponsor: initForm.sponsor,
+        objective: initForm.objective.trim(),
+        ttkDecisionNumber: initForm.ttkDecisionNumber.trim(),
+        adminId: initForm.adminId,
+        startDate: initForm.startDate,
+        endDate: initForm.endDate,
+      },
+    })
+
+    setMessage('Da cap nhat thong tin khoi tao du an.')
+  }
+
   async function handleOverviewSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -1112,49 +1207,6 @@ export function ProjectDetailPage() {
     setMessage('Da cap nhat thong tin chung du an.')
   }
 
-  async function handleApprovalSubmit() {
-    if (!project || !currentUser || !approvalForm) {
-      return
-    }
-
-    if (!canApproveProject) {
-      setMessage('Chi To chuc hanh chinh moi co quyen phe duyet buoc thanh lap TTK.')
-      return
-    }
-
-    if (!approvalForm.approvalFileName) {
-      setMessage('Hay chon file phe duyet cua To chuc hanh chinh truoc khi xac nhan.')
-      return
-    }
-
-    const nextApprovalInfo = {
-      ...project.approvalInfo,
-      status: 'APPROVED' as const,
-      approvedById: currentUser.id,
-      approvedAt: new Date().toISOString(),
-      approvalFileName: approvalForm.approvalFileName,
-      note: approvalForm.note.trim(),
-    }
-
-    await updateProject({
-      projectId: project.id,
-      patch: {
-        approvalInfo: nextApprovalInfo,
-        currentPhase:
-          project.currentPhase === 'Cho to chuc hanh chinh phe duyet'
-            ? 'Da duyet thanh lap TTK'
-            : project.currentPhase,
-        status: project.status === 'INITIATION' ? 'PLANNING' : project.status,
-      },
-    })
-
-    setApprovalForm({
-      approvalFileName: nextApprovalInfo.approvalFileName,
-      note: nextApprovalInfo.note,
-    })
-    setMessage('Da phe duyet thanh lap TTK va mo quyen lap ke hoach cho PM / dieu phoi.')
-  }
-
   async function handleDocumentSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -1164,6 +1216,24 @@ export function ProjectDetailPage() {
 
     if (!canManageProject) {
       setMessage('Ban khong co quyen cap nhat tai lieu cua du an nay.')
+      return
+    }
+
+    if (documentForm.id) {
+      await updateProjectDocument({
+        projectId: project.id,
+        documentId: documentForm.id,
+        title: documentForm.title.trim() || documentForm.fileName,
+        category: documentForm.category,
+        documentNumber: documentForm.documentNumber.trim(),
+        description: documentForm.description.trim(),
+        url: documentForm.fileName,
+        updatedBy: currentUser.id,
+      })
+      setDocumentForm(buildDocumentForm())
+      setDocumentInputKey((current) => current + 1)
+      setIsDocumentModalOpen(false)
+      setMessage('Da cap nhat tai lieu.')
       return
     }
 
@@ -1203,6 +1273,19 @@ export function ProjectDetailPage() {
     })
 
     setMessage(`Da xoa tai lieu ${document.title}.`)
+  }
+
+  async function handleDeletePlanItem(item: PlanItem) {
+    if (!project || !canManagePlan) return
+    if (!window.confirm(`Xac nhan xoa "${item.name}"?`)) return
+
+    await deletePlanItem({ planItemId: item.id, projectId: project.id })
+
+    if (selectedTaskId === item.id) {
+      setSelectedTaskId('')
+    }
+
+    setMessage(`Da xoa: ${item.name}`)
   }
 
   async function handleRiskSummarySubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1279,25 +1362,20 @@ export function ProjectDetailPage() {
       projectId: project.id,
       parentId: submittedPlan.parentId || null,
       name: submittedPlan.name,
-      workType: submittedPlan.workType,
+      workType: submittedPlan.parentId ? 'SUBTASK' : 'PRELIMINARY',
       ownerId: project.adminId,
       assigneeId: submittedPlan.assigneeId || submittedPlan.assigneeIds[0],
       assigneeIds: submittedPlan.assigneeIds,
       status: submittedPlan.status,
-      baselineStartDate: submittedPlan.baselineStartDate,
-      baselineEndDate: submittedPlan.baselineEndDate,
+      baselineStartDate: submittedPlan.startDate,
+      baselineEndDate: submittedPlan.endDate,
       startDate: submittedPlan.startDate,
       endDate: submittedPlan.endDate,
       progress: Number(submittedPlan.progress),
       plannedHours: Number(submittedPlan.plannedHours),
-      monthAllocations: [
-        {
-          month: submittedPlan.allocationMonth,
-          hours: Number(submittedPlan.allocationHours),
-        },
-      ],
-      dependencyNote: submittedPlan.dependencyNote,
-      deliverable: submittedPlan.deliverable,
+      monthAllocations: [],
+      dependencyNote: '',
+      deliverable: '',
     })
 
     const assigneeNames =
@@ -1342,11 +1420,15 @@ export function ProjectDetailPage() {
     setIsPlanModalOpen(true)
   }
 
-  function openDocumentModal(category: ProjectDocumentCategory = 'PROJECT_DOCUMENT') {
-    setDocumentForm({
-      ...buildDocumentForm(),
-      category,
-    })
+  function openDocumentModal(docOrCategory?: ProjectDocumentCategory | import('../types').ProjectDocument) {
+    if (docOrCategory && typeof docOrCategory === 'object') {
+      setDocumentForm(buildDocumentForm(docOrCategory))
+    } else {
+      setDocumentForm({
+        ...buildDocumentForm(),
+        category: docOrCategory ?? 'PROJECT_DOCUMENT',
+      })
+    }
     setDocumentInputKey((current) => current + 1)
     setIsDocumentModalOpen(true)
   }
@@ -1528,6 +1610,169 @@ export function ProjectDetailPage() {
         ))}
       </nav>
 
+      {activeDetailTab === 'PROJECT_INIT' ? (
+        <section className="panel panel--compact detail-tab-panel">
+          <div className="panel-heading panel-heading--compact">
+            <div>
+              <span className="eyebrow">Thong tin khoi tao</span>
+              <h3>Thong tin khi tao moi du an</h3>
+            </div>
+            <div className="panel-actions">
+              <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
+            </div>
+          </div>
+
+          <form className="form-grid form-grid--compact overview-form" onSubmit={handleInitSubmit}>
+            <div className="overview-section span-2">
+              <div className="overview-section__header">
+                <div>
+                  <span className="eyebrow">Du an</span>
+                  <h4>Thong tin co ban</h4>
+                </div>
+              </div>
+              <div className="overview-section__grid">
+                <label>
+                  <span>Ma du an</span>
+                  <input value={initForm.code} disabled />
+                </label>
+                <label>
+                  <span>Ten du an</span>
+                  <input value={initForm.name} disabled />
+                </label>
+                <label className="span-2">
+                  <span>Tom tat du an</span>
+                  <textarea
+                    rows={3}
+                    value={initForm.summary}
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, summary: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  />
+                </label>
+                <label>
+                  <span>Nhiem vu to trien khai</span>
+                  <textarea
+                    rows={2}
+                    value={initForm.objective}
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, objective: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  />
+                </label>
+                <label>
+                  <span>Don vi / phong ban</span>
+                  <input value={initForm.department} disabled />
+                </label>
+              </div>
+            </div>
+
+            <div className="overview-section span-2">
+              <div className="overview-section__header">
+                <div>
+                  <span className="eyebrow">Quyet dinh</span>
+                  <h4>Thanh lap to trien khai</h4>
+                </div>
+              </div>
+              <div className="overview-section__grid">
+                <label>
+                  <span>So quyet dinh thanh lap TTK</span>
+                  <input
+                    value={initForm.ttkDecisionNumber}
+                    placeholder="Vi du: QD-2026/001"
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, ttkDecisionNumber: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  />
+                </label>
+                <label>
+                  <span>File quyet dinh</span>
+                  <input value={project.approvalInfo.requestFileName || 'Chua co file'} disabled />
+                </label>
+                <label>
+                  <span>Nguoi tao du an</span>
+                  <input value={getUser(project.createdById)?.name ?? project.createdById} disabled />
+                </label>
+                <label>
+                  <span>Ngay tao</span>
+                  <input value={formatDate(project.approvalInfo.requestSubmittedAt)} disabled />
+                </label>
+              </div>
+            </div>
+
+            <div className="overview-section span-2">
+              <div className="overview-section__header">
+                <div>
+                  <span className="eyebrow">Phan cong</span>
+                  <h4>PM va thoi gian</h4>
+                </div>
+              </div>
+              <div className="overview-section__grid">
+                <label>
+                  <span>Sponsor du an</span>
+                  <select
+                    value={initForm.sponsor}
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, sponsor: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  >
+                    {users.filter((u) => normalizeUserRole(u.role) !== 'DELIVERY_MEMBER').map((u) => (
+                      <option key={u.id} value={u.id}>{u.name} - {u.title}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>PM phu trach</span>
+                  <select
+                    value={initForm.adminId}
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, adminId: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  >
+                    {users.filter((u) => normalizeUserRole(u.role) === 'PM').map((u) => (
+                      <option key={u.id} value={u.id}>{u.name} - {u.employeeCode}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Ngay bat dau</span>
+                  <input
+                    type="date"
+                    value={initForm.startDate}
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, startDate: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  />
+                </label>
+                <label>
+                  <span>Ngay ket thuc</span>
+                  <input
+                    type="date"
+                    value={initForm.endDate}
+                    onChange={(event) =>
+                      setInitForm((current) => current ? { ...current, endDate: event.target.value } : current)
+                    }
+                    disabled={!canManageProject}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {canManageProject ? (
+              <button type="submit" className="primary-button">
+                <Save size={16} />
+                Luu thong tin khoi tao
+              </button>
+            ) : null}
+          </form>
+        </section>
+      ) : null}
+
       {activeDetailTab === 'OVERVIEW' ? (
       <section className="panel panel--compact detail-tab-panel">
         <div className="panel-heading panel-heading--compact">
@@ -1541,91 +1786,6 @@ export function ProjectDetailPage() {
         </div>
 
         <form className="form-grid form-grid--compact overview-form" onSubmit={handleOverviewSubmit}>
-            <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Phe duyet</span>
-                  <h4>To chuc hanh chinh</h4>
-                </div>
-                <p>PMO gui de nghi thanh lap TTK, To chuc hanh chinh xac nhan va cap file phe duyet.</p>
-              </div>
-
-              <div className="overview-approval-strip">
-                <StatusPill
-                  label={project.approvalInfo.status === 'APPROVED' ? 'Da duyet thanh lap TTK' : 'Cho TCHC phe duyet'}
-                  tone={project.approvalInfo.status === 'APPROVED' ? 'success' : 'warning'}
-                />
-                <span>PMO tao: {getUser(project.createdById)?.name ?? project.createdById}</span>
-                <span>File de nghi: {project.approvalInfo.requestFileName || 'Chua dinh kem'}</span>
-                {project.approvalInfo.approvedById ? (
-                  <span>
-                    Da duyet boi {getUser(project.approvalInfo.approvedById)?.name ?? project.approvalInfo.approvedById}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="overview-section__grid overview-section__grid--tight">
-                <label className="span-2">
-                  <span>Ghi chu phe duyet</span>
-                  <textarea
-                    rows={2}
-                    value={approvalForm.note}
-                    onChange={(event) =>
-                      setApprovalForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              note: event.target.value,
-                            }
-                          : current,
-                      )
-                    }
-                    disabled={!canApproveProject}
-                  />
-                </label>
-
-                <label className="span-2">
-                  <span>File phe duyet cua To chuc hanh chinh</span>
-                  <div className="document-upload-field">
-                    <input
-                      key={approvalInputKey}
-                      className="document-file-input"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
-                      onChange={(event) =>
-                        setApprovalForm((current) =>
-                          current
-                            ? {
-                                ...current,
-                                approvalFileName: event.target.files?.[0]?.name ?? '',
-                              }
-                            : current,
-                        )
-                      }
-                      disabled={!canApproveProject}
-                    />
-                    <div className="document-upload-meta">
-                      <FileText size={15} />
-                      <span>
-                        {approvalForm.approvalFileName ||
-                          project.approvalInfo.approvalFileName ||
-                          'Chua co file phe duyet'}
-                      </span>
-                    </div>
-                  </div>
-                </label>
-              </div>
-
-              {canApproveProject ? (
-                <div className="inline-actions">
-                  <button type="button" className="primary-button" onClick={handleApprovalSubmit}>
-                    <Save size={16} />
-                    Phe duyet thanh lap TTK
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
             <div className="overview-section span-2">
               <div className="overview-section__header">
                 <div>
@@ -2011,6 +2171,7 @@ export function ProjectDetailPage() {
               </button>
             ) : null}
         </form>
+        <InlineActivityLog logs={overviewLogs} getUser={getUser} />
       </section>
       ) : null}
 
@@ -2052,7 +2213,8 @@ export function ProjectDetailPage() {
                     <tr>
                       <th>STT</th>
                       <th>Ho va ten</th>
-                      <th>Chuc danh don vi</th>
+                      <th>Chuc danh</th>
+                      <th>Don vi</th>
                       <th>Vai tro</th>
                       <th>Nhiem vu</th>
                       <th>Tong gio cong TK</th>
@@ -2077,9 +2239,18 @@ export function ProjectDetailPage() {
                           </td>
                           <td>
                             <input
-                              value={member.titleUnit}
+                              value={member.title}
                               onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'titleUnit', event.target.value)
+                                updateAitsPersonnelItem(index, 'title', event.target.value)
+                              }
+                              disabled={!canManageProject}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              value={member.unit}
+                              onChange={(event) =>
+                                updateAitsPersonnelItem(index, 'unit', event.target.value)
                               }
                               disabled={!canManageProject}
                             />
@@ -2152,7 +2323,7 @@ export function ProjectDetailPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 9 : 8} className="personnel-table__empty">
+                        <td colSpan={canManageProject ? 10 : 9} className="personnel-table__empty">
                           Chua co nhan su AITS.
                         </td>
                       </tr>
@@ -2187,7 +2358,8 @@ export function ProjectDetailPage() {
                     <tr>
                       <th>STT</th>
                       <th>Ho va ten</th>
-                      <th>Chuc danh don vi</th>
+                      <th>Chuc danh</th>
+                      <th>Don vi</th>
                       <th>Nhiem vu</th>
                       <th>Email</th>
                       <th>SDT</th>
@@ -2215,12 +2387,26 @@ export function ProjectDetailPage() {
                           </td>
                           <td>
                             <input
-                              value={member.titleUnit}
+                              value={member.title}
                               onChange={(event) =>
                                 updateExternalPersonnelItem(
                                   'customerMembers',
                                   index,
-                                  'titleUnit',
+                                  'title',
+                                  event.target.value,
+                                )
+                              }
+                              disabled={!canManageProject}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              value={member.unit}
+                              onChange={(event) =>
+                                updateExternalPersonnelItem(
+                                  'customerMembers',
+                                  index,
+                                  'unit',
                                   event.target.value,
                                 )
                               }
@@ -2286,7 +2472,7 @@ export function ProjectDetailPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 7 : 6} className="personnel-table__empty">
+                        <td colSpan={canManageProject ? 8 : 7} className="personnel-table__empty">
                           Chua co dau moi khach hang.
                         </td>
                       </tr>
@@ -2321,7 +2507,8 @@ export function ProjectDetailPage() {
                     <tr>
                       <th>STT</th>
                       <th>Ho va ten</th>
-                      <th>Chuc danh don vi</th>
+                      <th>Chuc danh</th>
+                      <th>Don vi</th>
                       <th>Vai tro</th>
                       <th>Nhiem vu</th>
                       <th>Email</th>
@@ -2350,12 +2537,26 @@ export function ProjectDetailPage() {
                           </td>
                           <td>
                             <input
-                              value={member.titleUnit}
+                              value={member.title}
                               onChange={(event) =>
                                 updateExternalPersonnelItem(
                                   'partners',
                                   index,
-                                  'titleUnit',
+                                  'title',
+                                  event.target.value,
+                                )
+                              }
+                              disabled={!canManageProject}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              value={member.unit}
+                              onChange={(event) =>
+                                updateExternalPersonnelItem(
+                                  'partners',
+                                  index,
+                                  'unit',
                                   event.target.value,
                                 )
                               }
@@ -2435,7 +2636,7 @@ export function ProjectDetailPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 8 : 7} className="personnel-table__empty">
+                        <td colSpan={canManageProject ? 9 : 8} className="personnel-table__empty">
                           Chua co doi tac tham gia du an.
                         </td>
                       </tr>
@@ -2452,97 +2653,103 @@ export function ProjectDetailPage() {
               </button>
             ) : null}
         </form>
+        <InlineActivityLog logs={personnelLogs} getUser={getUser} />
       </section>
       ) : null}
 
       {activeDetailTab === 'DOCUMENTS' ? (
         <section className="panel panel--compact detail-tab-panel">
-        <div className="panel-heading panel-heading--compact">
-          <div>
-            <span className="eyebrow">Documents</span>
-            <h3>Tai lieu du an</h3>
+          <div className="panel-heading panel-heading--compact">
+            <div>
+              <span className="eyebrow">Documents</span>
+              <h3>Tai lieu du an</h3>
+            </div>
+            <div className="panel-actions">
+              <StatusPill label={`${totalDocumentCount} tai lieu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
+              {canManageProject ? (
+                <button
+                  type="button"
+                  className="primary-button primary-button--compact"
+                  onClick={() => openDocumentModal()}
+                >
+                  <CirclePlus size={16} />
+                  Them tai lieu
+                </button>
+              ) : null}
+            </div>
           </div>
-          <div className="panel-actions">
-            <StatusPill label={`${totalDocumentCount} tai lieu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
-            {canManageProject ? (
-              <button
-                type="button"
-                className="primary-button primary-button--compact"
-                onClick={() => openDocumentModal()}
-              >
-                <CirclePlus size={16} />
-                Them tai lieu
-              </button>
-            ) : null}
-          </div>
-        </div>
 
-        <div className="document-panel">
-          <div className="document-grid">
-            {groupedProjectDocuments.map((group) => (
-              <article key={group.value} className="document-group">
-                <div className="document-group__header">
-                  <div>
-                    <span className="eyebrow">Danh muc</span>
-                    <h4>{group.label}</h4>
-                  </div>
-                  <div className="document-group__actions">
-                    <StatusPill
-                      label={`${group.items.length} tai lieu`}
-                      tone={group.items.length ? 'info' : 'neutral'}
-                    />
-                    {canManageProject ? (
-                      <button
-                        type="button"
-                        className="ghost-button ghost-button--compact"
-                        onClick={() => openDocumentModal(group.value)}
-                      >
-                        <CirclePlus size={15} />
-                        {getDocumentActionLabel(group.value)}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {group.items.length ? (
-                  <div className="document-list">
-                    {group.items.map((document) => (
-                      <div key={document.id} className="document-item">
-                        <div className="document-item__header">
-                          <div>
-                            <strong>{document.title}</strong>
-                            <p>{document.description || 'Khong co ghi chu bo sung.'}</p>
-                          </div>
-                          {canManageProject ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>STT</th>
+                  <th>Ten tai lieu</th>
+                  <th>File</th>
+                  <th>Loai tai lieu</th>
+                  <th>So van ban</th>
+                  <th>Nguoi them</th>
+                  <th>Ngay them</th>
+                  <th>Nguoi cap nhat</th>
+                  <th>Ngay cap nhat</th>
+                  {canManageProject ? <th>Thao tac</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {project.documents.length ? (
+                  project.documents.map((doc, index) => (
+                    <tr key={doc.id}>
+                      <td>{index + 1}</td>
+                      <td><strong>{doc.title}</strong></td>
+                      <td>{doc.url || '-'}</td>
+                      <td>
+                        <StatusPill
+                          label={getDocumentCategoryLabel(normalizeProjectDocumentCategory(doc.category))}
+                          tone="neutral"
+                        />
+                      </td>
+                      <td>{doc.documentNumber || '-'}</td>
+                      <td>{getUser(doc.uploadedBy)?.name ?? doc.uploadedBy}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(doc.uploadedAt)}</td>
+                      <td>{doc.updatedBy ? (getUser(doc.updatedBy)?.name ?? doc.updatedBy) : '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{doc.updatedAt ? formatDate(doc.updatedAt) : '-'}</td>
+                      {canManageProject ? (
+                        <td>
+                          <div className="inline-actions">
                             <button
                               type="button"
                               className="ghost-button ghost-button--compact"
-                              onClick={() => void handleDeleteDocument(document)}
+                              onClick={() => openDocumentModal(doc)}
                             >
-                              <Trash2 size={15} />
+                              <Edit3 size={14} />
+                              Sua
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost-button ghost-button--compact"
+                              style={{ color: 'var(--danger, #dc2626)' }}
+                              onClick={() => void handleDeleteDocument(doc)}
+                            >
+                              <Trash2 size={14} />
                               Xoa
                             </button>
-                          ) : null}
-                        </div>
-
-                        <div className="document-item__meta">
-                          <span>Tep: {document.url || 'Chua co ten file'}</span>
-                          <span>Nguoi tai len: {getUser(document.uploadedBy)?.name ?? document.uploadedBy}</span>
-                          <span>Cap nhat: {formatDate(document.uploadedAt)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))
                 ) : (
-                  <div className="overview-empty-note">
-                    <p>Chua co tai lieu trong danh muc nay.</p>
-                  </div>
+                  <tr>
+                    <td colSpan={canManageProject ? 10 : 9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                      Chua co tai lieu nao.
+                    </td>
+                  </tr>
                 )}
-              </article>
-            ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      </section>
+          <InlineActivityLog logs={documentLogs} getUser={getUser} />
+        </section>
       ) : null}
 
       {activeDetailTab === 'RISKS' ? (
@@ -2741,6 +2948,17 @@ export function ProjectDetailPage() {
                         Them subtask
                       </button>
                     ) : null}
+                    {canManagePlan ? (
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--compact"
+                        style={{ color: 'var(--danger, #dc2626)' }}
+                        onClick={() => void handleDeletePlanItem(selectedTask)}
+                      >
+                        <Trash2 size={15} />
+                        Xoa
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2803,6 +3021,7 @@ export function ProjectDetailPage() {
             </div>
           </>
         </article>
+        <InlineActivityLog logs={planLogs} getUser={getUser} />
       </section>
       ) : null}
 
@@ -2815,8 +3034,7 @@ export function ProjectDetailPage() {
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">Tai lieu du an</span>
-                <h3>{getDocumentActionLabel(documentForm.category)}</h3>
-                <p>Them moi tai lieu thuoc nhom {getDocumentCategoryLabel(documentForm.category).toLowerCase()}.</p>
+                <h3>{documentForm.id ? 'Cap nhat tai lieu' : 'Them moi tai lieu'}</h3>
               </div>
               <button
                 type="button"
@@ -2830,47 +3048,58 @@ export function ProjectDetailPage() {
 
             <form className="form-grid" onSubmit={handleDocumentSubmit}>
               <label>
-                <span>Danh muc tai lieu</span>
-                <select
-                  value={documentForm.category}
-                  onChange={(event) =>
-                    setDocumentForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            category: event.target.value as ProjectDocumentCategory,
-                          }
-                        : current,
-                    )
-                  }
-                >
-                  {projectDocumentCategories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
                 <span>Ten tai lieu</span>
                 <input
                   value={documentForm.title}
                   placeholder="Mac dinh lay theo ten file"
                   onChange={(event) =>
                     setDocumentForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            title: event.target.value,
-                          }
-                        : current,
+                      current ? { ...current, title: event.target.value } : current,
                     )
                   }
                 />
               </label>
 
-              <label className="span-2">
+              <label>
+                <span>Loai tai lieu</span>
+                <select
+                  value={documentForm.category}
+                  onChange={(event) =>
+                    setDocumentForm((current) =>
+                      current
+                        ? { ...current, category: event.target.value as ProjectDocumentCategory }
+                        : current,
+                    )
+                  }
+                >
+                  {catalogs.documentCategories.length
+                    ? catalogs.documentCategories.map((cat) => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </option>
+                      ))
+                    : projectDocumentCategories.map((cat) => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </option>
+                      ))}
+                </select>
+              </label>
+
+              <label>
+                <span>So van ban</span>
+                <input
+                  value={documentForm.documentNumber}
+                  placeholder="Vi du: CV-2026/001"
+                  onChange={(event) =>
+                    setDocumentForm((current) =>
+                      current ? { ...current, documentNumber: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+
+              <label>
                 <span>File tai lieu</span>
                 <div className="document-upload-field">
                   <input
@@ -2881,10 +3110,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setDocumentForm((current) =>
                         current
-                          ? {
-                              ...current,
-                              fileName: event.target.files?.[0]?.name ?? '',
-                            }
+                          ? { ...current, fileName: event.target.files?.[0]?.name ?? '' }
                           : current,
                       )
                     }
@@ -2903,12 +3129,7 @@ export function ProjectDetailPage() {
                   value={documentForm.description}
                   onChange={(event) =>
                     setDocumentForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            description: event.target.value,
-                          }
-                        : current,
+                      current ? { ...current, description: event.target.value } : current,
                     )
                   }
                 />
@@ -2919,8 +3140,8 @@ export function ProjectDetailPage() {
                   Huy
                 </button>
                 <button type="submit" className="primary-button">
-                  <CirclePlus size={16} />
-                  {getDocumentActionLabel(documentForm.category)}
+                  <Save size={16} />
+                  {documentForm.id ? 'Luu thay doi' : 'Them tai lieu'}
                 </button>
               </div>
             </form>
@@ -3168,27 +3389,6 @@ export function ProjectDetailPage() {
                     ))}
                 </select>
               </label>
-              <label>
-                <span>Loai cong viec</span>
-                <select
-                  value={planForm.workType}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            workType: event.target.value as PlanItem['workType'],
-                          }
-                        : current,
-                    )
-                  }
-                  disabled={!canManagePlan && isCreatingChildTask}
-                >
-                  <option value="PRELIMINARY">Task tong quan</option>
-                  <option value="SUBTASK">Subtask</option>
-                  <option value="MILESTONE">Milestone</option>
-                </select>
-              </label>
               <label className="span-2">
                 <span>Thanh vien tham gia</span>
                 <div className="checkbox-grid member-selector-grid">
@@ -3212,27 +3412,6 @@ export function ProjectDetailPage() {
                 </div>
               </label>
               <label>
-                <span>Dau moi task</span>
-                <select
-                  value={planForm.assigneeId}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current ? { ...current, assigneeId: event.target.value } : current,
-                    )
-                  }
-                  disabled={!planForm.assigneeIds.length}
-                >
-                  {planForm.assigneeIds.length ? null : (
-                    <option value="">Hay chon nhan su tham gia</option>
-                  )}
-                  {planForm.assigneeIds.map((memberId) => (
-                    <option key={memberId} value={memberId}>
-                      {getUser(memberId)?.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
                 <span>Trang thai</span>
                 <select
                   value={planForm.status}
@@ -3253,34 +3432,6 @@ export function ProjectDetailPage() {
                     </option>
                   ))}
                 </select>
-              </label>
-              <label>
-                <span>Baseline start</span>
-                <input
-                  type="date"
-                  value={planForm.baselineStartDate}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current
-                        ? { ...current, baselineStartDate: event.target.value }
-                        : current,
-                    )
-                  }
-                />
-              </label>
-              <label>
-                <span>Baseline end</span>
-                <input
-                  type="date"
-                  value={planForm.baselineEndDate}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current
-                        ? { ...current, baselineEndDate: event.target.value }
-                        : current,
-                    )
-                  }
-                />
               </label>
               <label>
                 <span>Ke hoach bat dau</span>
@@ -3332,60 +3483,6 @@ export function ProjectDetailPage() {
                     setPlanForm((current) =>
                       current
                         ? { ...current, plannedHours: Number(event.target.value) }
-                        : current,
-                    )
-                  }
-                />
-              </label>
-              <label>
-                <span>Thang phan bo</span>
-                <input
-                  type="month"
-                  value={planForm.allocationMonth}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current
-                        ? { ...current, allocationMonth: event.target.value }
-                        : current,
-                    )
-                  }
-                />
-              </label>
-              <label>
-                <span>Gio phan bo thang</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={planForm.allocationHours}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current
-                        ? { ...current, allocationHours: Number(event.target.value) }
-                        : current,
-                    )
-                  }
-                />
-              </label>
-              <label className="span-2">
-                <span>Deliverable</span>
-                <input
-                  value={planForm.deliverable}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current ? { ...current, deliverable: event.target.value } : current,
-                    )
-                  }
-                />
-              </label>
-              <label className="span-2">
-                <span>Ghi chu phu thuoc</span>
-                <textarea
-                  rows={2}
-                  value={planForm.dependencyNote}
-                  onChange={(event) =>
-                    setPlanForm((current) =>
-                      current
-                        ? { ...current, dependencyNote: event.target.value }
                         : current,
                     )
                   }
@@ -3606,7 +3703,67 @@ export function ProjectDetailPage() {
           updateProject={updateProject}
         />
       ) : null}
+
     </div>
+  )
+}
+
+/* ═══════ Inline Activity Log (reusable per-tab history table) ═══════ */
+
+function InlineActivityLog({
+  logs,
+  getUser,
+}: {
+  logs: import('../types').ActivityLog[]
+  getUser: (id?: string) => User | null
+}) {
+  if (logs.length === 0) return null
+
+  return (
+    <article className="panel panel--compact" style={{ marginTop: '1.5rem' }}>
+      <div className="panel-heading panel-heading--compact">
+        <div>
+          <span className="eyebrow">Lich su thao tac</span>
+          <h4>Nhat ky thay doi</h4>
+        </div>
+        <StatusPill label={`${logs.length} thay doi`} tone="neutral" />
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Thoi gian</th>
+              <th>Nguoi thuc hien</th>
+              <th>Hanh dong</th>
+              <th>Doi tuong</th>
+              <th>Chi tiet</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs.map((log) => (
+              <tr key={log.id}>
+                <td style={{ whiteSpace: 'nowrap' }}>{formatDate(log.timestamp)}</td>
+                <td>{getUser(log.userId)?.name ?? log.userId}</td>
+                <td>
+                  <StatusPill
+                    label={ACTION_LABELS[log.action]}
+                    tone={ACTION_TONES[log.action]}
+                  />
+                </td>
+                <td>{log.entityName}</td>
+                <td>
+                  {log.changes.map((c, i) => (
+                    <div key={i} style={{ fontSize: '0.85em' }}>
+                      <strong>{c.field}</strong>: {String(c.oldValue ?? '(trong)')} &rarr; {String(c.newValue ?? '(trong)')}
+                    </div>
+                  ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </article>
   )
 }
 
@@ -3816,7 +3973,7 @@ function WorkloadTabPanel({
               <div key={`${member.fullName}-${index}`} className="list-row list-row--compact">
                 <div>
                   <strong>{member.fullName || 'Chua co ten'}</strong>
-                  <p>{member.email || 'Chua co email'} | {member.titleUnit || 'Chua cap nhat chuc danh'}</p>
+                  <p>{member.email || 'Chua co email'} | {member.title || 'Chua cap nhat chuc danh'} - {member.unit}</p>
                 </div>
                 <StatusPill label="Chua doi chieu capacity" tone="warning" />
               </div>

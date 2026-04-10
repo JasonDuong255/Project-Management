@@ -50,8 +50,11 @@ export interface ProjectDocument {
   id: string
   title: string
   category: string
+  documentNumber: string
   uploadedBy: string
   uploadedAt: string
+  updatedBy: string
+  updatedAt: string
   url: string
   description: string
 }
@@ -116,7 +119,8 @@ export interface ProjectAitsPersonnel {
   userId: string
   employeeCode: string
   fullName: string
-  titleUnit: string
+  title: string
+  unit: string
   role: string
   responsibility: string
   totalPlannedHours: number
@@ -126,7 +130,8 @@ export interface ProjectAitsPersonnel {
 
 export interface ProjectExternalPersonnel {
   fullName: string
-  titleUnit: string
+  title: string
+  unit: string
   role: string
   responsibility: string
   email: string
@@ -147,6 +152,7 @@ export interface Project {
   sponsor: string
   department: string
   objective: string
+  ttkDecisionNumber: string
   createdById: string
   adminId: string
   memberIds: string[]
@@ -217,6 +223,46 @@ export interface DelayRaise {
   managerResponse: string
 }
 
+export type ActivityLogAction =
+  | 'PROJECT_INFO_UPDATED'
+  | 'PERSONNEL_UPDATED'
+  | 'DOCUMENT_ADDED'
+  | 'DOCUMENT_DELETED'
+  | 'TASK_CREATED'
+  | 'SUBTASK_CREATED'
+  | 'TASK_UPDATED'
+  | 'SUBTASK_UPDATED'
+  | 'TASK_DELETED'
+  | 'SUBTASK_DELETED'
+  | 'TASK_HOURS_CHANGED'
+  | 'SUBTASK_HOURS_CHANGED'
+  | 'WORKLOG_ADDED'
+  | 'PROJECT_CLOSED'
+  | 'PROJECT_REOPENED'
+
+export interface ActivityLogChange {
+  field: string
+  oldValue: string | number | null
+  newValue: string | number | null
+}
+
+export interface ActivityLog {
+  id: string
+  projectId: string
+  userId: string
+  action: ActivityLogAction
+  entityType: 'PROJECT' | 'PLAN_ITEM'
+  entityId: string
+  entityName: string
+  changes: ActivityLogChange[]
+  timestamp: string
+}
+
+export interface DeletePlanItemInput {
+  planItemId: string
+  projectId: string
+}
+
 export interface CatalogOption {
   value: string
   label: string
@@ -239,6 +285,7 @@ export interface MockDatabase {
   planItems: PlanItem[]
   worklogs: Worklog[]
   delayRaises: DelayRaise[]
+  activityLogs: ActivityLog[]
   catalogs: Catalogs
 }
 
@@ -258,6 +305,7 @@ export interface CreateProjectInput {
   summary: string
   sponsor: string
   objective: string
+  ttkDecisionNumber?: string
   createdById: string
   adminId: string
   startDate: string
@@ -276,6 +324,7 @@ export interface UpdateProjectInput {
       | 'sponsor'
       | 'department'
       | 'objective'
+      | 'ttkDecisionNumber'
       | 'status'
       | 'health'
       | 'progress'
@@ -303,6 +352,17 @@ export interface CreateDocumentInput {
   description: string
   url: string
   uploadedBy: string
+}
+
+export interface UpdateDocumentInput {
+  projectId: string
+  documentId: string
+  title: string
+  category: string
+  documentNumber: string
+  description: string
+  url: string
+  updatedBy: string
 }
 
 export interface DeleteDocumentInput {

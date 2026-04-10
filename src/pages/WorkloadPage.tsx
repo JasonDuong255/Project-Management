@@ -70,7 +70,8 @@ function buildFallbackAitsPersonnel(
   return {
     userId: user.id,
     fullName: user.name,
-    titleUnit: `${user.title} - ${user.unit}`,
+    title: user.title,
+    unit: user.unit,
     role: user.id === project.adminId ? 'PM du an' : 'Thanh vien trien khai',
     responsibility: '',
     totalPlannedHours,
@@ -427,7 +428,7 @@ export function WorkloadPage() {
               <div key={`${member.fullName}-${index}`} className="list-row list-row--compact">
                 <div>
                   <strong>{member.fullName || 'Chua co ten'}</strong>
-                  <p>{member.email || 'Chua co email'} | {member.titleUnit || 'Chua cap nhat chuc danh'}</p>
+                  <p>{member.email || 'Chua co email'} | {member.title || 'Chua cap nhat chuc danh'} - {member.unit}</p>
                 </div>
                 <StatusPill label="Chua doi chieu capacity" tone="warning" />
               </div>

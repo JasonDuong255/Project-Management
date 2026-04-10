@@ -13,10 +13,12 @@ import type {
   CreateDocumentInput,
   CreateProjectInput,
   DeleteDocumentInput,
+  DeletePlanItemInput,
   SaveAllocationInput,
   SavePlanItemInput,
   SaveRiskInput,
   SaveWorklogInput,
+  UpdateDocumentInput,
   UpdateProjectInput,
   User,
 } from '../types'
@@ -34,8 +36,10 @@ interface AppContextValue extends AppSnapshot {
   createProject: (input: CreateProjectInput) => Promise<void>
   updateProject: (input: UpdateProjectInput) => Promise<void>
   addProjectDocument: (input: CreateDocumentInput) => Promise<void>
+  updateProjectDocument: (input: UpdateDocumentInput) => Promise<void>
   deleteProjectDocument: (input: DeleteDocumentInput) => Promise<void>
   savePlanItem: (input: SavePlanItemInput) => Promise<void>
+  deletePlanItem: (input: DeletePlanItemInput) => Promise<void>
   addWorklog: (input: SaveWorklogInput) => Promise<void>
   raiseDelay: (input: {
     projectId: string
@@ -61,6 +65,7 @@ const emptySnapshot: AppSnapshot = {
   planItems: [],
   worklogs: [],
   delayRaises: [],
+  activityLogs: [],
   catalogs: {
     projectStatuses: [],
     healthStatuses: [],
@@ -127,6 +132,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
+  async function updateProjectDocument(input: UpdateDocumentInput) {
+    const snapshot = await mockApi.updateProjectDocument(input)
+    setState(snapshot)
+  }
+
   async function deleteProjectDocument(input: DeleteDocumentInput) {
     const snapshot = await mockApi.deleteProjectDocument(input)
     setState(snapshot)
@@ -134,6 +144,11 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   async function savePlanItem(input: SavePlanItemInput) {
     const snapshot = await mockApi.savePlanItem(input)
+    setState(snapshot)
+  }
+
+  async function deletePlanItem(input: DeletePlanItemInput) {
+    const snapshot = await mockApi.deletePlanItem(input)
     setState(snapshot)
   }
 
@@ -195,8 +210,10 @@ export function AppProvider({ children }: PropsWithChildren) {
         createProject,
         updateProject,
         addProjectDocument,
+        updateProjectDocument,
         deleteProjectDocument,
         savePlanItem,
+        deletePlanItem,
         addWorklog,
         raiseDelay,
         saveAllocation,

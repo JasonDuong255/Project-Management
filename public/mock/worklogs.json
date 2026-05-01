@@ -1,0 +1,74 @@
+[
+  {
+    "id": "wl-101",
+    "taskId": "task-104",
+    "projectId": "p-1",
+    "memberId": "u-mem-1",
+    "date": "2026-03-05",
+    "hours": 8,
+    "progressNote": "Hoàn tất API upload tài liệu đợt 1"
+  },
+  {
+    "id": "wl-102",
+    "taskId": "task-104",
+    "projectId": "p-1",
+    "memberId": "u-mem-1",
+    "date": "2026-03-12",
+    "hours": 6,
+    "progressNote": "Bổ sung phân quyền xem lịch sử upload"
+  },
+  {
+    "id": "wl-103",
+    "taskId": "task-105",
+    "projectId": "p-1",
+    "memberId": "u-mem-4",
+    "date": "2026-03-14",
+    "hours": 5,
+    "progressNote": "Dựng khung màn hình quản lý kế hoạch"
+  },
+  {
+    "id": "wl-201",
+    "taskId": "task-202",
+    "projectId": "p-2",
+    "memberId": "u-mem-3",
+    "date": "2026-03-04",
+    "hours": 7,
+    "progressNote": "Chốt dimension báo cáo hợp đồng"
+  },
+  {
+    "id": "wl-202",
+    "taskId": "task-204",
+    "projectId": "p-2",
+    "memberId": "u-mem-3",
+    "date": "2026-03-16",
+    "hours": 8,
+    "progressNote": "Khai báo mapping nguồn HRM"
+  },
+  {
+    "id": "wl-203",
+    "taskId": "task-205",
+    "projectId": "p-2",
+    "memberId": "u-mem-2",
+    "date": "2026-03-17",
+    "hours": 4,
+    "progressNote": "Thiết lập lịch batch thử nghiệm"
+  },
+  {
+    "id": "wl-301",
+    "taskId": "task-301",
+    "projectId": "p-3",
+    "memberId": "u-mem-1",
+    "date": "2026-03-11",
+    "hours": 6,
+    "progressNote": "Kickoff và chốt phạm vi giai đoạn 1"
+  },
+  {
+    "id": "wl-302",
+    "taskId": "task-302",
+    "projectId": "p-3",
+    "memberId": "u-mem-3",
+    "date": "2026-03-20",
+    "hours": 7,
+    "progressNote": "Lập kế hoạch sơ bộ theo sprint"
+  }
+]

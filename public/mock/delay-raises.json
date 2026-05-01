@@ -1,0 +1,24 @@
+[
+  {
+    "id": "dr-101",
+    "projectId": "p-2",
+    "taskId": "task-205",
+    "requesterId": "u-mem-2",
+    "requestedAt": "2026-03-19T09:30:00",
+    "reason": "Môi trường UAT chưa whitelist IP nên batch không chạy được ổn định.",
+    "impact": "Nguy cơ lùi mốc SIT tối thiểu 7 ngày nếu không re-plan.",
+    "status": "OPEN",
+    "managerResponse": ""
+  },
+  {
+    "id": "dr-102",
+    "projectId": "p-1",
+    "taskId": "task-105",
+    "requesterId": "u-mem-4",
+    "requestedAt": "2026-03-18T16:40:00",
+    "reason": "Mock data màn hình kế hoạch chưa chốt nên UI phải làm lại một phần.",
+    "impact": "Tăng effort kiểm thử giao diện và có thể trễ 3 ngày.",
+    "status": "ACKNOWLEDGED",
+    "managerResponse": "PM đã đồng ý cập nhật lại baseline sau khi chốt mock data."
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(npm install:*)",
+      "Bash(taskkill //PID 32340 //F)",
+      "Bash(netstat -ano)",
+      "Bash(wmic process:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

@@ -12,15 +12,12 @@ export function MemberWorkspacePage() {
     return (
       <div className="page-grid">
         <SectionHeader
-          title="Không gian thành viên"
-          description="Đăng nhập bằng tài khoản thành viên để xem task cá nhân"
+          title="Việc của tôi"
+          description="Dành cho tài khoản thành viên triển khai"
         />
         <section className="panel empty-panel">
-          <h3>Mô đun này dành cho thành viên tổ triển khai</h3>
-          <p>
-            Bạn có thể dùng tài khoản `dev.binh` hoặc `dev.duy` để xem dữ liệu mẫu
-            theo góc nhìn người thực thi.
-          </p>
+          <h3>Cần tài khoản thành viên</h3>
+          <p>Dùng `dev.binh` hoặc `dev.duy` để xem dữ liệu mẫu.</p>
         </section>
       </div>
     )
@@ -32,15 +29,15 @@ export function MemberWorkspacePage() {
   return (
     <div className="page-grid">
       <SectionHeader
-        title="Không gian thành viên"
-        description="Theo dõi công việc được giao, tiến độ và các raise đã gửi"
+        title="Việc của tôi"
+        description="Công việc và raise của bạn"
       />
 
       <section className="panel">
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Assigned tasks</span>
-            <h3>Công việc đang phụ trách</h3>
+            <h3>Công việc của tôi</h3>
           </div>
           <StatusPill label={`${tasks.length} task`} tone="info" />
         </div>
@@ -87,7 +84,7 @@ export function MemberWorkspacePage() {
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Delay raises</span>
-            <h3>Yêu cầu cập nhật kế hoạch đã gửi</h3>
+            <h3>Raise đã gửi</h3>
           </div>
           <StatusPill label={`${raises.length} raise`} tone="warning" />
         </div>

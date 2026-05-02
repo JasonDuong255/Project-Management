@@ -42,13 +42,16 @@ export function LoginPage() {
     navigate(from, { replace: true })
   }
 
-  async function quickLogin(nextIdentifier: string, nextPassword: string) {
+  // All demo accounts share password '123456' (seed-managed in Supabase Auth).
+  const DEMO_PASSWORD = '123456'
+
+  async function quickLogin(nextIdentifier: string) {
     setIdentifier(nextIdentifier)
-    setPassword(nextPassword)
+    setPassword(DEMO_PASSWORD)
     setIsSubmitting(true)
     setError('')
 
-    const result = await login(nextIdentifier, nextPassword)
+    const result = await login(nextIdentifier, DEMO_PASSWORD)
 
     if (!result.ok) {
       setError(result.message ?? 'Đăng nhập thất bại')
@@ -63,32 +66,31 @@ export function LoginPage() {
     <div className="login-page">
       <section className="login-hero">
         <span className="eyebrow">Internal Portfolio Workspace</span>
-        <h1>Hệ thống quản lý các dự án nội bộ của công ty</h1>
+        <h1>Hệ thống quản lý dự án</h1>
         <p>
-          Bộ khung frontend React + TypeScript dùng JSON làm nguồn fake API, mô
-          phỏng đủ các vai trò PM, thành viên triển khai và admin hệ thống.
+          Điều phối dự án, nhân sự và tiến độ trên một nền tảng duy nhất.
         </p>
 
         <div className="feature-grid">
           <article className="feature-card">
             <ShieldCheck size={20} />
             <div>
-              <strong>Role-based flow</strong>
-              <p>Luồng riêng cho PM, thành viên triển khai và admin hệ thống.</p>
+              <strong>Phân quyền theo vai trò</strong>
+              <p>PM, thành viên và admin hệ thống.</p>
             </div>
           </article>
           <article className="feature-card">
             <BriefcaseBusiness size={20} />
             <div>
-              <strong>Project workspace</strong>
-              <p>Tạo dự án, cập nhật hồ sơ, phân bổ giờ công và theo dõi rủi ro.</p>
+              <strong>Quản trị dự án</strong>
+              <p>Hồ sơ, giờ công và rủi ro.</p>
             </div>
           </article>
           <article className="feature-card">
             <Users size={20} />
             <div>
-              <strong>Team execution</strong>
-              <p>Khai báo công việc con, worklog thực tế và raise chậm tiến độ.</p>
+              <strong>Triển khai</strong>
+              <p>Task, worklog và raise tiến độ.</p>
             </div>
           </article>
         </div>
@@ -96,8 +98,8 @@ export function LoginPage() {
 
       <section className="login-card">
         <div>
-          <span className="eyebrow">Đăng nhập demo</span>
-          <h2>Truy cập hệ thống</h2>
+          <span className="eyebrow">Sign in</span>
+          <h2>Đăng nhập</h2>
         </div>
 
         <form className="form-stack" onSubmit={handleSubmit}>
@@ -134,12 +136,12 @@ export function LoginPage() {
               key={user.id}
               type="button"
               className="demo-account"
-              onClick={() => void quickLogin(user.username, user.password)}
+              onClick={() => void quickLogin(user.username)}
             >
               <strong>{user.name}</strong>
               <span>{getRoleLabel(user.role)}</span>
               <small>
-                {user.username} / {user.password}
+                {user.username} / {DEMO_PASSWORD}
               </small>
             </button>
           ))}

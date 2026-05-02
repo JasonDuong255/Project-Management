@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
-import { CirclePlus, Eye, FileText, ShieldAlert, Sparkles, Trash2, Users, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { CirclePlus, Eye, FileText, ShieldAlert, Trash2, Users, X } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { SectionHeader } from '../components/SectionHeader'
@@ -13,7 +13,7 @@ import {
   isProjectCoordinator,
   normalizeUserRole,
 } from '../lib/calculations'
-import { formatDate, formatHours, getCatalogLabel } from '../lib/formatters'
+import { formatDate, getCatalogLabel } from '../lib/formatters'
 import type { CreateProjectTeamMemberInput, Project, User } from '../types'
 
 interface MemberDraft {
@@ -71,20 +71,20 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
   if (normalizedRole === 'PMO') {
     return [
       {
-        title: 'Cho to chuc hanh chinh phe duyet',
-        description: 'Du an PMO vua tao va dang doi xac nhan thanh lap TTK.',
+        title: 'Cho phe duyet',
+        description: 'Doi hanh chinh xac nhan thanh lap TTK',
         projects: projects.filter((project) => project.approvalInfo.status === 'PENDING'),
       },
       {
-        title: 'Da duyet / dang van hanh',
-        description: 'Du an da thanh lap TTK va da ban giao cho PM dieu hanh.',
+        title: 'Dang van hanh',
+        description: 'Da duyet va ban giao cho PM',
         projects: projects.filter(
           (project) => project.approvalInfo.status === 'APPROVED' && project.status !== 'DONE',
         ),
       },
       {
         title: 'Da hoan tat',
-        description: 'Du an da dong va co the dung lam mau doi chieu capacity.',
+        description: 'Du an dong',
         projects: projects.filter((project) => project.status === 'DONE'),
       },
     ].filter((section) => section.projects.length)
@@ -93,13 +93,13 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
   if (normalizedRole === 'ADMIN_HC') {
     return [
       {
-        title: 'Can phe duyet',
-        description: 'Danh sach de nghi thanh lap TTK dang cho hanh chinh xu ly.',
+        title: 'Cho phe duyet',
+        description: 'De nghi thanh lap TTK',
         projects: projects.filter((project) => project.approvalInfo.status === 'PENDING'),
       },
       {
         title: 'Da phe duyet',
-        description: 'Du an da hoan thanh buoc hanh chinh va da ban giao cho PM.',
+        description: 'Da ban giao cho PM',
         projects: projects.filter((project) => project.approvalInfo.status === 'APPROVED'),
       },
     ].filter((section) => section.projects.length)
@@ -108,13 +108,13 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
   if (normalizedRole === 'PM') {
     return [
       {
-        title: 'Du an toi phu trach',
-        description: 'Cac du an ma ban duoc chi dinh lam PM.',
+        title: 'PM phu trach',
+        description: 'Du an ban dang quan ly',
         projects: projects.filter((project) => project.adminId === currentUser.id),
       },
       {
-        title: 'Du an toi dieu phoi',
-        description: 'Cac du an ban tham gia voi vai tro dieu phoi du an.',
+        title: 'Tham gia dieu phoi',
+        description: 'Du an ban dieu phoi',
         projects: projects.filter(
           (project) =>
             project.adminId !== currentUser.id && isProjectCoordinator(project, currentUser.id),
@@ -126,7 +126,7 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
   return [
     {
       title: 'Du an tham gia',
-      description: 'Danh sach du an thanh vien trong to trien khai dang tham gia.',
+      description: 'Du an cua to trien khai',
       projects,
     },
   ]
@@ -150,51 +150,10 @@ export function ProjectsPage() {
   const roleOptions = catalogs.projectMemberRoles.length
     ? catalogs.projectMemberRoles
     : [{ value: 'Thanh vien trien khai', label: 'Thanh vien trien khai' }]
-  const currentMonth = dayjs().format('YYYY-MM')
-  const nextMonth = dayjs().add(1, 'month').format('YYYY-MM')
   const defaultSponsorId = sponsorCandidates[0]?.id ?? users[0]?.id ?? ''
 
   const [form, setForm] = useState(buildInitialForm(projects.length, defaultSponsorId))
   const [memberDrafts, setMemberDrafts] = useState<Record<string, MemberDraft>>({})
-
-  const memberResourceRows = useMemo(() => {
-    return deployableUsers
-      .map((user) => {
-        const currentMonthAllocated = projects.reduce((sum, project) => {
-          const hours = project.monthlyAllocations
-            .filter((allocation) => allocation.memberId === user.id && allocation.month === currentMonth)
-            .reduce((projectSum, allocation) => projectSum + allocation.hours, 0)
-
-          return sum + hours
-        }, 0)
-        const nextMonthAllocated = projects.reduce((sum, project) => {
-          const hours = project.monthlyAllocations
-            .filter((allocation) => allocation.memberId === user.id && allocation.month === nextMonth)
-            .reduce((projectSum, allocation) => projectSum + allocation.hours, 0)
-
-          return sum + hours
-        }, 0)
-        const remainingCurrent = user.monthlyCapacity - currentMonthAllocated
-        const remainingNext = user.monthlyCapacity - nextMonthAllocated
-
-        return {
-          user,
-          currentMonthAllocated,
-          nextMonthAllocated,
-          remainingCurrent,
-          remainingNext,
-          recommendationScore: remainingCurrent + remainingNext,
-        }
-      })
-      .sort((left, right) => right.recommendationScore - left.recommendationScore)
-  }, [currentMonth, nextMonth, deployableUsers, projects])
-
-  const suggestedMemberIds = new Set(
-    memberResourceRows
-      .filter((row) => row.recommendationScore > 0)
-      .slice(0, 4)
-      .map((row) => row.user.id),
-  )
 
   const selectedMemberCount = Object.values(memberDrafts).filter((d) => d.selected).length
 
@@ -320,8 +279,8 @@ export function ProjectsPage() {
   return (
     <div className="page-grid">
       <SectionHeader
-        title="Danh sach du an"
-        description="Phan loai danh sach theo role de PMO, To chuc hanh chinh, PM va thanh vien theo doi dung nhom cong viec."
+        title="Du an"
+        description="Phan loai theo vai tro"
         actions={
           canCreate ? (
             <button type="button" className="primary-button" onClick={openCreateModal}>
@@ -339,7 +298,6 @@ export function ProjectsPage() {
           <section key={section.title} className="project-section-block">
             <div className="panel-heading panel-heading--compact">
               <div>
-                <span className="eyebrow">Project section</span>
                 <h3>{section.title}</h3>
                 <p>{section.description}</p>
               </div>
@@ -429,8 +387,8 @@ export function ProjectsPage() {
         ))
       ) : (
         <section className="panel empty-panel">
-          <h3>Chua co du an phu hop vai tro</h3>
-          <p>Danh sach du an se duoc phan loai lai ngay khi co du lieu theo role hien tai.</p>
+          <h3>Chua co du an</h3>
+          <p>Khong co du an phu hop vai tro hien tai.</p>
         </section>
       )}
 
@@ -441,7 +399,7 @@ export function ProjectsPage() {
               <div>
                 <span className="eyebrow">PMO workspace</span>
                 <h3>Tao du an moi</h3>
-                <p>PMO lap bo thong tin khoi tao, chon PM va danh sach nhan su trien khai.</p>
+                <p>Khoi tao thong tin, PM va to trien khai.</p>
               </div>
               <button type="button" className="ghost-button icon-button" onClick={closeCreateModal}>
                 <X size={16} />
@@ -497,7 +455,7 @@ export function ProjectsPage() {
                   value={form.adminId}
                   onChange={(event) => handlePmChange(event.target.value)}
                 >
-                  <option value="">Hay chon PM tu danh sach nhan su</option>
+                  <option value="">Chon PM</option>
                   {deployableUsers
                     .filter((user) => normalizeUserRole(user.role) === 'PM' && getMemberDraft(user.id).selected)
                     .map((user) => (
@@ -527,7 +485,7 @@ export function ProjectsPage() {
               </label>
 
               <label className="span-2">
-                <span>Nhiem vu to trien khai</span>
+                <span>Nhiem vu</span>
                 <textarea
                   rows={2}
                   value={form.objective}
@@ -537,7 +495,7 @@ export function ProjectsPage() {
               </label>
 
               <label>
-                <span>So quyet dinh thanh lap TTK</span>
+                <span>So quyet dinh TTK</span>
                 <input
                   value={form.ttkDecisionNumber}
                   placeholder="Vi du: QD-2026/001"
@@ -571,8 +529,8 @@ export function ProjectsPage() {
                 <div className="roster-builder__header">
                   <div>
                     <span className="eyebrow">Roster builder</span>
-                    <h4>Danh sach nhan su trien khai</h4>
-                    <p>Chon nhan su tu danh sach he thong de them vao to trien khai du an.</p>
+                    <h4>To trien khai</h4>
+                    <p>Chon nhan su tham gia du an.</p>
                   </div>
                   <div className="inline-actions">
                     <StatusPill label={`${selectedMemberCount} da chon`} tone={selectedMemberCount ? 'info' : 'neutral'} />
@@ -670,7 +628,7 @@ export function ProjectsPage() {
                       {!selectedMemberCount ? (
                         <tr>
                           <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>
-                            Chua co nhan su. Hay chon tu danh sach ben tren.
+                            Chua chon nhan su.
                           </td>
                         </tr>
                       ) : null}

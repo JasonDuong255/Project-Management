@@ -28,17 +28,17 @@ export function NotificationCenterPage() {
   return (
     <div className="page-grid">
       <SectionHeader
-        title="Trung tam thong bao"
-        description="Canh bao task tong quan sap den han trong 7 ngay va cac task con chua hoan thanh."
+        title="Thong bao"
+        description="Task sap den han trong 7 ngay"
       />
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">
-          <span>Thong bao dang mo</span>
+          <span>Dang mo</span>
           <strong>{notifications.length}</strong>
         </div>
         <div className="detail-card">
-          <span>Can xu ly gap</span>
+          <span>Khan</span>
           <strong>{urgentCount}</strong>
         </div>
         <div className="detail-card">
@@ -46,7 +46,7 @@ export function NotificationCenterPage() {
           <strong>{dueTodayCount}</strong>
         </div>
         <div className="detail-card">
-          <span>Task con chua xong</span>
+          <span>Subtask chua xong</span>
           <strong>{unfinishedChildCount}</strong>
         </div>
       </section>
@@ -55,7 +55,7 @@ export function NotificationCenterPage() {
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Deadline watcher</span>
-            <h3>Danh sach canh bao</h3>
+            <h3>Canh bao</h3>
           </div>
           <StatusPill
             label={`${notifications.length} thong bao`}
@@ -88,29 +88,29 @@ export function NotificationCenterPage() {
                   </span>
                   <span className="notification-chip">
                     <BellRing size={15} />
-                    Nguoi thuc hien: {item.assigneeNames}
+                    Phu trach: {item.assigneeNames}
                   </span>
                   <span className="notification-chip">
                     <CalendarClock size={15} />
-                    Han cuoi: {formatDate(item.endDate)}
+                    Han: {formatDate(item.endDate)}
                   </span>
                   <span className="notification-chip">
                     <TriangleAlert size={15} />
-                    Tien do hien tai: {item.progress}%
+                    Tien do: {item.progress}%
                   </span>
                 </div>
 
                 <div className="notification-card__body">
                   <div className="notification-card__summary">
-                    <strong>Noi dung canh bao</strong>
+                    <strong>Ly do canh bao</strong>
                     <p>
-                      Task tong quan chua dat 100% trong khi da nam trong cua so canh bao 7 ngay truoc han.
+                      Chua dat 100% trong cua so 7 ngay truoc han.
                     </p>
                   </div>
 
                   <div className="notification-card__children">
                     <div className="notification-card__children-header">
-                      <strong>Task con chua hoan thanh</strong>
+                      <strong>Subtask chua xong</strong>
                       <StatusPill
                         label={`${item.childTasks.length} task`}
                         tone={item.childTasks.length ? 'warning' : 'neutral'}
@@ -142,7 +142,7 @@ export function NotificationCenterPage() {
                       </div>
                     ) : (
                       <div className="overview-empty-note">
-                        <p>Khong co task con chua hoan thanh, nhung task tong quan van chua dat 100%.</p>
+                        <p>Khong co subtask. Task tong quan van chua dat 100%.</p>
                       </div>
                     )}
                   </div>
@@ -152,7 +152,7 @@ export function NotificationCenterPage() {
                       to={`/projects/${item.projectId}`}
                       className="secondary-button secondary-button--compact"
                     >
-                      Mo chi tiet du an
+                      Xem du an
                     </Link>
                   </div>
                 </div>
@@ -161,10 +161,8 @@ export function NotificationCenterPage() {
           </div>
         ) : (
           <div className="empty-panel">
-            <h3>Khong co canh bao moi</h3>
-            <p>
-              Khong co task tong quan nao trong 7 ngay toi han ma chua dat 100% doi voi tai khoan hien tai.
-            </p>
+            <h3>Khong co canh bao</h3>
+            <p>Tat ca task trong 7 ngay toi deu dung tien do.</p>
           </div>
         )}
       </section>

@@ -31,14 +31,14 @@ export function ReportsPage() {
     <div className="page-grid">
       <SectionHeader
         title="Báo cáo"
-        description="Khung báo cáo dự án, nguồn lực và các yêu cầu re-plan"
+        description="Dự án, nguồn lực và re-plan"
       />
 
       <section className="panel">
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Report 01</span>
-            <h3>Hiệu quả triển khai theo dự án</h3>
+            <h3>Hiệu quả dự án</h3>
           </div>
           <StatusPill label={`${projectRows.length} dự án`} tone="info" />
         </div>
@@ -75,7 +75,7 @@ export function ReportsPage() {
           <div className="panel-heading">
             <div>
               <span className="eyebrow">Report 02</span>
-              <h3>Lệch giờ công tháng {formatMonthLabel(month)}</h3>
+              <h3>Lệch giờ tháng {formatMonthLabel(month)}</h3>
             </div>
           </div>
           <div className="table-wrapper">

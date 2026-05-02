@@ -69,38 +69,36 @@ export function DashboardPage() {
   return (
     <div className="page-grid">
       <SectionHeader
-        title={`Xin chào ${currentUser?.name ?? ''}`}
-        description={`Tổng quan điều hành cho ${getRoleLabel(
-          currentUser?.role ?? 'PROJECT_ADMIN',
-        )}`}
+        title={`Xin chào, ${currentUser?.name ?? ''}`}
+        description={getRoleLabel(currentUser?.role ?? 'PROJECT_ADMIN')}
       />
 
       <section className="stats-grid">
         <StatCard
-          label="Dự án đang quản lý"
+          label="Dự án phụ trách"
           value={summary.totalProjects}
-          helper="Tổng số dự án nhìn thấy theo vai trò hiện tại"
+          helper="Theo vai trò hiện tại"
           accent="#0f766e"
           icon={<FolderOpenDot size={18} />}
         />
         <StatCard
-          label="Dự án có rủi ro"
+          label="Dự án rủi ro"
           value={summary.atRiskProjects}
-          helper="Bao gồm dự án trạng thái cảnh báo hoặc health đỏ"
+          helper="Cảnh báo hoặc health đỏ"
           accent="#d97706"
           icon={<AlertTriangle size={18} />}
         />
         <StatCard
-          label="Đầu mục bị chặn"
+          label="Task bị chặn"
           value={summary.blockedTasks}
-          helper="Các task BLOCKED hoặc cần cập nhật lại kế hoạch"
+          helper="Cần re-plan"
           accent="#be123c"
           icon={<ListTodo size={18} />}
         />
         <StatCard
           label="Raise đang mở"
           value={summary.openRaises}
-          helper="Yêu cầu thành viên gửi lên PM để re-plan"
+          helper="Chờ PM xử lý"
           accent="#4338ca"
           icon={<Siren size={18} />}
         />
@@ -111,7 +109,7 @@ export function DashboardPage() {
           <div className="panel-heading">
             <div>
               <span className="eyebrow">Project mix</span>
-              <h3>Phân bổ trạng thái dự án</h3>
+              <h3>Trạng thái dự án</h3>
             </div>
           </div>
           <div className="chart-box">
@@ -142,7 +140,7 @@ export function DashboardPage() {
           <div className="panel-heading">
             <div>
               <span className="eyebrow">Delivery health</span>
-              <h3>Xu hướng kế hoạch và giờ công</h3>
+              <h3>Kế hoạch & giờ công</h3>
             </div>
           </div>
           <div className="chart-box">
@@ -183,7 +181,7 @@ export function DashboardPage() {
           <div className="panel-heading">
             <div>
               <span className="eyebrow">Health board</span>
-              <h3>Sức khỏe dự án theo mức cảnh báo</h3>
+              <h3>Sức khỏe dự án</h3>
             </div>
           </div>
           <div className="chart-box">
@@ -209,8 +207,8 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Rủi ro cần theo dõi</span>
-              <h3>Danh sách nổi bật</h3>
+              <span className="eyebrow">Risks</span>
+              <h3>Rủi ro nổi bật</h3>
             </div>
             <StatusPill label={`${openRisks.length} risk`} tone="warning" />
           </div>
@@ -237,8 +235,8 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Cảnh báo lệch giờ</span>
-              <h3>Tổng hợp tháng {formatMonthLabel(currentMonth)}</h3>
+              <span className="eyebrow">Workload</span>
+              <h3>Lệch giờ tháng {formatMonthLabel(currentMonth)}</h3>
             </div>
             <StatusPill label={`${workloadWarnings.length} cảnh báo`} tone="warning" />
           </div>
@@ -247,7 +245,7 @@ export function DashboardPage() {
               <div key={row.user.id} className="list-row">
                 <div>
                   <strong>{row.user.name}</strong>
-                  <p>{row.projectNames.join(', ') || 'Chưa phân bổ dự án'}</p>
+                  <p>{row.projectNames.join(', ') || 'Chưa phân bổ'}</p>
                 </div>
                 <div className="metric-pair">
                   <span>
@@ -268,8 +266,8 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Tài khoản đang đăng nhập</span>
-              <h3>Thông tin vai trò</h3>
+              <span className="eyebrow">Tài khoản</span>
+              <h3>Hồ sơ của bạn</h3>
             </div>
             <StatusPill label={currentUser?.unit ?? ''} tone="info" />
           </div>
@@ -283,9 +281,7 @@ export function DashboardPage() {
             <div>
               <h3>{currentUser?.name}</h3>
               <p>{getRoleLabel(currentUser?.role ?? 'PROJECT_ADMIN')}</p>
-              <small>
-                Tài khoản demo hiện dùng để kiểm tra flow, cảnh báo và phân quyền.
-              </small>
+              <small>Tài khoản demo</small>
             </div>
           </div>
           <div className="detail-grid compact-grid">
@@ -298,11 +294,11 @@ export function DashboardPage() {
               <strong>{currentUser?.unit}</strong>
             </div>
             <div className="detail-card">
-              <span>Giờ công chuẩn/tháng</span>
+              <span>Capacity / tháng</span>
               <strong>{currentUser?.monthlyCapacity}h</strong>
             </div>
             <div className="detail-card">
-              <span>Ngày tổng hợp</span>
+              <span>Cập nhật</span>
               <strong>{dayjs().format('DD/MM/YYYY')}</strong>
             </div>
           </div>

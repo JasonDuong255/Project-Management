@@ -449,19 +449,6 @@ function getRiskStatusTone(status: ProjectRiskStatus) {
   }
 }
 
-function getDocumentActionLabel(category: ProjectDocumentCategory) {
-  switch (category) {
-    case 'CONTRACT':
-      return 'Them hop dong'
-    case 'SUBMISSION':
-      return 'Them to trinh'
-    case 'MEETING_MINUTES':
-      return 'Them bien ban hop'
-    default:
-      return 'Them tai lieu'
-  }
-}
-
 function getDocumentCategoryLabel(category: ProjectDocumentCategory) {
   return projectDocumentCategories.find((item) => item.value === category)?.label ?? 'Tai lieu'
 }
@@ -472,13 +459,18 @@ function buildPlanForm(project: Project, task?: PlanItem | null) {
       id: task.id,
       parentId: task.parentId ?? '',
       name: task.name,
+      workType: task.workType,
       assigneeIds: getTaskAssigneeIds(task),
       assigneeId: task.assigneeId,
       status: task.status,
+      baselineStartDate: task.baselineStartDate,
+      baselineEndDate: task.baselineEndDate,
       startDate: task.startDate,
       endDate: task.endDate,
       progress: task.progress,
       plannedHours: task.plannedHours,
+      dependencyNote: task.dependencyNote ?? '',
+      deliverable: task.deliverable ?? '',
     }
   }
 
@@ -486,13 +478,18 @@ function buildPlanForm(project: Project, task?: PlanItem | null) {
     id: '',
     parentId: '',
     name: '',
+    workType: 'SUBTASK' as const,
     assigneeIds: project.memberIds[0] ? [project.memberIds[0]] : [],
     assigneeId: project.memberIds[0] ?? '',
     status: 'NOT_STARTED' as const,
+    baselineStartDate: project.startDate,
+    baselineEndDate: project.endDate,
     startDate: project.startDate,
     endDate: project.endDate,
     progress: 0,
     plannedHours: 16,
+    dependencyNote: '',
+    deliverable: '',
   }
 }
 
@@ -812,9 +809,9 @@ export function ProjectDetailPage() {
       <div className="page-grid">
         <section className="panel empty-panel">
           <h3>Khong tim thay du an</h3>
-          <p>Du an nay chua co trong du lieu demo hien tai.</p>
+          <p>Du an khong ton tai.</p>
           <Link to="/projects" className="secondary-button">
-            Quay lai danh sach
+            Quay lai
           </Link>
         </section>
       </div>
@@ -1057,7 +1054,7 @@ export function ProjectDetailPage() {
         <div className="overview-section__toolbar">
           <div>
             <strong>{referenceGroupLabels[group]}</strong>
-            <p>Ten tai lieu va ghi chu can cu lien quan.</p>
+            <p>Tai lieu va ghi chu</p>
           </div>
           {canManageProject ? (
             <button
@@ -1076,7 +1073,7 @@ export function ProjectDetailPage() {
             {items.map((item, index) => (
               <div key={`${group}-${index}`} className="overview-reference-item">
                 <label>
-                  <span>Ten hop dong / tai lieu</span>
+                  <span>Ten tai lieu</span>
                   <input
                     value={item.name}
                     onChange={(event) =>
@@ -1109,7 +1106,7 @@ export function ProjectDetailPage() {
           </div>
         ) : (
           <div className="overview-empty-note">
-            <p>Chua co du lieu cho nhom can cu nay.</p>
+            <p>Chua co du lieu.</p>
           </div>
         )}
       </div>
@@ -1362,20 +1359,20 @@ export function ProjectDetailPage() {
       projectId: project.id,
       parentId: submittedPlan.parentId || null,
       name: submittedPlan.name,
-      workType: submittedPlan.parentId ? 'SUBTASK' : 'PRELIMINARY',
+      workType: submittedPlan.parentId ? 'SUBTASK' : submittedPlan.workType,
       ownerId: project.adminId,
       assigneeId: submittedPlan.assigneeId || submittedPlan.assigneeIds[0],
       assigneeIds: submittedPlan.assigneeIds,
       status: submittedPlan.status,
-      baselineStartDate: submittedPlan.startDate,
-      baselineEndDate: submittedPlan.endDate,
+      baselineStartDate: submittedPlan.baselineStartDate || submittedPlan.startDate,
+      baselineEndDate: submittedPlan.baselineEndDate || submittedPlan.endDate,
       startDate: submittedPlan.startDate,
       endDate: submittedPlan.endDate,
       progress: Number(submittedPlan.progress),
       plannedHours: Number(submittedPlan.plannedHours),
       monthAllocations: [],
-      dependencyNote: '',
-      deliverable: '',
+      dependencyNote: submittedPlan.dependencyNote,
+      deliverable: submittedPlan.deliverable,
     })
 
     const assigneeNames =
@@ -1564,7 +1561,7 @@ export function ProjectDetailPage() {
         description={project.name}
         actions={
           <Link to="/projects" className="secondary-button">
-            Quay lai danh sach
+            Quay lai
           </Link>
         }
       />
@@ -1573,7 +1570,7 @@ export function ProjectDetailPage() {
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">
-          <span>PM phu trach</span>
+          <span>PM</span>
           <strong>{getUser(project.adminId)?.name}</strong>
         </div>
         <div className="detail-card">
@@ -1591,12 +1588,12 @@ export function ProjectDetailPage() {
           />
         </div>
         <div className="detail-card">
-          <span>Tien do du an</span>
+          <span>Tien do</span>
           <strong>{project.progress}%</strong>
         </div>
       </section>
 
-      <nav className="detail-tabs" aria-label="Dieu huong chi tiet du an">
+      <nav className="detail-tabs" aria-label="Tabs du an">
         {detailTabs.map((tab) => (
           <button
             key={tab.id}
@@ -1614,8 +1611,8 @@ export function ProjectDetailPage() {
         <section className="panel panel--compact detail-tab-panel">
           <div className="panel-heading panel-heading--compact">
             <div>
-              <span className="eyebrow">Thong tin khoi tao</span>
-              <h3>Thong tin khi tao moi du an</h3>
+              <span className="eyebrow">Khoi tao</span>
+              <h3>Thong tin khoi tao</h3>
             </div>
             <div className="panel-actions">
               <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
@@ -1640,7 +1637,7 @@ export function ProjectDetailPage() {
                   <input value={initForm.name} disabled />
                 </label>
                 <label className="span-2">
-                  <span>Tom tat du an</span>
+                  <span>Tom tat</span>
                   <textarea
                     rows={3}
                     value={initForm.summary}
@@ -1651,7 +1648,7 @@ export function ProjectDetailPage() {
                   />
                 </label>
                 <label>
-                  <span>Nhiem vu to trien khai</span>
+                  <span>Nhiem vu</span>
                   <textarea
                     rows={2}
                     value={initForm.objective}
@@ -1662,7 +1659,7 @@ export function ProjectDetailPage() {
                   />
                 </label>
                 <label>
-                  <span>Don vi / phong ban</span>
+                  <span>Don vi</span>
                   <input value={initForm.department} disabled />
                 </label>
               </div>
@@ -1672,15 +1669,15 @@ export function ProjectDetailPage() {
               <div className="overview-section__header">
                 <div>
                   <span className="eyebrow">Quyet dinh</span>
-                  <h4>Thanh lap to trien khai</h4>
+                  <h4>Thanh lap TTK</h4>
                 </div>
               </div>
               <div className="overview-section__grid">
                 <label>
-                  <span>So quyet dinh thanh lap TTK</span>
+                  <span>So quyet dinh TTK</span>
                   <input
                     value={initForm.ttkDecisionNumber}
-                    placeholder="Vi du: QD-2026/001"
+                    placeholder="VD: QD-2026/001"
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, ttkDecisionNumber: event.target.value } : current)
                     }
@@ -1692,7 +1689,7 @@ export function ProjectDetailPage() {
                   <input value={project.approvalInfo.requestFileName || 'Chua co file'} disabled />
                 </label>
                 <label>
-                  <span>Nguoi tao du an</span>
+                  <span>Nguoi tao</span>
                   <input value={getUser(project.createdById)?.name ?? project.createdById} disabled />
                 </label>
                 <label>
@@ -1711,7 +1708,7 @@ export function ProjectDetailPage() {
               </div>
               <div className="overview-section__grid">
                 <label>
-                  <span>Sponsor du an</span>
+                  <span>Sponsor</span>
                   <select
                     value={initForm.sponsor}
                     onChange={(event) =>
@@ -1766,7 +1763,7 @@ export function ProjectDetailPage() {
             {canManageProject ? (
               <button type="submit" className="primary-button">
                 <Save size={16} />
-                Luu thong tin khoi tao
+                Luu thay doi
               </button>
             ) : null}
           </form>
@@ -1778,7 +1775,7 @@ export function ProjectDetailPage() {
         <div className="panel-heading panel-heading--compact">
           <div>
             <span className="eyebrow">Overview</span>
-            <h3>Khai bao va cap nhat thong tin chung</h3>
+            <h3>Thong tin chung</h3>
           </div>
           <div className="panel-actions">
             <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
@@ -1792,12 +1789,12 @@ export function ProjectDetailPage() {
                   <span className="eyebrow">Nhom 1</span>
                   <h4>Thong tin chung</h4>
                 </div>
-                <p>Cap nhat mo ta du an, moc khoi dong tien do, trang thai va PM phu trach.</p>
+                <p>Mo ta, tien do, trang thai va PM</p>
               </div>
 
               <div className="overview-section__grid">
                 <label className="span-2">
-                  <span>Mo ta du an</span>
+                  <span>Mo ta</span>
                   <textarea
                     rows={3}
                     value={overviewForm.summary}
@@ -1811,7 +1808,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label>
-                  <span>Ngay bat dau trien khai tien do</span>
+                  <span>Ngay bat dau</span>
                   <input
                     type="date"
                     value={overviewForm.startDate}
@@ -1846,7 +1843,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label className="span-2">
-                  <span>PM phu trach</span>
+                  <span>PM</span>
                   <select
                     value={overviewForm.adminId}
                     onChange={(event) =>
@@ -1865,7 +1862,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label className="span-2">
-                  <span>Sponsor du an</span>
+                  <span>Sponsor</span>
                   <select
                     value={overviewForm.sponsor}
                     onChange={(event) =>
@@ -1884,7 +1881,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label className="span-2">
-                  <span>Nhiem vu to trien khai</span>
+                  <span>Nhiem vu</span>
                   <textarea
                     rows={2}
                     value={overviewForm.objective}
@@ -1905,7 +1902,7 @@ export function ProjectDetailPage() {
                   <span className="eyebrow">Nhom 2</span>
                   <h4>Can cu</h4>
                 </div>
-                <p>Quan ly danh muc hop dong, phe duyet, quyet dinh va thong tin cach thuc trien khai.</p>
+                <p>Hop dong, phe duyet, quyet dinh</p>
               </div>
 
               <div className="overview-reference-grid">
@@ -2022,15 +2019,15 @@ export function ProjectDetailPage() {
               <div className="overview-section__header">
                 <div>
                   <span className="eyebrow">Nhom 3</span>
-                  <h4>Doanh thu, chi phi, loi nhuan</h4>
+                  <h4>Tai chinh</h4>
                 </div>
-                <p>Theo doi doanh thu, cac nhom chi phi, loi nhuan du an va nguon chi phi trien khai.</p>
+                <p>Doanh thu, chi phi va loi nhuan</p>
               </div>
 
               <div className="overview-financial-grid">
                 <div className="overview-financial-card">
                   <div className="overview-financial-card__header">
-                    <strong>Doanh thu du an</strong>
+                    <strong>Doanh thu</strong>
                     <span>{formatCurrencyPreview(overviewForm.financialInfo.revenue.amount)}</span>
                   </div>
                   <label>
@@ -2046,7 +2043,7 @@ export function ProjectDetailPage() {
                     />
                   </label>
                   <label>
-                    <span>Note so PAKD can cu</span>
+                    <span>Note PAKD</span>
                     <input
                       value={overviewForm.financialInfo.revenue.note}
                       onChange={(event) => updateFinancialField('revenue', 'note', event.target.value)}
@@ -2057,7 +2054,7 @@ export function ProjectDetailPage() {
 
                 <div className="overview-financial-card">
                   <div className="overview-financial-card__header">
-                    <strong>Chi phi trien khai noi bo</strong>
+                    <strong>Chi phi noi bo</strong>
                     <span>{formatCurrencyPreview(overviewForm.financialInfo.internalCost.amount)}</span>
                   </div>
                   <label>
@@ -2073,7 +2070,7 @@ export function ProjectDetailPage() {
                     />
                   </label>
                   <label>
-                    <span>Note so PAKD can cu</span>
+                    <span>Note PAKD</span>
                     <input
                       value={overviewForm.financialInfo.internalCost.note}
                       onChange={(event) =>
@@ -2086,7 +2083,7 @@ export function ProjectDetailPage() {
 
                 <div className="overview-financial-card">
                   <div className="overview-financial-card__header">
-                    <strong>Chi phi trien khai thue ngoai</strong>
+                    <strong>Chi phi thue ngoai</strong>
                     <span>{formatCurrencyPreview(overviewForm.financialInfo.externalCost.amount)}</span>
                   </div>
                   <label>
@@ -2102,7 +2099,7 @@ export function ProjectDetailPage() {
                     />
                   </label>
                   <label>
-                    <span>Note so PAKD can cu</span>
+                    <span>Note PAKD</span>
                     <input
                       value={overviewForm.financialInfo.externalCost.note}
                       onChange={(event) =>
@@ -2115,7 +2112,7 @@ export function ProjectDetailPage() {
 
                 <div className="overview-financial-card">
                   <div className="overview-financial-card__header">
-                    <strong>Loi nhuan du an</strong>
+                    <strong>Loi nhuan</strong>
                     <span>{formatCurrencyPreview(overviewForm.financialInfo.profit.amount)}</span>
                   </div>
                   <label>
@@ -2131,7 +2128,7 @@ export function ProjectDetailPage() {
                     />
                   </label>
                   <label>
-                    <span>Note so PAKD can cu</span>
+                    <span>Note PAKD</span>
                     <input
                       value={overviewForm.financialInfo.profit.note}
                       onChange={(event) => updateFinancialField('profit', 'note', event.target.value)}
@@ -2167,7 +2164,7 @@ export function ProjectDetailPage() {
             {canManageProject ? (
               <button type="submit" className="primary-button">
                 <Save size={16} />
-                Luu thong tin chung
+                Luu thay doi
               </button>
             ) : null}
         </form>
@@ -2192,8 +2189,8 @@ export function ProjectDetailPage() {
               <div className="personnel-group__header">
                 <div>
                   <span className="eyebrow">Bang 1</span>
-                  <h4>Danh sach nhan su AITS</h4>
-                  <p>Thong tin nhan su noi bo tham gia du an va tong gio cong TK.</p>
+                  <h4>Nhan su AITS</h4>
+                  <p>Nhan su noi bo va gio cong TK</p>
                 </div>
                 {canManageProject ? (
                   <button
@@ -2337,8 +2334,8 @@ export function ProjectDetailPage() {
               <div className="personnel-group__header">
                 <div>
                   <span className="eyebrow">Bang 2</span>
-                  <h4>Danh sach nhan su Khach hang</h4>
-                  <p>Dau moi nghiep vu, phoi hop va phe duyet phia khach hang.</p>
+                  <h4>Nhan su khach hang</h4>
+                  <p>Dau moi phia khach hang</p>
                 </div>
                 {canManageProject ? (
                   <button
@@ -2486,8 +2483,8 @@ export function ProjectDetailPage() {
               <div className="personnel-group__header">
                 <div>
                   <span className="eyebrow">Bang 3</span>
-                  <h4>Danh sach doi tac</h4>
-                  <p>Thong tin nhan su doi tac tham gia trien khai hoac ho tro du an.</p>
+                  <h4>Doi tac</h4>
+                  <p>Nhan su doi tac tham gia du an</p>
                 </div>
                 {canManageProject ? (
                   <button
@@ -2649,7 +2646,7 @@ export function ProjectDetailPage() {
             {canManageProject ? (
               <button type="submit" className="primary-button">
                 <Save size={16} />
-                Luu thong tin nhan su
+                Luu thay doi
               </button>
             ) : null}
         </form>
@@ -2741,7 +2738,7 @@ export function ProjectDetailPage() {
                 ) : (
                   <tr>
                     <td colSpan={canManageProject ? 10 : 9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                      Chua co tai lieu nao.
+                      Chua co tai lieu.
                     </td>
                   </tr>
                 )}
@@ -2757,11 +2754,11 @@ export function ProjectDetailPage() {
           <div className="panel-heading panel-heading--compact">
             <div>
               <span className="eyebrow">Risk center</span>
-              <h3>Quan ly rui ro du an</h3>
+              <h3>Rui ro</h3>
             </div>
             <div className="panel-actions">
               <StatusPill
-                label={canManagePlan ? 'Cho phep cap nhat' : 'Chi xem'}
+                label={canManagePlan ? 'Co the cap nhat' : 'Chi xem'}
                 tone={canManagePlan ? 'info' : 'neutral'}
               />
               {canManagePlan ? (
@@ -2784,35 +2781,35 @@ export function ProjectDetailPage() {
                   <span className="eyebrow">Tong quan</span>
                   <h4>Tom tat rui ro</h4>
                 </div>
-                <p>Ghi nhanh nhung diem can theo doi va cach xu ly tong the cua du an.</p>
+                <p>Diem can theo doi va huong xu ly</p>
               </div>
 
               <div className="risk-summary-strip">
                 <article className="risk-summary-card">
                   <span>Dang mo</span>
                   <strong>{openRiskCount}</strong>
-                  <small>Can theo doi va cap nhat hanh dong giam nhe.</small>
+                  <small>Can theo doi</small>
                 </article>
                 <article className="risk-summary-card">
                   <span>Muc cao</span>
                   <strong>{highRiskCount}</strong>
-                  <small>Can uu tien PM/Dieu phoi xu ly ngay.</small>
+                  <small>Uu tien xu ly</small>
                 </article>
                 <article className="risk-summary-card">
                   <span>Da giam nhe</span>
                   <strong>{mitigatedRiskCount}</strong>
-                  <small>Da co bien phap va dang dong vong theo doi.</small>
+                  <small>Da co bien phap</small>
                 </article>
               </div>
 
               <label className="span-2">
-                <span>Tom tat rui ro du an</span>
+                <span>Tom tat</span>
                 <textarea
                   rows={4}
                   value={riskSummaryDraft}
                   onChange={(event) => setRiskSummaryDraft(event.target.value)}
                   disabled={!canManagePlan}
-                  placeholder="Tong hop nhung rui ro dang mo, cac tac dong chinh va cach xu ly tong the."
+                  placeholder="Tom tat rui ro va huong xu ly"
                 />
               </label>
 
@@ -2820,7 +2817,7 @@ export function ProjectDetailPage() {
                 <div className="inline-actions span-2">
                   <button type="submit" className="primary-button primary-button--compact">
                     <Save size={16} />
-                    Luu tom tat rui ro
+                    Luu tom tat
                   </button>
                 </div>
               ) : null}
@@ -2859,19 +2856,16 @@ export function ProjectDetailPage() {
 
                     <div className="risk-card__meta">
                       <span>Chu tri: {getUser(risk.ownerId)?.name ?? risk.ownerId}</span>
-                      <span>Cap nhat lan cuoi: {formatDate(risk.lastUpdated)}</span>
+                      <span>Cap nhat: {formatDate(risk.lastUpdated)}</span>
                     </div>
 
-                    <p>{risk.mitigation || 'Chua co bien phap giam nhe chi tiet.'}</p>
+                    <p>{risk.mitigation || 'Chua co bien phap.'}</p>
                   </article>
                 ))
               ) : (
                 <div className="risk-empty-state">
-                  <strong>Chua ghi nhan muc rui ro chi tiet.</strong>
-                  <p>
-                    Khi ke hoach thay doi, hay them mot muc rui ro de luu tac dong, nguoi theo doi va
-                    bien phap giam nhe.
-                  </p>
+                  <strong>Chua co rui ro</strong>
+                  <p>Them muc rui ro de luu tac dong va bien phap.</p>
                 </div>
               )}
             </div>
@@ -2885,10 +2879,10 @@ export function ProjectDetailPage() {
           <div className="panel-heading panel-heading--compact">
             <div>
               <span className="eyebrow">Plan builder</span>
-              <h3>Khai bao task lon va subtask</h3>
+              <h3>Task & subtask</h3>
             </div>
             <div className="panel-actions">
-              <StatusPill label={canManagePlan ? 'Cho phep cap nhat' : 'Chi xem'} tone="info" />
+              <StatusPill label={canManagePlan ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
               {canManagePlan ? (
                 <button
                   type="button"
@@ -2896,7 +2890,7 @@ export function ProjectDetailPage() {
                   onClick={openTaskModal}
                 >
                   <CirclePlus size={16} />
-                  Tao task tong quan
+                  Tao task
                 </button>
               ) : null}
             </div>
@@ -2907,10 +2901,10 @@ export function ProjectDetailPage() {
               <div className="stack-list">
                 <div className="list-row list-row--compact">
                   <div>
-                    <strong>Task dang focus: {selectedTask.name}</strong>
+                    <strong>Dang chon: {selectedTask.name}</strong>
                     <p>
                       {getTaskAssigneeNames(selectedTask)} | {selectedTask.progress}% |{' '}
-                      {formatHours(selectedTask.actualHours)} da ghi nhan
+                      {formatHours(selectedTask.actualHours)} ghi nhan
                     </p>
                   </div>
                   <div className="inline-actions">
@@ -2970,7 +2964,7 @@ export function ProjectDetailPage() {
                   <div>
                     <span className="eyebrow">Gantt overview</span>
                     <h4>Task tong quan</h4>
-                    <p>Chi hien thi cac task tong quan. Chon mot task de xem subtask ben duoi.</p>
+                    <p>Chon task de xem subtask ben duoi</p>
                   </div>
                   <StatusPill label={`${overviewTasks.length} task`} tone="neutral" />
                 </div>
@@ -2991,8 +2985,8 @@ export function ProjectDetailPage() {
                       <h4>{focusedOverviewTask.name}</h4>
                       <p>
                         {focusedSubtaskGanttItems.length
-                          ? 'Timeline chi tiet cua cac subtask thuoc task tong quan dang focus.'
-                          : 'Task tong quan nay chua co subtask de hien thi tren Gantt.'}
+                          ? 'Timeline subtask cua task dang chon'
+                          : 'Chua co subtask'}
                       </p>
                     </div>
                     <StatusPill
@@ -3011,8 +3005,7 @@ export function ProjectDetailPage() {
                   ) : (
                     <div className="plan-gantt-empty">
                       <p>
-                        Hay them subtask cho <strong>{focusedOverviewTask.name}</strong> de xem
-                        timeline chi tiet.
+                        Them subtask cho <strong>{focusedOverviewTask.name}</strong> de xem timeline.
                       </p>
                     </div>
                   )}
@@ -3033,14 +3026,14 @@ export function ProjectDetailPage() {
           >
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Tai lieu du an</span>
-                <h3>{documentForm.id ? 'Cap nhat tai lieu' : 'Them moi tai lieu'}</h3>
+                <span className="eyebrow">Tai lieu</span>
+                <h3>{documentForm.id ? 'Cap nhat tai lieu' : 'Them tai lieu'}</h3>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closeDocumentModal}
-                aria-label="Dong popup tai lieu"
+                aria-label="Dong"
               >
                 <X size={16} />
               </button>
@@ -3051,7 +3044,7 @@ export function ProjectDetailPage() {
                 <span>Ten tai lieu</span>
                 <input
                   value={documentForm.title}
-                  placeholder="Mac dinh lay theo ten file"
+                  placeholder="Mac dinh theo ten file"
                   onChange={(event) =>
                     setDocumentForm((current) =>
                       current ? { ...current, title: event.target.value } : current,
@@ -3090,7 +3083,7 @@ export function ProjectDetailPage() {
                 <span>So van ban</span>
                 <input
                   value={documentForm.documentNumber}
-                  placeholder="Vi du: CV-2026/001"
+                  placeholder="VD: CV-2026/001"
                   onChange={(event) =>
                     setDocumentForm((current) =>
                       current ? { ...current, documentNumber: event.target.value } : current,
@@ -3117,7 +3110,7 @@ export function ProjectDetailPage() {
                   />
                   <div className="document-upload-meta">
                     <FileText size={15} />
-                    <span>{documentForm.fileName || 'Chua chon file tai lieu'}</span>
+                    <span>{documentForm.fileName || 'Chua chon file'}</span>
                   </div>
                 </div>
               </label>
@@ -3154,15 +3147,15 @@ export function ProjectDetailPage() {
           <div className="modal-card document-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Quan ly rui ro</span>
-                <h3>{riskForm.id ? 'Cap nhat muc rui ro' : 'Them muc rui ro moi'}</h3>
-                <p>Ghi ro tac dong, nguoi theo doi va bien phap giam nhe de PM/Dieu phoi theo sat.</p>
+                <span className="eyebrow">Rui ro</span>
+                <h3>{riskForm.id ? 'Cap nhat rui ro' : 'Them rui ro'}</h3>
+                <p>Tac dong, nguoi theo doi va bien phap</p>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closeRiskModal}
-                aria-label="Dong popup rui ro"
+                aria-label="Dong"
               >
                 <X size={16} />
               </button>
@@ -3247,7 +3240,7 @@ export function ProjectDetailPage() {
               </label>
 
               <label className="span-2">
-                <span>Bien phap giam nhe / tac dong</span>
+                <span>Bien phap giam nhe</span>
                 <textarea
                   rows={4}
                   value={riskForm.mitigation}
@@ -3256,7 +3249,7 @@ export function ProjectDetailPage() {
                       current ? { ...current, mitigation: event.target.value } : current,
                     )
                   }
-                  placeholder="Mo ta tac dong, dau hieu canh bao va huong xu ly de doi du an theo doi."
+                  placeholder="Tac dong, dau hieu canh bao va huong xu ly"
                 />
               </label>
 
@@ -3266,7 +3259,7 @@ export function ProjectDetailPage() {
                 </button>
                 <button type="submit" className="primary-button">
                   <Save size={16} />
-                  {riskForm.id ? 'Luu cap nhat rui ro' : 'Them rui ro'}
+                  {riskForm.id ? 'Luu thay doi' : 'Them rui ro'}
                 </button>
               </div>
             </form>
@@ -3280,16 +3273,16 @@ export function ProjectDetailPage() {
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">Ke hoach da thay doi</span>
-                <h3>Ban co muon cap nhat rui ro khong?</h3>
+                <h3>Cap nhat rui ro?</h3>
                 <p>
-                  He thong da luu thay doi ke hoach cho task <strong>{planRiskPrompt.taskName}</strong>.
+                  Da luu thay doi cho task <strong>{planRiskPrompt.taskName}</strong>.
                 </p>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closePlanRiskPrompt}
-                aria-label="Dong hoi thoai cap nhat rui ro"
+                aria-label="Dong"
               >
                 <X size={16} />
               </button>
@@ -3297,16 +3290,15 @@ export function ProjectDetailPage() {
 
             <div className="risk-prompt-summary">
               <span>Timeline: {planRiskPrompt.timeline}</span>
-              <span>Nguoi thuc hien: {planRiskPrompt.assignees}</span>
+              <span>Phu trach: {planRiskPrompt.assignees}</span>
             </div>
 
             <div className="risk-prompt-body">
               <p>
-                Neu thay doi nay co the anh huong den deadline, deliverable hoac dieu phoi nguon luc,
-                ban nen cap nhat ngay tab <strong>Quan ly rui ro</strong>.
+                Neu anh huong deadline hoac nguon luc, hay cap nhat tab <strong>Rui ro</strong>.
               </p>
               <div className="risk-prompt-draft">
-                <strong>De xuat muc rui ro:</strong>
+                <strong>De xuat:</strong>
                 <p>{planRiskPrompt.draft.title}</p>
               </div>
             </div>
@@ -3317,7 +3309,7 @@ export function ProjectDetailPage() {
               </button>
               <button type="button" className="primary-button" onClick={handleUpdateRiskNow}>
                 <Workflow size={16} />
-                Cap nhat rui ro ngay
+                Cap nhat ngay
               </button>
             </div>
           </div>
@@ -3332,24 +3324,24 @@ export function ProjectDetailPage() {
                 <span className="eyebrow">Plan builder</span>
                 <h3>
                   {planForm.id
-                    ? 'Sua task / subtask'
+                    ? 'Sua task'
                     : planForm.parentId
-                      ? 'Them subtask lien ket'
-                      : 'Them task tong quan'}
+                      ? 'Them subtask'
+                      : 'Them task'}
                 </h3>
                 <p>
                   {planForm.id
-                    ? 'Cap nhat cau truc, phan cong va ke hoach cho task dang chon.'
+                    ? 'Cap nhat phan cong va ke hoach'
                     : planForm.parentId
-                      ? 'Subtask moi se duoc lien ket vao task cha ma ban da chon.'
-                      : 'Khai bao task tong quan de bat dau xay dung ke hoach trien khai.'}
+                      ? 'Subtask se gan vao task cha'
+                      : 'Khai bao task tong quan'}
                 </p>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closePlanModal}
-                aria-label="Dong popup ke hoach"
+                aria-label="Dong"
               >
                 <X size={16} />
               </button>
@@ -3357,7 +3349,7 @@ export function ProjectDetailPage() {
 
             <form className="form-grid" onSubmit={handlePlanSubmit}>
               <label className="span-2">
-                <span>Ten task / subtask</span>
+                <span>Ten task</span>
                 <input
                   value={planForm.name}
                   onChange={(event) =>
@@ -3390,7 +3382,7 @@ export function ProjectDetailPage() {
                 </select>
               </label>
               <label className="span-2">
-                <span>Thanh vien tham gia</span>
+                <span>Thanh vien</span>
                 <div className="checkbox-grid member-selector-grid">
                   {project.memberIds.map((memberId) => {
                     const isChecked = planForm.assigneeIds.includes(memberId)
@@ -3511,7 +3503,7 @@ export function ProjectDetailPage() {
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">Execution update</span>
-                <h3>Cap nhat tien do va gio cong thuc te</h3>
+                <h3>Cap nhat tien do</h3>
                 <p>{selectedTask.name}</p>
               </div>
               <div className="panel-actions">
@@ -3523,7 +3515,7 @@ export function ProjectDetailPage() {
                   type="button"
                   className="ghost-button icon-button"
                   onClick={closeExecutionModal}
-                  aria-label="Dong popup cap nhat thuc hien"
+                  aria-label="Dong"
                 >
                   <X size={16} />
                 </button>
@@ -3543,7 +3535,7 @@ export function ProjectDetailPage() {
               </div>
               <div className="list-row">
                 <div>
-                  <strong>Nguoi duoc giao</strong>
+                  <strong>Phu trach</strong>
                   <p>{getTaskAssigneeNames(selectedTask)}</p>
                 </div>
                 <small>
@@ -3554,7 +3546,7 @@ export function ProjectDetailPage() {
 
             <form className="form-grid" onSubmit={handleExecutionSubmit}>
               <label>
-                <span>Thanh vien cap nhat</span>
+                <span>Thanh vien</span>
                 <select
                   value={executionForm.memberId}
                   onChange={(event) =>
@@ -3572,7 +3564,7 @@ export function ProjectDetailPage() {
                 </select>
               </label>
               <label>
-                <span>Ngay thuc hien</span>
+                <span>Ngay</span>
                 <input
                   type="date"
                   value={executionForm.date}
@@ -3584,7 +3576,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label>
-                <span>Gio cong thuc te</span>
+                <span>Gio cong</span>
                 <input
                   type="number"
                   min={0}
@@ -3599,7 +3591,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label>
-                <span>Tien do moi (%)</span>
+                <span>Tien do (%)</span>
                 <input
                   type="number"
                   min={0}
@@ -3615,7 +3607,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label className="span-2">
-                <span>Noi dung cap nhat</span>
+                <span>Ghi chu</span>
                 <textarea
                   rows={3}
                   value={executionForm.progressNote}
@@ -3626,7 +3618,7 @@ export function ProjectDetailPage() {
                         : current,
                     )
                   }
-                  placeholder="Mo ta cong viec da hoan thanh hoac vuong mac hien tai"
+                  placeholder="Cong viec da xong hoac vuong mac"
                 />
               </label>
               <div className="modal-actions span-2">
@@ -3639,7 +3631,7 @@ export function ProjectDetailPage() {
                   disabled={!canUpdateSelectedTask}
                 >
                   <Timer size={16} />
-                  Luu thuc hien
+                  Luu cap nhat
                 </button>
               </div>
             </form>
@@ -3647,7 +3639,7 @@ export function ProjectDetailPage() {
             <div className="panel-heading sub-heading">
               <div>
                 <span className="eyebrow">Worklog history</span>
-                <h3>Lich su cap nhat cua task dang chon</h3>
+                <h3>Lich su cap nhat</h3>
               </div>
               <StatusPill label={`${selectedTaskWorklogs.length} dong`} tone="neutral" />
             </div>
@@ -3678,7 +3670,7 @@ export function ProjectDetailPage() {
             <div className="stack-list">
               <div className="list-row">
                 <div>
-                  <strong>Lan cap nhat gan nhat</strong>
+                  <strong>Cap nhat gan nhat</strong>
                   <p>
                     {selectedTaskWorklogs[0]
                       ? formatDate(selectedTaskWorklogs[0].date)
@@ -3912,7 +3904,7 @@ function WorkloadTabPanel({
         ),
       },
     })
-    setMessage('Da luu phan bo gio cong theo thang cho du an.')
+    setMessage('Da luu phan bo gio cong.')
   }
 
   return (
@@ -3920,16 +3912,16 @@ function WorkloadTabPanel({
       <div className="panel-heading">
         <div>
           <span className="eyebrow">Allocation planner</span>
-          <h3>Phan bo gio cong theo thanh vien va theo thang</h3>
+          <h3>Phan bo gio cong</h3>
           <p style={{ margin: '0.2rem 0 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
-            Ky trien khai: {formatDate(project.startDate)} -{' '}
+            {formatDate(project.startDate)} -{' '}
             {formatDate(estimatedEndDate.format('YYYY-MM-DD'))} ({projectMonths.length} thang)
           </p>
         </div>
         <div className="panel-actions">
           <button type="button" className="ghost-button ghost-button--compact" onClick={autoDistributeAll}>
             <Sparkles size={16} />
-            Chia deu tat ca
+            Chia deu
           </button>
           <button type="button" className="primary-button primary-button--compact" onClick={handleSave} disabled={!canSave}>
             <Save size={16} />
@@ -3942,19 +3934,19 @@ function WorkloadTabPanel({
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">
-          <span>Tong gio cong muc tieu</span>
+          <span>Muc tieu</span>
           <strong>{formatHours(totalTargetHours)}</strong>
         </div>
         <div className="detail-card">
-          <span>Tong gio da draft</span>
+          <span>Da draft</span>
           <strong>{formatHours(totalDraftHours)}</strong>
         </div>
         <div className="detail-card">
-          <span>Dong can dieu chinh</span>
+          <span>Dong loi</span>
           <strong>{invalidRows}</strong>
         </div>
         <div className="detail-card">
-          <span>Canh bao qua tai</span>
+          <span>Qua tai</span>
           <strong>{overloadedCells}</strong>
         </div>
       </section>
@@ -3964,7 +3956,7 @@ function WorkloadTabPanel({
           <div className="panel-heading panel-heading--compact">
             <div>
               <span className="eyebrow">Mapping</span>
-              <h3>Nhan su AITS chua lien ket tai khoan</h3>
+              <h3>Nhan su chua lien ket</h3>
             </div>
             <StatusPill label={`${unmappedMembers.length} nhan su`} tone="warning" />
           </div>
@@ -3973,9 +3965,9 @@ function WorkloadTabPanel({
               <div key={`${member.fullName}-${index}`} className="list-row list-row--compact">
                 <div>
                   <strong>{member.fullName || 'Chua co ten'}</strong>
-                  <p>{member.email || 'Chua co email'} | {member.title || 'Chua cap nhat chuc danh'} - {member.unit}</p>
+                  <p>{member.email || 'Khong co email'} | {member.title || 'Chua co chuc danh'} - {member.unit}</p>
                 </div>
-                <StatusPill label="Chua doi chieu capacity" tone="warning" />
+                <StatusPill label="Chua co capacity" tone="warning" />
               </div>
             ))}
           </div>
@@ -3987,10 +3979,10 @@ function WorkloadTabPanel({
           <thead>
             <tr>
               <th>Thanh vien</th>
-              <th>Tong gio cong</th>
+              <th>Muc tieu</th>
               <th>Da phan bo</th>
               <th>Can bang</th>
-              <th>Tai tao</th>
+              <th>Tac vu</th>
               {projectMonths.map((month) => (
                 <th key={month}>{formatMonthLabel(month)}</th>
               ))}
@@ -4006,7 +3998,7 @@ function WorkloadTabPanel({
                 </td>
                 <td>
                   <strong>{formatHours(row.targetHours)}</strong>
-                  <p className="workload-cell-note">Tu thong tin nhan su AITS</p>
+                  <p className="workload-cell-note">Theo nhan su AITS</p>
                 </td>
                 <td>
                   <strong>{formatHours(row.allocatedHours)}</strong>
@@ -4040,12 +4032,12 @@ function WorkloadTabPanel({
                         }
                       />
                       <div className="workload-month-cell__meta">
-                        <span>Khac DA: {formatHours(detail.otherProjectsHours)}</span>
+                        <span>DA khac: {formatHours(detail.otherProjectsHours)}</span>
                         <span>
                           Tong: {formatHours(detail.totalMonthHours)}/{formatHours(detail.capacity)}
                         </span>
                         <span className={detail.remainingHours < 0 ? 'text-danger' : ''}>
-                          Con lai: {formatHours(detail.remainingHours)}
+                          Con: {formatHours(detail.remainingHours)}
                         </span>
                       </div>
                     </div>

@@ -36,7 +36,8 @@ export interface User {
   name: string
   email: string
   username: string
-  password: string
+  /** Owned by Supabase Auth — never returned by the API. Demo accounts all use '123456'. */
+  password?: string
   role: UserRole
   employeeCode: string
   title: string

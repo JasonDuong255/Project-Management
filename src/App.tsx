@@ -12,7 +12,6 @@ import { NotificationCenterPage } from './pages/NotificationCenterPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ReportsPage } from './pages/ReportsPage'
-// WorkloadPage removed — workload is now a tab inside ProjectDetailPage
 
 function LoginRoute() {
   const { currentUser, isLoading } = useAppData()
@@ -21,9 +20,9 @@ function LoginRoute() {
     return (
       <div className="screen-loader">
         <div className="loader-card">
-          <span className="eyebrow">PPM Demo Suite</span>
-          <h2>Đang chuẩn bị dữ liệu demo</h2>
-          <p>Khởi tạo phiên đăng nhập và dữ liệu mô phỏng từ JSON...</p>
+          <span className="eyebrow">QLDA</span>
+          <h2>Đang tải dữ liệu</h2>
+          <p>Đang kết nối với Supabase và tải snapshot từ backend...</p>
         </div>
       </div>
     )

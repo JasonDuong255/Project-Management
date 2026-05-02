@@ -5,11 +5,11 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
-  MessageSquare,
   Search,
   Settings2,
   UserCog,
 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAppData } from '../context/AppContext'
@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
   },
   {
     to: '/member-workspace',
-    label: 'Không gian thành viên',
+    label: 'Việc của tôi',
     icon: UserCog,
   },
   {
@@ -57,7 +57,7 @@ const navItems: NavItem[] = [
   },
   {
     to: '/admin/catalogs',
-    label: 'Cài đặt hệ thống',
+    label: 'Cài đặt',
     icon: Settings2,
     roles: ['PMO', 'SYSTEM_ADMIN'],
   },
@@ -67,6 +67,39 @@ export function AppShell() {
   const { currentUser, logout, planItems, projects, users } = useAppData()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    if (searchOpen) {
+      document.addEventListener('mousedown', onClickOutside)
+      return () => document.removeEventListener('mousedown', onClickOutside)
+    }
+    return undefined
+  }, [searchOpen])
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return { projects: [], tasks: [] }
+    const matchedProjects = projects
+      .filter(
+        (p) =>
+          p.code.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q) ||
+          p.summary.toLowerCase().includes(q),
+      )
+      .slice(0, 6)
+    const matchedTasks = planItems
+      .filter((t) => t.name.toLowerCase().includes(q))
+      .slice(0, 6)
+    return { projects: matchedProjects, tasks: matchedTasks }
+  }, [searchQuery, projects, planItems])
 
   if (!currentUser) {
     return null
@@ -148,22 +181,108 @@ export function AppShell() {
       <main className="app-content">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Mô đun đang xem</span>
+            <span className="eyebrow">Module</span>
             <h2>{currentTitle}</h2>
           </div>
           <div className="topbar-meta">
-            <div className="topbar-search">
-              <Search size={14} />
-              <span>Tìm kiếm...</span>
-            </div>
-            <button
-              type="button"
-              className="topbar-icon-btn"
-              onClick={() => navigate('/notifications')}
-              title="Thông báo"
+            <div
+              ref={searchRef}
+              className="topbar-search"
+              style={{ position: 'relative' }}
             >
-              <MessageSquare size={18} />
-            </button>
+              <Search size={14} />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setSearchOpen(true)
+                }}
+                onFocus={() => setSearchOpen(true)}
+                placeholder="Tìm dự án, task..."
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: 'inherit',
+                  width: '180px',
+                  color: 'inherit',
+                }}
+              />
+              {searchOpen && searchQuery.trim() ? (
+                <div
+                  className="panel"
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '320px',
+                    zIndex: 50,
+                    padding: '0.5rem',
+                    boxShadow: 'var(--shadow-lg)',
+                    maxHeight: '420px',
+                    overflowY: 'auto',
+                  }}
+                >
+                  {searchResults.projects.length === 0 &&
+                  searchResults.tasks.length === 0 ? (
+                    <p style={{ padding: '0.5rem' }}>Không có kết quả.</p>
+                  ) : null}
+                  {searchResults.projects.length ? (
+                    <div>
+                      <span className="eyebrow" style={{ padding: '0 0.5rem' }}>
+                        Dự án
+                      </span>
+                      {searchResults.projects.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="ghost-button"
+                          style={{
+                            width: '100%',
+                            justifyContent: 'flex-start',
+                            textAlign: 'left',
+                          }}
+                          onClick={() => {
+                            navigate(`/projects/${p.id}`)
+                            setSearchOpen(false)
+                            setSearchQuery('')
+                          }}
+                        >
+                          <strong>{p.code}</strong> — {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {searchResults.tasks.length ? (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <span className="eyebrow" style={{ padding: '0 0.5rem' }}>
+                        Công việc
+                      </span>
+                      {searchResults.tasks.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className="ghost-button"
+                          style={{
+                            width: '100%',
+                            justifyContent: 'flex-start',
+                            textAlign: 'left',
+                          }}
+                          onClick={() => {
+                            navigate(`/projects/${t.projectId}`)
+                            setSearchOpen(false)
+                            setSearchQuery('')
+                          }}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               className="topbar-icon-btn topbar-icon-btn--badge"

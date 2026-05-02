@@ -33,7 +33,7 @@ export function GanttPage() {
     <div className="page-grid">
       <SectionHeader
         title="Biểu đồ Gantt"
-        description="Xem kế hoạch theo dự án hoặc theo từng thành viên triển khai"
+        description="Kế hoạch theo dự án hoặc thành viên"
       />
 
       <section className="panel">

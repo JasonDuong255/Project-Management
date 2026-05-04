@@ -110,6 +110,20 @@ enum CloseRequestDecision {
   REJECTED
 }
 
+enum NotificationKind {
+  TASK_DEADLINE_NEAR        // BRD IV.5.6.1 — 4 days before
+  TASK_OVERDUE              // BRD IV.5.6.2
+  CLOSE_REQUEST_RECEIVED    // KSV/TCNL inbox
+  CLOSE_APPROVED            // requester gets confirmation
+  CLOSE_REJECTED            // requester gets rejection
+  PROJECT_PAUSED_NOTICE
+}
+
+enum AuthLogStatus {
+  SUCCESS
+  FAILURE
+}
+
 enum ActivityEntityType {
   PROJECT
   PLAN_ITEM
@@ -420,4 +434,37 @@ model CatalogGroup {
   values Json       @default("[]")
 
   @@map("catalog_groups")
+}
+
+/// v3.2 — in-app notifications. Push from BE on close-flow events and deadline alerts.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @db.Uuid
+  kind      NotificationKind
+  title     String           @default("")
+  body      String           @default("")
+  payload   Json             @default("{}")  // structured data for the FE (projectId, taskId, requestId, etc.)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+/// v3.2 — login/logout audit per BRD VIII.3 (IP, time, login state).
+/// userId is nullable for failed logins where we don't recognise the email.
+model AuthLog {
+  id         String        @id @default(cuid())
+  userId     String?       @db.Uuid
+  email      String        @default("")
+  ip         String        @default("")
+  userAgent  String        @default("")
+  status     AuthLogStatus
+  reason     String        @default("")
+  createdAt  DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("auth_logs")
 }

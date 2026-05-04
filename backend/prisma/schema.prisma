@@ -1,0 +1,354 @@
+// QLDA Project Management — domain schema.
+// Mirror of Project-Management/src/types/index.ts.
+// Strategy: flat tables for queryable arrays; JSONB for opaque nested structs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PMO
+  ADMIN_HC
+  PM
+  DELIVERY_MEMBER
+}
+
+enum ProjectStatus {
+  INITIATION
+  PLANNING
+  IN_PROGRESS
+  AT_RISK
+  DONE
+}
+
+enum HealthStatus {
+  GREEN
+  AMBER
+  RED
+}
+
+enum PlanTaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  NEEDS_REPLAN
+}
+
+enum WorkType {
+  PRELIMINARY
+  SUBTASK
+  MILESTONE
+}
+
+enum DelayRaiseStatus {
+  OPEN
+  ACKNOWLEDGED
+  REPLANNED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RiskStatus {
+  OPEN
+  WATCHING
+  MITIGATED
+}
+
+enum ActivityLogAction {
+  PROJECT_INFO_UPDATED
+  PERSONNEL_UPDATED
+  DOCUMENT_ADDED
+  DOCUMENT_DELETED
+  TASK_CREATED
+  SUBTASK_CREATED
+  TASK_UPDATED
+  SUBTASK_UPDATED
+  TASK_DELETED
+  SUBTASK_DELETED
+  TASK_HOURS_CHANGED
+  SUBTASK_HOURS_CHANGED
+  WORKLOG_ADDED
+  PROJECT_CLOSED
+  PROJECT_REOPENED
+}
+
+enum ActivityEntityType {
+  PROJECT
+  PLAN_ITEM
+}
+
+enum CatalogKey {
+  projectStatuses
+  healthStatuses
+  taskStatuses
+  riskLevels
+  documentCategories
+  departments
+  projectMemberRoles
+}
+
+// ─── Tables ─────────────────────────────────────────────────────────────────
+
+/// Profile row — one per Supabase auth.users entry.
+/// `id` matches `auth.users.id` (uuid) so RLS can join via auth.uid().
+/// Passwords are owned entirely by Supabase Auth.
+model User {
+  id              String   @id @db.Uuid
+  username        String   @unique
+  email           String   @unique
+  name            String
+  role            UserRole
+  employeeCode    String   @default("")
+  title           String   @default("")
+  unit            String   @default("")
+  phone           String   @default("")
+  monthlyCapacity Int      @default(160)
+  avatarColor     String   @default("#0f766e")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  managedProjects   Project[]            @relation("ProjectAdmin")
+  createdProjects   Project[]            @relation("ProjectCreator")
+  memberships       ProjectMember[]
+  planItemAssignees PlanItemAssignee[]
+  ownedRisks        ProjectRisk[]
+  worklogs          Worklog[]
+  raisedDelays      DelayRaise[]
+  activityLogs     ActivityLog[]
+  monthlyAllocations MonthlyAllocation[]
+
+  @@map("profiles")
+}
+
+model Project {
+  id                String        @id @default(cuid())
+  code              String        @unique
+  name              String
+  summary           String        @default("")
+  sponsor           String        @default("")
+  department        String        @default("")
+  objective         String        @default("")
+  ttkDecisionNumber String        @default("")
+  createdById       String        @db.Uuid
+  adminId           String        @db.Uuid
+  startDate         DateTime
+  endDate           DateTime
+  status            ProjectStatus @default(INITIATION)
+  health            HealthStatus  @default(GREEN)
+  progress          Int           @default(0)
+  currentPhase      String        @default("")
+  adjustedPlan      String        @default("")
+  riskSummary       String        @default("")
+
+  // Nested sub-objects → JSONB. See types/domain.ts for shapes.
+  approvalInfo  Json @default("{}")
+  basisInfo     Json @default("{}")
+  financialInfo Json @default("{}")
+  personnelInfo Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admin     User @relation("ProjectAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  createdBy User @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  members            ProjectMember[]
+  documents          ProjectDocument[]
+  monthlyAllocations MonthlyAllocation[]
+  risks              ProjectRisk[]
+  planItems          PlanItem[]
+  worklogs           Worklog[]
+  delayRaises        DelayRaise[]
+  activityLogs       ActivityLog[]
+
+  @@index([adminId])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String
+  userId    String  @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model ProjectDocument {
+  id             String    @id @default(cuid())
+  projectId      String
+  title          String
+  category       String    @default("")
+  documentNumber String    @default("")
+  description    String    @default("")
+  url            String    @default("")
+  uploadedBy     String    @db.Uuid
+  uploadedAt     DateTime  @default(now())
+  updatedBy      String?   @db.Uuid
+  updatedAt      DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_documents")
+}
+
+model MonthlyAllocation {
+  projectId String
+  memberId  String @db.Uuid
+  month     String
+  hours     Int    @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  member  User    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, memberId, month])
+  @@index([projectId])
+  @@index([memberId, month])
+  @@map("monthly_allocations")
+}
+
+model ProjectRisk {
+  id          String     @id @default(cuid())
+  projectId   String
+  title       String
+  level       RiskLevel  @default(LOW)
+  status      RiskStatus @default(OPEN)
+  ownerId     String     @db.Uuid
+  mitigation  String     @default("")
+  lastUpdated DateTime   @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@map("project_risks")
+}
+
+model PlanItem {
+  id                String         @id @default(cuid())
+  projectId         String
+  parentId          String?
+  name              String
+  workType          WorkType       @default(SUBTASK)
+  ownerId           String         @db.Uuid
+  assigneeId        String         @db.Uuid
+  status            PlanTaskStatus @default(NOT_STARTED)
+  baselineStartDate DateTime
+  baselineEndDate   DateTime
+  startDate         DateTime
+  endDate           DateTime
+  progress          Int            @default(0)
+  plannedHours      Int            @default(0)
+  actualHours       Int            @default(0)
+  monthAllocations  Json           @default("[]")
+  dependencyNote    String         @default("")
+  deliverable       String         @default("")
+  replanRequested   Boolean        @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent      PlanItem?          @relation("PlanItemHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    PlanItem[]         @relation("PlanItemHierarchy")
+  assignees   PlanItemAssignee[]
+  worklogs    Worklog[]
+  delayRaises DelayRaise[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@map("plan_items")
+}
+
+model PlanItemAssignee {
+  planItemId String
+  userId     String @db.Uuid
+  planItem   PlanItem @relation(fields: [planItemId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([planItemId, userId])
+  @@index([userId])
+  @@map("plan_item_assignees")
+}
+
+model Worklog {
+  id           String   @id @default(cuid())
+  taskId       String
+  projectId    String
+  memberId     String   @db.Uuid
+  date         DateTime
+  hours        Int      @default(0)
+  progressNote String   @default("")
+  createdAt    DateTime @default(now())
+
+  task    PlanItem @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  member  User     @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@index([taskId])
+  @@index([projectId, memberId])
+  @@map("worklogs")
+}
+
+model DelayRaise {
+  id              String           @id @default(cuid())
+  projectId       String
+  taskId          String
+  requesterId     String           @db.Uuid
+  requestedAt     DateTime         @default(now())
+  reason          String           @default("")
+  impact          String           @default("")
+  status          DelayRaiseStatus @default(OPEN)
+  managerResponse String           @default("")
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      PlanItem @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requester User     @relation(fields: [requesterId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([taskId])
+  @@map("delay_raises")
+}
+
+model ActivityLog {
+  id         String             @id @default(cuid())
+  projectId  String
+  userId     String             @db.Uuid
+  action     ActivityLogAction
+  entityType ActivityEntityType
+  entityId   String
+  entityName String             @default("")
+  changes    Json               @default("[]")
+  timestamp  DateTime           @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, timestamp])
+  @@map("activity_logs")
+}
+
+model CatalogGroup {
+  key    CatalogKey @id
+  values Json       @default("[]")
+
+  @@map("catalog_groups")
+}

@@ -6,6 +6,7 @@ import { AppProvider, useAppData } from './context/AppContext'
 import { AdminCatalogPage } from './pages/AdminCatalogPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { GanttPage } from './pages/GanttPage'
+import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
 import { MemberWorkspacePage } from './pages/MemberWorkspacePage'
 import { NotificationCenterPage } from './pages/NotificationCenterPage'
@@ -46,6 +47,7 @@ function AppRoutes() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/notifications" element={<NotificationCenterPage />} />
+            <Route path="/inbox" element={<InboxPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="/member-workspace" element={<MemberWorkspacePage />} />

@@ -1,51 +1,86 @@
 /* ═══════════════════════════════════════════════════
-   QLDA — New Design System (Deli-Plany inspired)
+   QLDA — Design tokens from AITS Library
    ═══════════════════════════════════════════════════ */
 
 :root {
-  font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1a1a2e;
-  background: #f5f5f7;
+  color: #292929;
+  background: #F9FAFB;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color-scheme: light;
 
-  /* Core palette */
-  --bg: #f5f5f7;
-  --panel: #ffffff;
-  --panel-strong: #ffffff;
-  --panel-border: #e8e8ec;
-  --ink: #1a1a2e;
-  --muted: #6b7280;
-  --accent: #e8612c;
-  --accent-soft: rgba(232, 97, 44, 0.08);
-  --accent-hover: #d4541f;
-  --accent-border: rgba(232, 97, 44, 0.25);
-  --teal: #0f766e;
-  --info: #2563eb;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --success: #16a34a;
+  /* Display font for h1/h2 */
+  --font-display: 'Inter', 'Open Sans', system-ui, sans-serif;
+
+  /* AITS Primary (dark teal) */
+  --primary: #1B576F;
+  --primary-dark-1: #005B7A;
+  --primary-dark-2: #004F70;
+  --primary-dark-3: #003F5C;
+  --primary-light-1: #308888;
+  --primary-light-2: #61A8BD;
+  --primary-light-3: #91C7D8;
+  --primary-light-4: #DBF0F0;
+  --primary-light-5: #F2F8FA;
+
+  /* AITS Secondary (gold) */
+  --secondary: #DCB133;
+  --secondary-dark-1: #C89C10;
+  --secondary-light-1: #E3C05B;
+  --secondary-light-4: #F8EED3;
+
+  /* Status (mapped to AITS alert colors, light-mode only) */
+  --success: #13C296;
+  --info: #1B576F;
+  --warning: #DCB133;
+  --danger: #E10E0E;
+
+  /* Text */
+  --ink: #292929;
+  --muted: #656565;
+  --muted-soft: #C2C6CC;
+  --link: #1B576F;
+
+  /* Surface */
+  --bg: #F9FAFB;
+  --panel: #FFFFFF;
+  --panel-strong: #FFFFFF;
+  --panel-border: #EDEEF1;
+  --stroke-2: #D8D9E0;
+  --stroke-3: #B0B8C2;
+
+  /* Accent (alias of primary so old class names still work) */
+  --accent: var(--primary);
+  --accent-soft: rgba(27, 87, 111, 0.08);
+  --accent-hover: var(--primary-dark-1);
+  --accent-border: rgba(27, 87, 111, 0.25);
+  --teal: var(--primary);
+
+  /* Radius */
   --radius: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+
+  /* Shadows (from AITS shadow scale) */
+  --shadow-sm: 0 1px 3px 0 rgba(166, 175, 195, 0.4);
+  --shadow: 0 4px 12px 0 rgba(13, 10, 44, 0.06);
+  --shadow-md: 0 5px 12px 0 rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px 0 rgba(5, 13, 29, 0.18),
+    0 4px 6px 0 rgba(5, 13, 29, 0.08);
 
   /* Sidebar */
   --sidebar-width: 260px;
-  --sidebar-bg: #ffffff;
-  --sidebar-border: #eaeaef;
-  --sidebar-active-bg: #fff3ed;
-  --sidebar-active-text: #e8612c;
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: #EDEEF1;
+  --sidebar-active-bg: #DBF0F0;
+  --sidebar-active-text: #1B576F;
   --sidebar-text: #374151;
-  --sidebar-text-muted: #9ca3af;
+  --sidebar-text-muted: #9CA3AF;
 }
 
 * {
@@ -205,7 +240,7 @@ td p,
 
 .login-hero {
   padding: 3rem;
-  background: linear-gradient(135deg, #fff5f0, #ffffff);
+  background: linear-gradient(135deg, var(--primary-light-5), #ffffff);
 }
 
 .login-hero h1,
@@ -218,6 +253,8 @@ td p,
   line-height: 1.2;
   font-weight: 700;
   color: var(--ink);
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 .login-hero p,
@@ -240,8 +277,8 @@ td p,
   gap: 0.85rem;
   padding: 0.85rem 1rem;
   border-radius: var(--radius);
-  background: rgba(232, 97, 44, 0.04);
-  border: 1px solid rgba(232, 97, 44, 0.08);
+  background: rgba(27, 87, 111, 0.04);
+  border: 1px solid rgba(27, 87, 111, 0.08);
 }
 
 .login-card {
@@ -310,12 +347,12 @@ td p,
 .primary-button {
   color: white;
   background: var(--accent);
-  box-shadow: 0 1px 2px rgba(232, 97, 44, 0.3);
+  box-shadow: 0 1px 2px rgba(27, 87, 111, 0.3);
 }
 
 .primary-button:hover {
   background: var(--accent-hover);
-  box-shadow: 0 2px 4px rgba(232, 97, 44, 0.35);
+  box-shadow: 0 2px 4px rgba(27, 87, 111, 0.35);
   transform: translateY(-1px);
 }
 
@@ -429,13 +466,14 @@ td p,
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark-1));
   display: grid;
   place-items: center;
   color: white;
   font-weight: 800;
   font-size: 1.1rem;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(27, 87, 111, 0.25);
 }
 
 .brand-block h1 {
@@ -871,28 +909,28 @@ td p,
 }
 
 .tone-neutral {
-  color: #4b5563;
-  background: #f3f4f6;
+  color: var(--muted);
+  background: #F3F4F6;
 }
 
 .tone-info {
-  color: #1d4ed8;
-  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary);
+  background: rgba(27, 87, 111, 0.1);
 }
 
 .tone-success {
-  color: #15803d;
-  background: rgba(22, 163, 74, 0.1);
+  color: #0E9A78;
+  background: rgba(19, 194, 150, 0.12);
 }
 
 .tone-warning {
-  color: #b45309;
-  background: rgba(217, 119, 6, 0.1);
+  color: var(--secondary-dark-1);
+  background: rgba(220, 177, 51, 0.16);
 }
 
 .tone-danger {
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.1);
+  color: var(--danger);
+  background: rgba(225, 14, 14, 0.1);
 }
 
 /* ─── Progress bar ─── */
@@ -906,7 +944,7 @@ td p,
 .progress-bar {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), #f59e0b);
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
 }
 
 /* ─── Meta / filter rows ─── */
@@ -1340,7 +1378,7 @@ td p,
 .task-tree-children {
   margin-left: 1rem;
   padding-left: 1rem;
-  border-left: 2px solid rgba(232, 97, 44, 0.2);
+  border-left: 2px solid rgba(27, 87, 111, 0.2);
 }
 
 .task-tree-card {
@@ -2297,11 +2335,11 @@ td p,
 }
 
 .gantt-row--active {
-  background: #fff8f5;
+  background: var(--primary-light-5);
 }
 
 .gantt-row--active:hover {
-  background: #fff5f0;
+  background: var(--primary-light-4);
 }
 
 .gantt-row--interactive {

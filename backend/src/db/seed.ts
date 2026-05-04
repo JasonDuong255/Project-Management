@@ -200,6 +200,11 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
 
     idMap.set(u.id, authId)
 
+    // v3.1 BRD I: assign TCNL/KSV functional titles on demo users so v3.2's
+    // close-workflow has live test users.  dev.duy → KSV, dev.khang → TCNL.
+    const functionalTitle =
+      u.username === 'dev.duy' ? 'KSV' : u.username === 'dev.khang' ? 'TCNL' : 'NORMAL'
+
     await prisma.user.upsert({
       where: { id: authId },
       create: {
@@ -208,6 +213,8 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         email: u.email && u.email.includes('@') ? u.email : email,
         name: u.name,
         role: normalizeUserRole(u.role),
+        functionalTitle,
+        isActive: true,
         employeeCode: u.employeeCode ?? '',
         title: u.title ?? '',
         unit: u.unit ?? '',
@@ -220,6 +227,8 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         email: u.email && u.email.includes('@') ? u.email : email,
         name: u.name,
         role: normalizeUserRole(u.role),
+        functionalTitle,
+        isActive: true,
         employeeCode: u.employeeCode ?? '',
         title: u.title ?? '',
         unit: u.unit ?? '',
@@ -259,6 +268,37 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
     const personnelInfo = remapPersonnelUserIds(p.personnelInfo, idMap)
     const approvalInfo = remapApprovalUserIds(p.approvalInfo, idMap, createdById)
 
+    // v3.1: build project_member rows with isCoordinator + role/responsibility
+    // sourced from the JSONB personnelInfo.aitsMembers entries (matched by userId).
+    const aitsByUserId = new Map<string, { role?: string; responsibility?: string; totalPlannedHours?: number }>()
+    for (const aits of (p.personnelInfo?.aitsMembers ?? [])) {
+      const realId = aits.userId ? idMap.get(aits.userId) : undefined
+      if (realId) {
+        aitsByUserId.set(realId, aits as { role?: string; responsibility?: string; totalPlannedHours?: number })
+      }
+    }
+    const memberRowData = memberIds.map((userId) => {
+      const aits = aitsByUserId.get(userId)
+      const role = aits?.role ?? ''
+      return {
+        userId,
+        isCoordinator: /dieu phoi du an/i.test(role),
+        roleInProject: role,
+        responsibility: aits?.responsibility ?? '',
+        totalPlannedHours: aits?.totalPlannedHours ?? 0,
+      }
+    })
+
+    // v3.1: BRD has 3 status values. Mock data uses 5; fold into the new ones.
+    const seedStatus = ['INITIATION', 'PLANNING', 'IN_PROGRESS', 'AT_RISK'].includes(p.status)
+      ? 'ACTIVE'
+      : p.status === 'DONE'
+        ? 'CLOSED'
+        : (p.status as 'ACTIVE' | 'PAUSED' | 'CLOSED')
+    // BRD has 3 health values. Mock data uses GREEN/AMBER/RED; map.
+    const seedHealth =
+      p.health === 'GREEN' ? 'STABLE' : p.health === 'AMBER' ? 'NEEDS_REVIEW' : p.health === 'RED' ? 'AT_RISK' : (p.health as 'STABLE' | 'NEEDS_REVIEW' | 'AT_RISK')
+
     await prisma.project.create({
       data: {
         id: p.id,
@@ -273,8 +313,8 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         adminId,
         startDate: new Date(p.startDate),
         endDate: new Date(p.endDate),
-        status: p.status as Parameters<typeof prisma.project.create>[0]['data']['status'],
-        health: p.health as Parameters<typeof prisma.project.create>[0]['data']['health'],
+        status: seedStatus,
+        health: seedHealth,
         progress: p.progress ?? 0,
         currentPhase: p.currentPhase ?? '',
         adjustedPlan: p.adjustedPlan ?? '',
@@ -283,7 +323,7 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         basisInfo: (p.basisInfo ?? {}) as Prisma.InputJsonValue,
         financialInfo: (p.financialInfo ?? {}) as Prisma.InputJsonValue,
         personnelInfo: personnelInfo as Prisma.InputJsonValue,
-        members: { create: memberIds.map((userId) => ({ userId })) },
+        members: { create: memberRowData },
         documents: {
           create: (p.documents ?? []).map((d) => ({
             id: d.id,

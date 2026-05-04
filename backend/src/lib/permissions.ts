@@ -1,32 +1,29 @@
 import type { Project, ProjectMember, User } from '@prisma/client'
-import type { AuthUser, ProjectAitsPersonnel, ProjectPersonnelInfo } from '../types/domain.js'
+import type { AuthUser } from '../types/domain.js'
 
 export type ProjectWithMembers = Project & { members: ProjectMember[] }
 
-function readPersonnelInfo(project: Project): ProjectPersonnelInfo {
-  const value = project.personnelInfo as unknown as ProjectPersonnelInfo | null
-  return (
-    value ?? {
-      aitsMembers: [],
-      customerMembers: [],
-      partners: [],
-    }
-  )
-}
+// ─── Project membership / coordinator (now first-class on project_members) ──
 
-export function isProjectCoordinator(project: Project, userId: string): boolean {
-  const personnel = readPersonnelInfo(project)
-  return personnel.aitsMembers.some(
-    (member: ProjectAitsPersonnel) =>
-      member.userId === userId && member.role.toLowerCase().includes('dieu phoi du an'),
-  )
+export function isProjectCoordinator(project: ProjectWithMembers, userId: string): boolean {
+  return project.members.some((m) => m.userId === userId && m.isCoordinator)
 }
 
 export function isProjectMember(project: ProjectWithMembers, userId: string): boolean {
-  if (project.members.some((m) => m.userId === userId)) return true
-  const personnel = readPersonnelInfo(project)
-  return personnel.aitsMembers.some((member) => member.userId === userId)
+  return project.members.some((m) => m.userId === userId)
 }
+
+// ─── Functional-title helpers (BRD identifies TCNL/KSV inside ADMIN_HC) ─────
+
+export function isTCNL(user: AuthUser): boolean {
+  return user.functionalTitle === 'TCNL'
+}
+
+export function isKSV(user: AuthUser): boolean {
+  return user.functionalTitle === 'KSV'
+}
+
+// ─── View / edit / manage gates ─────────────────────────────────────────────
 
 export function canViewProject(project: ProjectWithMembers, user: AuthUser): boolean {
   if (user.role === 'PMO' || user.role === 'ADMIN_HC') return true
@@ -36,19 +33,30 @@ export function canViewProject(project: ProjectWithMembers, user: AuthUser): boo
   return isProjectMember(project, user.id)
 }
 
-export function canManageProjectPlan(project: Project, user: AuthUser): boolean {
-  const approvalStatus = (project.approvalInfo as unknown as { status?: string } | null)?.status
-  if (approvalStatus !== 'APPROVED') return false
+/**
+ * BRD: only when project is ACTIVE (Đang triển khai). PAUSED can't be edited
+ * either; only resume is allowed via a dedicated endpoint. CLOSED is fully locked.
+ */
+export function canManageProjectPlan(project: ProjectWithMembers, user: AuthUser): boolean {
+  if (project.status !== 'ACTIVE') return false
   if (user.role === 'PMO') return true
   if (project.adminId === user.id) return true
   return isProjectCoordinator(project, user.id)
 }
 
-export function canEditProjectInfo(project: Project, user: AuthUser): boolean {
+export function canEditProjectInfo(project: ProjectWithMembers, user: AuthUser): boolean {
+  if (project.status === 'CLOSED') return false
   if (user.role === 'PMO' || user.role === 'ADMIN_HC') return true
   if (project.adminId === user.id) return true
   return isProjectCoordinator(project, user.id)
 }
+
+/** BRD IV.4.1: project creation belongs to TCHC (= ADMIN_HC). PMO retained as super-admin. */
+export function canCreateProject(user: AuthUser): boolean {
+  return user.role === 'PMO' || user.role === 'ADMIN_HC'
+}
+
+// ─── List filtering ─────────────────────────────────────────────────────────
 
 export function filterVisibleProjects<P extends ProjectWithMembers>(
   projects: P[],
@@ -57,7 +65,7 @@ export function filterVisibleProjects<P extends ProjectWithMembers>(
   return projects.filter((p) => canViewProject(p, user))
 }
 
-export function assertCanManagePlan(project: Project, user: AuthUser): void {
+export function assertCanManagePlan(project: ProjectWithMembers, user: AuthUser): void {
   if (!canManageProjectPlan(project, user)) {
     const err = new Error('Forbidden: cannot manage this project plan')
     ;(err as Error & { status?: number }).status = 403

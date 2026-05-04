@@ -11,7 +11,7 @@ export async function addDocument(
   user: AuthUser,
 ) {
   return prisma.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({ where: { id: projectId } })
+    const project = await tx.project.findUnique({ where: { id: projectId }, include: { members: true } })
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canEditProjectInfo(project, user)) throw new ApiError(403, 'Forbidden')
 
@@ -45,7 +45,7 @@ export async function updateDocument(
   user: AuthUser,
 ) {
   return prisma.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({ where: { id: projectId } })
+    const project = await tx.project.findUnique({ where: { id: projectId }, include: { members: true } })
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canEditProjectInfo(project, user)) throw new ApiError(403, 'Forbidden')
 
@@ -80,7 +80,7 @@ export async function updateDocument(
 
 export async function deleteDocument(projectId: string, documentId: string, user: AuthUser) {
   return prisma.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({ where: { id: projectId } })
+    const project = await tx.project.findUnique({ where: { id: projectId }, include: { members: true } })
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canEditProjectInfo(project, user)) throw new ApiError(403, 'Forbidden')
 

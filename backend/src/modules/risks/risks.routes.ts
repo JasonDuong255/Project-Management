@@ -21,7 +21,7 @@ risksRouter.post('/:projectId/risks', validateBody(riskSchema), async (req, res,
   try {
     if (!req.user) throw new ApiError(401, 'Authentication required')
     const user = req.user
-    const project = await prisma.project.findUnique({ where: { id: String(req.params.projectId) } })
+    const project = await prisma.project.findUnique({ where: { id: String(req.params.projectId) }, include: { members: true } })
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canManageProjectPlan(project, user)) throw new ApiError(403, 'Forbidden')
 

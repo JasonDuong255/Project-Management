@@ -26,6 +26,9 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
     if (!profile) {
       throw new ApiError(403, 'No profile registered for this auth user')
     }
+    if (!profile.isActive) {
+      throw new ApiError(403, 'Account is inactive')
+    }
 
     req.user = {
       id: profile.id,
@@ -33,6 +36,8 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
       email: profile.email,
       name: profile.name,
       role: normalizeUserRole(profile.role),
+      functionalTitle: profile.functionalTitle,
+      isActive: profile.isActive,
       employeeCode: profile.employeeCode,
       title: profile.title,
       unit: profile.unit,

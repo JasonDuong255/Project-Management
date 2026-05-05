@@ -13,6 +13,7 @@ const projectInclude = {
   documents: true,
   monthlyAllocations: true,
   risks: true,
+  externalPersonnel: { include: { externalPersonnel: true } },
 } satisfies Prisma.ProjectInclude
 
 const planItemInclude = {
@@ -138,11 +139,31 @@ function serializeProject(p: ProjectRow) {
     risks: p.risks.map((r) => ({
       id: r.id,
       title: r.title,
+      cause: r.cause,
+      description: r.description,
       level: r.level,
       status: r.status,
       ownerId: r.ownerId,
       mitigation: r.mitigation,
+      dueDate: r.dueDate?.toISOString().slice(0, 10) ?? null,
+      resolutionResult: r.resolutionResult,
+      resolutionProgress: r.resolutionProgress,
+      nextPlan: r.nextPlan,
+      notes: r.notes,
       lastUpdated: r.lastUpdated.toISOString(),
+    })),
+    externalPersonnel: p.externalPersonnel.map((link) => ({
+      externalPersonnelId: link.externalPersonnelId,
+      kind: link.externalPersonnel.kind,
+      fullName: link.externalPersonnel.fullName,
+      employeeCode: link.externalPersonnel.employeeCode,
+      title: link.externalPersonnel.title,
+      unit: link.externalPersonnel.unit,
+      email: link.externalPersonnel.email,
+      phone: link.externalPersonnel.phone,
+      roleInProject: link.roleInProject,
+      responsibility: link.responsibility,
+      totalPlannedHours: link.totalPlannedHours,
     })),
   }
 }

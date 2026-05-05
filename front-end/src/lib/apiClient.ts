@@ -217,6 +217,75 @@ export async function saveRisk(input: SaveRiskInput): Promise<AppSnapshot> {
   })
 }
 
+export async function deleteRisk(input: { projectId: string; riskId: string }): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${input.projectId}/risks/${input.riskId}`, {
+    method: 'DELETE',
+  })
+}
+
+// ─── v3.3 External personnel (KH / Đối tác catalog) ────────────────────────
+
+export interface ExternalPersonnelRow {
+  id: string
+  kind: 'CUSTOMER' | 'PARTNER'
+  fullName: string
+  employeeCode: string
+  title: string
+  unit: string
+  email: string
+  phone: string
+  isActive: boolean
+}
+
+export async function fetchExternalPersonnel(
+  kind?: 'CUSTOMER' | 'PARTNER',
+): Promise<{ items: ExternalPersonnelRow[] }> {
+  return apiCall(`/external-personnel${kind ? `?kind=${kind}` : ''}`)
+}
+
+export async function createExternalPersonnel(
+  body: Omit<ExternalPersonnelRow, 'id' | 'isActive'>,
+): Promise<{ item: ExternalPersonnelRow }> {
+  return apiCall('/external-personnel', { method: 'POST', body })
+}
+
+export async function updateExternalPersonnel(
+  id: string,
+  body: Partial<Omit<ExternalPersonnelRow, 'id'>>,
+): Promise<{ item: ExternalPersonnelRow }> {
+  return apiCall(`/external-personnel/${id}`, { method: 'PATCH', body })
+}
+
+export async function deleteExternalPersonnel(id: string): Promise<{ ok: boolean }> {
+  return apiCall(`/external-personnel/${id}`, { method: 'DELETE' })
+}
+
+export async function linkProjectExternalPersonnel(
+  projectId: string,
+  body: {
+    externalPersonnelId?: string
+    newPerson?: Omit<ExternalPersonnelRow, 'id' | 'isActive'>
+    roleInProject?: string
+    responsibility?: string
+    totalPlannedHours?: number
+  },
+): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${projectId}/external-personnel`, {
+    method: 'POST',
+    body,
+  })
+}
+
+export async function unlinkProjectExternalPersonnel(
+  projectId: string,
+  externalPersonnelId: string,
+): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(
+    `/projects/${projectId}/external-personnel/${externalPersonnelId}`,
+    { method: 'DELETE' },
+  )
+}
+
 // ─── Catalogs / admin ──────────────────────────────────────────────────────
 
 export async function updateCatalogGroup<K extends keyof Catalogs>(

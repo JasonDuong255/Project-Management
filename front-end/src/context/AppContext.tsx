@@ -52,6 +52,7 @@ interface AppContextValue extends AppSnapshot {
   }) => Promise<void>
   saveAllocation: (input: SaveAllocationInput) => Promise<void>
   saveRisk: (input: SaveRiskInput) => Promise<void>
+  deleteRisk: (input: { projectId: string; riskId: string }) => Promise<void>
   updateCatalogGroup: <K extends keyof Catalogs>(
     group: K,
     values: Catalogs[K],
@@ -248,6 +249,11 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
+  async function deleteRisk(input: { projectId: string; riskId: string }) {
+    const snapshot = await apiClient.deleteRisk(input)
+    setState(snapshot)
+  }
+
   async function updateCatalogGroup<K extends keyof Catalogs>(
     group: K,
     values: Catalogs[K],
@@ -325,6 +331,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         raiseDelay,
         saveAllocation,
         saveRisk,
+        deleteRisk,
         updateCatalogGroup,
         resetDemoData,
         pauseProject,

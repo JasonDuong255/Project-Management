@@ -44,6 +44,15 @@ export type ActivityLogAction =
   | 'CLOSE_REJECTED_KSV'
   | 'CLOSE_CONFIRMED_TCNL'
   | 'CLOSE_REJECTED_TCNL'
+  | 'RISK_CREATED'
+  | 'RISK_UPDATED'
+  | 'RISK_DELETED'
+  | 'PERSONNEL_ADDED'
+  | 'PERSONNEL_REMOVED'
+  | 'DOCUMENT_UPDATED'
+  | 'ALLOCATION_UPDATED'
+
+export type ExternalPersonnelKind = 'CUSTOMER' | 'PARTNER'
 
 export type ActivityEntityType = 'PROJECT' | 'PLAN_ITEM'
 

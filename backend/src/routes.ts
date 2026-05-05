@@ -15,6 +15,10 @@ import {
 } from './modules/close-workflow/close-workflow.routes.js'
 import { notificationsRouter } from './modules/notifications/notifications.routes.js'
 import { authLogRouter } from './modules/auth-log/auth-log.routes.js'
+import {
+  externalPersonnelRouter,
+  projectExternalPersonnelRouter,
+} from './modules/external-personnel/external-personnel.routes.js'
 import { requireAuth } from './middlewares/auth.js'
 import { requireProjectNotClosed } from './middlewares/project-lock.js'
 
@@ -32,6 +36,8 @@ export function mountRoutes(app: Express) {
   app.use('/api/projects', requireAuth, requireProjectNotClosed, delayRaisesRouter)
   app.use('/api/projects', requireAuth, requireProjectNotClosed, allocationsRouter)
   app.use('/api/projects', requireAuth, requireProjectNotClosed, risksRouter)
+  app.use('/api/projects', requireAuth, requireProjectNotClosed, projectExternalPersonnelRouter)
+  app.use('/api/external-personnel', requireAuth, externalPersonnelRouter)
   app.use('/api/close-inbox', requireAuth, closeInboxRouter)
   app.use('/api/notifications', requireAuth, notificationsRouter)
   // Auth-log: POST /event is unauth-friendly (records failed logins); GET is PMO-only.

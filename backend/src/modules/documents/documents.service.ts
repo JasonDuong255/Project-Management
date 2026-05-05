@@ -68,7 +68,7 @@ export async function updateDocument(
     await writeActivityLog(tx, {
       projectId,
       userId: user.id,
-      action: 'DOCUMENT_ADDED',
+      action: 'DOCUMENT_UPDATED',
       entityType: 'PROJECT',
       entityId: projectId,
       entityName: project.name,

@@ -102,6 +102,19 @@ enum ActivityLogAction {
   CLOSE_REJECTED_KSV
   CLOSE_CONFIRMED_TCNL
   CLOSE_REJECTED_TCNL
+  // v3.3: risk + personnel + document granular history.
+  RISK_CREATED
+  RISK_UPDATED
+  RISK_DELETED
+  PERSONNEL_ADDED
+  PERSONNEL_REMOVED
+  DOCUMENT_UPDATED
+  ALLOCATION_UPDATED
+}
+
+enum ExternalPersonnelKind {
+  CUSTOMER
+  PARTNER
 }
 
 enum CloseRequestDecision {
@@ -175,6 +188,8 @@ model User {
   closeRequests       ProjectCloseRequest[]  @relation("CloseRequester")
   ksvDecisions        ProjectCloseRequest[]  @relation("CloseKsv")
   tcnlDecisions       ProjectCloseRequest[]  @relation("CloseTcnl")
+  externalPersonnelCreated  ExternalPersonnel[] @relation("ExtPersonnelCreator")
+  externalPersonnelUpdated  ExternalPersonnel[] @relation("ExtPersonnelUpdater")
 
   @@map("profiles")
 }
@@ -225,6 +240,7 @@ model Project {
   delayRaises        DelayRaise[]
   activityLogs       ActivityLog[]
   closeRequests      ProjectCloseRequest[]
+  externalPersonnel  ProjectExternalPersonnel[]
 
   @@index([adminId])
   @@index([status])
@@ -282,6 +298,12 @@ model ProjectDocument {
   documentNumber String    @default("")
   description    String    @default("")
   url            String    @default("")
+  // v3.3: Supabase Storage path. When set, the file lives in the qlda-documents
+  // bucket and `url` is empty. The two coexist for back-compat: legacy URL-only
+  // documents stay readable; new uploads use storagePath.
+  storagePath    String    @default("")
+  mimeType       String    @default("")
+  sizeBytes      Int       @default(0)
   uploadedBy     String    @db.Uuid
   uploadedAt     DateTime  @default(now())
   updatedBy      String?   @db.Uuid
@@ -308,21 +330,74 @@ model MonthlyAllocation {
   @@map("monthly_allocations")
 }
 
+/// BRD IV.5.1.4 — risk register fields.
 model ProjectRisk {
-  id          String     @id @default(cuid())
-  projectId   String
-  title       String
-  level       RiskLevel  @default(LOW)
-  status      RiskStatus @default(OPEN)
-  ownerId     String     @db.Uuid
-  mitigation  String     @default("")
-  lastUpdated DateTime   @default(now())
+  id                 String     @id @default(cuid())
+  projectId          String
+  title              String                                 // Nhận diện rủi ro
+  cause              String     @default("")               // Nguyên nhân
+  description        String     @default("")               // Nội dung
+  level              RiskLevel  @default(LOW)
+  status             RiskStatus @default(OPEN)
+  ownerId            String     @db.Uuid                   // Nhân sự khắc phục
+  mitigation         String     @default("")               // Giải pháp
+  dueDate            DateTime?                             // Hạn xử lý
+  resolutionResult   String     @default("")               // Kết quả thực hiện
+  resolutionProgress Int        @default(0)                // Tiến độ xử lý (0-100)
+  nextPlan           String     @default("")               // Kế hoạch tiếp theo
+  notes              String     @default("")               // Ghi chú
+  lastUpdated        DateTime   @default(now())            // Thời gian cập nhật
+  createdAt          DateTime   @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner   User    @relation(fields: [ownerId], references: [id], onDelete: Restrict)
 
   @@index([projectId])
   @@map("project_risks")
+}
+
+/// BRD IV.2.7 — Customer / Partner personnel catalog. Reusable across projects.
+/// Replaces the old per-project JSONB personnelInfo.customerMembers / partners arrays.
+model ExternalPersonnel {
+  id            String                  @id @default(cuid())
+  kind          ExternalPersonnelKind
+  fullName      String
+  employeeCode  String                  @default("")
+  title         String                  @default("")
+  unit          String                  @default("")
+  email         String                  @default("")
+  phone         String                  @default("")
+  isActive      Boolean                 @default(true)
+  createdById   String                  @db.Uuid
+  createdAt     DateTime                @default(now())
+  updatedById   String?                 @db.Uuid
+  updatedAt     DateTime                @updatedAt
+
+  createdBy User                          @relation("ExtPersonnelCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?                         @relation("ExtPersonnelUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  projects  ProjectExternalPersonnel[]
+
+  @@index([kind, isActive])
+  @@index([email])
+  @@map("external_personnel")
+}
+
+/// Per-project assignment of an ExternalPersonnel record. Carries project-specific
+/// fields (role, responsibility, allocated hours).
+model ProjectExternalPersonnel {
+  projectId            String
+  externalPersonnelId  String
+  roleInProject        String   @default("")
+  responsibility       String   @default("")
+  totalPlannedHours    Int      @default(0)
+  createdAt            DateTime @default(now())
+
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  externalPersonnel ExternalPersonnel @relation(fields: [externalPersonnelId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, externalPersonnelId])
+  @@index([projectId])
+  @@map("project_external_personnel")
 }
 
 model PlanItem {

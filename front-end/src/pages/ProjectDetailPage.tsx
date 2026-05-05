@@ -99,10 +99,17 @@ type ProjectRiskStatus = ProjectRisk['status']
 interface RiskFormState {
   id: string
   title: string
+  cause: string
+  description: string
   level: RiskLevel
   status: ProjectRiskStatus
   ownerId: string
   mitigation: string
+  dueDate: string
+  resolutionResult: string
+  resolutionProgress: number
+  nextPlan: string
+  notes: string
 }
 
 interface PlanRiskPromptState {
@@ -378,20 +385,34 @@ function buildRiskForm(project: Project, defaultOwnerId: string, risk?: ProjectR
     return {
       id: risk.id,
       title: risk.title,
+      cause: risk.cause ?? '',
+      description: risk.description ?? '',
       level: risk.level,
       status: risk.status,
       ownerId: risk.ownerId,
       mitigation: risk.mitigation,
+      dueDate: risk.dueDate ?? '',
+      resolutionResult: risk.resolutionResult ?? '',
+      resolutionProgress: risk.resolutionProgress ?? 0,
+      nextPlan: risk.nextPlan ?? '',
+      notes: risk.notes ?? '',
     }
   }
 
   return {
     id: '',
     title: '',
+    cause: '',
+    description: '',
     level: 'MEDIUM',
     status: 'OPEN',
     ownerId: defaultOwnerId || project.adminId,
     mitigation: '',
+    dueDate: '',
+    resolutionResult: '',
+    resolutionProgress: 0,
+    nextPlan: '',
+    notes: '',
   }
 }
 
@@ -416,10 +437,17 @@ function buildRiskDraftFromPlan(
     draft: {
       id: '',
       title: `Rui ro thay doi ke hoach - ${taskName}`,
+      cause: '',
+      description: '',
       level: 'MEDIUM',
       status: 'OPEN',
       ownerId: task.assigneeId || project.adminId,
       mitigation: mitigationParts.join(' '),
+      dueDate: '',
+      resolutionResult: '',
+      resolutionProgress: 0,
+      nextPlan: '',
+      notes: '',
     },
   }
 }
@@ -689,6 +717,7 @@ export function ProjectDetailPage() {
     savePlanItem,
     deletePlanItem,
     saveRisk,
+    deleteRisk,
     addWorklog,
     activityLogs: allActivityLogs,
     getUser,
@@ -1324,16 +1353,36 @@ export function ProjectDetailPage() {
       projectId: project.id,
       id: riskForm.id || undefined,
       title: riskForm.title.trim(),
+      cause: riskForm.cause.trim(),
+      description: riskForm.description.trim(),
       level: riskForm.level,
       status: riskForm.status,
       ownerId: riskForm.ownerId,
       mitigation: riskForm.mitigation.trim(),
+      dueDate: riskForm.dueDate || null,
+      resolutionResult: riskForm.resolutionResult.trim(),
+      resolutionProgress: Number(riskForm.resolutionProgress) || 0,
+      nextPlan: riskForm.nextPlan.trim(),
+      notes: riskForm.notes.trim(),
     })
 
     setIsRiskModalOpen(false)
     setPlanRiskPrompt(null)
     setRiskForm(buildRiskForm(project, currentUser.id))
     setMessage(riskForm.id ? 'Da cap nhat muc rui ro.' : 'Da them muc rui ro moi.')
+  }
+
+  async function handleRiskDelete() {
+    if (!project || !riskForm?.id) return
+    if (!window.confirm('Xác nhận xóa rủi ro này? Lịch sử thao tác vẫn được giữ.')) return
+    try {
+      await deleteRisk({ projectId: project.id, riskId: riskForm.id })
+      setIsRiskModalOpen(false)
+      setRiskForm(buildRiskForm(project, currentUser?.id ?? project.adminId))
+      setMessage('Đã xóa rủi ro.')
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Không xóa được rủi ro.')
+    }
   }
 
   async function handlePlanSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -3243,27 +3292,143 @@ export function ProjectDetailPage() {
               </label>
 
               <label className="span-2">
-                <span>Bien phap giam nhe</span>
+                <span>Nguyên nhân</span>
                 <textarea
-                  rows={4}
+                  rows={2}
+                  value={riskForm.cause}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, cause: event.target.value } : current,
+                    )
+                  }
+                  placeholder="Vì sao rủi ro phát sinh"
+                />
+              </label>
+
+              <label className="span-2">
+                <span>Nội dung rủi ro</span>
+                <textarea
+                  rows={3}
+                  value={riskForm.description}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, description: event.target.value } : current,
+                    )
+                  }
+                  placeholder="Mô tả chi tiết nội dung rủi ro và tác động"
+                />
+              </label>
+
+              <label className="span-2">
+                <span>Giải pháp / Biện pháp giảm nhẹ</span>
+                <textarea
+                  rows={3}
                   value={riskForm.mitigation}
                   onChange={(event) =>
                     setRiskForm((current) =>
                       current ? { ...current, mitigation: event.target.value } : current,
                     )
                   }
-                  placeholder="Tac dong, dau hieu canh bao va huong xu ly"
+                  placeholder="Hướng xử lý dự kiến"
                 />
               </label>
 
-              <div className="modal-actions span-2">
-                <button type="button" className="ghost-button" onClick={closeRiskModal}>
-                  Huy
-                </button>
-                <button type="submit" className="primary-button">
-                  <Save size={16} />
-                  {riskForm.id ? 'Luu thay doi' : 'Them rui ro'}
-                </button>
+              <label>
+                <span>Hạn xử lý</span>
+                <input
+                  type="date"
+                  value={riskForm.dueDate}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, dueDate: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Tiến độ xử lý ({riskForm.resolutionProgress}%)</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={riskForm.resolutionProgress}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current
+                        ? { ...current, resolutionProgress: Number(event.target.value) }
+                        : current,
+                    )
+                  }
+                />
+              </label>
+
+              <label className="span-2">
+                <span>Kết quả thực hiện</span>
+                <textarea
+                  rows={2}
+                  value={riskForm.resolutionResult}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current
+                        ? { ...current, resolutionResult: event.target.value }
+                        : current,
+                    )
+                  }
+                  placeholder="Đã xử lý gì cho đến nay"
+                />
+              </label>
+
+              <label className="span-2">
+                <span>Kế hoạch tiếp theo</span>
+                <textarea
+                  rows={2}
+                  value={riskForm.nextPlan}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, nextPlan: event.target.value } : current,
+                    )
+                  }
+                  placeholder="Bước tiếp theo và người chịu trách nhiệm"
+                />
+              </label>
+
+              <label className="span-2">
+                <span>Ghi chú</span>
+                <textarea
+                  rows={2}
+                  value={riskForm.notes}
+                  onChange={(event) =>
+                    setRiskForm((current) =>
+                      current ? { ...current, notes: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+
+              <div className="modal-actions span-2" style={{ justifyContent: 'space-between' }}>
+                {riskForm.id ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    style={{ color: 'var(--danger)' }}
+                    onClick={() => void handleRiskDelete()}
+                  >
+                    <Trash2 size={16} /> Xóa rủi ro
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button type="button" className="ghost-button" onClick={closeRiskModal}>
+                    Huy
+                  </button>
+                  <button type="submit" className="primary-button">
+                    <Save size={16} />
+                    {riskForm.id ? 'Luu thay doi' : 'Them rui ro'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

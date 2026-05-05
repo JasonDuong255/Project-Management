@@ -77,11 +77,36 @@ export interface MonthlyAllocation {
 export interface ProjectRisk {
   id: string
   title: string
+  /** v3.3 BRD IV.5.1.4 — full risk register fields. */
+  cause?: string
+  description?: string
   level: RiskLevel
   status: 'OPEN' | 'WATCHING' | 'MITIGATED'
   ownerId: string
   mitigation: string
+  dueDate?: string | null
+  resolutionResult?: string
+  resolutionProgress?: number
+  nextPlan?: string
+  notes?: string
   lastUpdated: string
+}
+
+export type ExternalPersonnelKind = 'CUSTOMER' | 'PARTNER'
+
+/** v3.3 — first-class External Personnel catalog row, returned per-project. */
+export interface ProjectExternalPersonnelRow {
+  externalPersonnelId: string
+  kind: ExternalPersonnelKind
+  fullName: string
+  employeeCode: string
+  title: string
+  unit: string
+  email: string
+  phone: string
+  roleInProject: string
+  responsibility: string
+  totalPlannedHours: number
 }
 
 export interface ProjectReferenceItem {
@@ -197,6 +222,8 @@ export interface Project {
   documents: ProjectDocument[]
   monthlyAllocations: MonthlyAllocation[]
   risks: ProjectRisk[]
+  /** v3.3 — first-class catalog-backed customer/partner personnel assignments. */
+  externalPersonnel?: ProjectExternalPersonnelRow[]
 }
 
 export interface MonthAllocationItem {
@@ -446,10 +473,23 @@ export interface SaveRiskInput {
   projectId: string
   id?: string
   title: string
+  /** v3.3 fields — optional on input; default to '' / 0 / null on the BE. */
+  cause?: string
+  description?: string
   level: RiskLevel
   status: 'OPEN' | 'WATCHING' | 'MITIGATED'
   ownerId: string
   mitigation: string
+  dueDate?: string | null
+  resolutionResult?: string
+  resolutionProgress?: number
+  nextPlan?: string
+  notes?: string
+}
+
+export interface DeleteRiskInput {
+  projectId: string
+  riskId: string
 }
 
 export interface GanttItem {

@@ -33,8 +33,9 @@ The Vite dev server proxies `/api` → `http://localhost:4000`, so both run clea
 
 Both apps need env vars set before deploy. **Read these first:**
 
-- [`backend/README.md`](./backend/README.md) — backend env vars (Supabase keys, `DATABASE_URL`, `CORS_ORIGIN`, etc.) and deployment recipe.
-- [`front-end/README.md`](./front-end/README.md) — frontend env vars (`VITE_API_URL`, `VITE_SUPABASE_*`) and static-host deployment recipe.
+- [`.docs/DEPLOY.md`](./.docs/DEPLOY.md) — full step-by-step guide for **Vercel (front-end) + Render (backend)** including Supabase prod setup, CORS wiring, and smoke testing. **Start here.**
+- [`backend/README.md`](./backend/README.md) — backend env vars (Supabase keys, `DATABASE_URL`, `CORS_ORIGIN`, etc.) and deployment notes.
+- [`front-end/README.md`](./front-end/README.md) — frontend env vars (`VITE_API_URL`, `VITE_SUPABASE_*`) and static-host deployment notes.
 
 ### What changes between local dev and production (cheat-sheet)
 

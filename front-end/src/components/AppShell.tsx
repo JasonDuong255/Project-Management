@@ -3,6 +3,7 @@ import {
   BellRing,
   CalendarRange,
   FolderKanban,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Search,
@@ -67,6 +68,9 @@ export function AppShell() {
   const { currentUser, logout, planItems, projects, users } = useAppData()
   const navigate = useNavigate()
   const location = useLocation()
+  // KSV/TCNL get the close-approval inbox in the sidebar.
+  const showInbox =
+    currentUser?.functionalTitle === 'KSV' || currentUser?.functionalTitle === 'TCNL'
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -105,9 +109,13 @@ export function AppShell() {
     return null
   }
 
-  const availableNavItems = navItems.filter(
-    (item) => !item.roles || item.roles.includes(currentUser.role),
-  )
+  const availableNavItems = navItems
+    .filter((item) => !item.roles || item.roles.includes(currentUser.role))
+    .concat(
+      showInbox
+        ? [{ to: '/inbox', label: 'Hộp thư duyệt', icon: Inbox }]
+        : [],
+    )
 
   const currentTitle =
     availableNavItems.find((item) => location.pathname.startsWith(item.to))?.label ??

@@ -73,6 +73,13 @@ export function isProjectCoordinator(project: Project, userId?: string) {
     return false
   }
 
+  // v3.1: prefer first-class isCoordinator flag from project_members rows.
+  if (project.members) {
+    const match = project.members.find((m) => m.userId === userId)
+    if (match) return match.isCoordinator
+  }
+
+  // Fallback: legacy string-match on JSONB personnelInfo (will go away in v3.3).
   return project.personnelInfo.aitsMembers.some((member) => {
     const normalizedRole = member.role.trim().toLowerCase()
     return member.userId === userId && normalizedRole.includes('dieu phoi du an')
@@ -84,13 +91,17 @@ export function canManageProjectPlan(project: Project, currentUser: User | null)
     return false
   }
 
+  // v3.1: only ACTIVE projects can be managed (PAUSED/CLOSED are read-only).
+  if (project.status !== 'ACTIVE') {
+    return false
+  }
+
   const normalizedRole = normalizeUserRole(currentUser.role)
 
   return (
-    project.approvalInfo.status === 'APPROVED' &&
-    (normalizedRole === 'PMO' ||
-      project.adminId === currentUser.id ||
-      isProjectCoordinator(project, currentUser.id))
+    normalizedRole === 'PMO' ||
+    project.adminId === currentUser.id ||
+    isProjectCoordinator(project, currentUser.id)
   )
 }
 
@@ -392,9 +403,9 @@ export function getDashboardSummary(
     (item) => item.status === 'BLOCKED' || item.status === 'NEEDS_REPLAN',
   ).length
   const atRiskProjects = projects.filter(
-    (project) => project.status === 'AT_RISK' || project.health === 'RED',
+    (project) => project.health === 'AT_RISK',
   ).length
-  const warningProjects = projects.filter((project) => project.health !== 'GREEN')
+  const warningProjects = projects.filter((project) => project.health !== 'STABLE')
     .length
   const openRaises = delayRaises.filter((item) => item.status === 'OPEN').length
 
@@ -490,15 +501,20 @@ export function buildGanttItems(
 
 export function getStatusTone(status: Project['status'] | PlanItem['status']) {
   switch (status) {
+    // Project statuses (v3.1: ACTIVE / PAUSED / CLOSED)
+    case 'ACTIVE':
+      return 'info'
+    case 'PAUSED':
+      return 'warning'
+    case 'CLOSED':
+      return 'success'
+    // Plan-item statuses
     case 'DONE':
       return 'success'
     case 'IN_PROGRESS':
       return 'info'
-    case 'PLANNING':
-    case 'INITIATION':
     case 'NOT_STARTED':
       return 'neutral'
-    case 'AT_RISK':
     case 'BLOCKED':
     case 'NEEDS_REPLAN':
       return 'warning'
@@ -509,11 +525,11 @@ export function getStatusTone(status: Project['status'] | PlanItem['status']) {
 
 export function getHealthTone(health: Project['health']) {
   switch (health) {
-    case 'GREEN':
+    case 'STABLE':
       return 'success'
-    case 'AMBER':
+    case 'NEEDS_REVIEW':
       return 'warning'
-    case 'RED':
+    case 'AT_RISK':
       return 'danger'
     default:
       return 'neutral'

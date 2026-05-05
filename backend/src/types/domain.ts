@@ -2,8 +2,11 @@
 
 export type UserRole = 'PMO' | 'ADMIN_HC' | 'PM' | 'DELIVERY_MEMBER'
 export type LegacyUserRole = UserRole | 'SYSTEM_ADMIN' | 'PROJECT_ADMIN'
-export type ProjectStatus = 'INITIATION' | 'PLANNING' | 'IN_PROGRESS' | 'AT_RISK' | 'DONE'
-export type HealthStatus = 'GREEN' | 'AMBER' | 'RED'
+export type FunctionalTitle = 'NORMAL' | 'TCNL' | 'KSV'
+export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED'
+export type HealthStatus = 'STABLE' | 'NEEDS_REVIEW' | 'AT_RISK'
+export type ProjectType = 'PRELIMINARY' | 'FEASIBILITY' | 'CONTRACT' | 'INTERNAL'
+export type CloseRequestDecision = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type PlanTaskStatus =
   | 'NOT_STARTED'
   | 'IN_PROGRESS'
@@ -34,6 +37,13 @@ export type ActivityLogAction =
   | 'WORKLOG_ADDED'
   | 'PROJECT_CLOSED'
   | 'PROJECT_REOPENED'
+  | 'PROJECT_PAUSED'
+  | 'PROJECT_REOPENED_FROM_PAUSE'
+  | 'CLOSE_REQUESTED'
+  | 'CLOSE_APPROVED_KSV'
+  | 'CLOSE_REJECTED_KSV'
+  | 'CLOSE_CONFIRMED_TCNL'
+  | 'CLOSE_REJECTED_TCNL'
 
 export type ActivityEntityType = 'PROJECT' | 'PLAN_ITEM'
 
@@ -49,6 +59,8 @@ export interface AuthUser {
   email: string
   name: string
   role: UserRole
+  functionalTitle: FunctionalTitle
+  isActive: boolean
   employeeCode: string
   title: string
   unit: string

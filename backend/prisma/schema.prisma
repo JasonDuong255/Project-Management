@@ -22,17 +22,28 @@ enum UserRole {
 }
 
 enum ProjectStatus {
-  INITIATION
-  PLANNING
-  IN_PROGRESS
-  AT_RISK
-  DONE
+  ACTIVE  // Đang triển khai
+  PAUSED  // Tạm đóng
+  CLOSED  // Đóng
 }
 
 enum HealthStatus {
-  GREEN
-  AMBER
-  RED
+  STABLE        // Ổn định — all tasks on time
+  NEEDS_REVIEW  // Cần xem xét — at least one task within 4 days of deadline, not done
+  AT_RISK       // Có rủi ro — at least one task past deadline, not done
+}
+
+enum ProjectType {
+  PRELIMINARY  // Tiền khả thi
+  FEASIBILITY  // Khả thi
+  CONTRACT     // Có HĐ
+  INTERNAL     // Nội bộ
+}
+
+enum FunctionalTitle {
+  NORMAL
+  TCNL  // Tổ chức Nhân lực — closes TTK after KSV approval
+  KSV   // Kiểm soát viên — quality control / approver in DBCL dept
 }
 
 enum PlanTaskStatus {
@@ -83,6 +94,34 @@ enum ActivityLogAction {
   WORKLOG_ADDED
   PROJECT_CLOSED
   PROJECT_REOPENED
+  // v3.1: close-workflow + pause flow precursors. Most consumers land in v3.2.
+  PROJECT_PAUSED
+  PROJECT_REOPENED_FROM_PAUSE
+  CLOSE_REQUESTED
+  CLOSE_APPROVED_KSV
+  CLOSE_REJECTED_KSV
+  CLOSE_CONFIRMED_TCNL
+  CLOSE_REJECTED_TCNL
+}
+
+enum CloseRequestDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationKind {
+  TASK_DEADLINE_NEAR        // BRD IV.5.6.1 — 4 days before
+  TASK_OVERDUE              // BRD IV.5.6.2
+  CLOSE_REQUEST_RECEIVED    // KSV/TCNL inbox
+  CLOSE_APPROVED            // requester gets confirmation
+  CLOSE_REJECTED            // requester gets rejection
+  PROJECT_PAUSED_NOTICE
+}
+
+enum AuthLogStatus {
+  SUCCESS
+  FAILURE
 }
 
 enum ActivityEntityType {
@@ -106,30 +145,36 @@ enum CatalogKey {
 /// `id` matches `auth.users.id` (uuid) so RLS can join via auth.uid().
 /// Passwords are owned entirely by Supabase Auth.
 model User {
-  id              String   @id @db.Uuid
-  username        String   @unique
-  email           String   @unique
+  id              String          @id @db.Uuid
+  username        String          @unique
+  email           String          @unique
   name            String
   role            UserRole
-  employeeCode    String   @default("")
-  title           String   @default("")
-  unit            String   @default("")
-  phone           String   @default("")
-  monthlyCapacity Int      @default(160)
-  avatarColor     String   @default("#0f766e")
+  functionalTitle FunctionalTitle @default(NORMAL)
+  isActive        Boolean         @default(true)
+  employeeCode    String          @default("")
+  title           String          @default("")
+  unit            String          @default("")
+  phone           String          @default("")
+  monthlyCapacity Int             @default(160)
+  avatarColor     String          @default("#0f766e")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  managedProjects   Project[]            @relation("ProjectAdmin")
-  createdProjects   Project[]            @relation("ProjectCreator")
-  memberships       ProjectMember[]
-  planItemAssignees PlanItemAssignee[]
-  ownedRisks        ProjectRisk[]
-  worklogs          Worklog[]
-  raisedDelays      DelayRaise[]
-  activityLogs     ActivityLog[]
-  monthlyAllocations MonthlyAllocation[]
+  managedProjects     Project[]              @relation("ProjectAdmin")
+  createdProjects     Project[]              @relation("ProjectCreator")
+  sponsoredProjects   Project[]              @relation("ProjectSponsor")
+  memberships         ProjectMember[]
+  planItemAssignees   PlanItemAssignee[]
+  ownedRisks          ProjectRisk[]
+  worklogs            Worklog[]
+  raisedDelays        DelayRaise[]
+  activityLogs        ActivityLog[]
+  monthlyAllocations  MonthlyAllocation[]
+  closeRequests       ProjectCloseRequest[]  @relation("CloseRequester")
+  ksvDecisions        ProjectCloseRequest[]  @relation("CloseKsv")
+  tcnlDecisions       ProjectCloseRequest[]  @relation("CloseTcnl")
 
   @@map("profiles")
 }
@@ -145,14 +190,18 @@ model Project {
   ttkDecisionNumber String        @default("")
   createdById       String        @db.Uuid
   adminId           String        @db.Uuid
+  psUserId          String?       @db.Uuid                       // BRD IV.4.1 — Project Sponsor (was inline in personnelInfo)
+  projectType       ProjectType   @default(INTERNAL)             // BRD III.1.2.2.1
   startDate         DateTime
   endDate           DateTime
-  status            ProjectStatus @default(INITIATION)
-  health            HealthStatus  @default(GREEN)
+  status            ProjectStatus @default(ACTIVE)               // v3.1: was INITIATION/PLANNING/...; now operational
+  health            HealthStatus  @default(STABLE)               // v3.1: now auto-derived (job lands in v3.2)
   progress          Int           @default(0)
   currentPhase      String        @default("")
   adjustedPlan      String        @default("")
   riskSummary       String        @default("")
+  pausedAt          DateTime?                                    // BRD III.1.2.5 — Tạm đóng timestamp
+  closedAt          DateTime?                                    // BRD III.1.2.5 — Đóng timestamp
 
   // Nested sub-objects → JSONB. See types/domain.ts for shapes.
   approvalInfo  Json @default("{}")
@@ -163,8 +212,9 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  admin     User @relation("ProjectAdmin", fields: [adminId], references: [id], onDelete: Restrict)
-  createdBy User @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  admin     User  @relation("ProjectAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  createdBy User  @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  ps        User? @relation("ProjectSponsor", fields: [psUserId], references: [id], onDelete: SetNull)
 
   members            ProjectMember[]
   documents          ProjectDocument[]
@@ -174,6 +224,7 @@ model Project {
   worklogs           Worklog[]
   delayRaises        DelayRaise[]
   activityLogs       ActivityLog[]
+  closeRequests      ProjectCloseRequest[]
 
   @@index([adminId])
   @@index([status])
@@ -181,14 +232,46 @@ model Project {
 }
 
 model ProjectMember {
-  projectId String
-  userId    String  @db.Uuid
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId         String
+  userId            String  @db.Uuid
+  isCoordinator     Boolean @default(false)              // BRD: Điều phối TTK
+  roleInProject     String  @default("")                 // BRD IV.5.1.2 — vai trò
+  responsibility    String  @default("")                 // BRD IV.5.1.2 — nhiệm vụ
+  totalPlannedHours Int     @default(0)                  // BRD IV.5.1.2 — tổng giờ công
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userId])
   @@index([userId])
+  @@index([projectId, isCoordinator])
   @@map("project_members")
+}
+
+/// One open close-request per project (state: PENDING -> KSV decides -> TCNL decides).
+/// History row preserved after a decision; new request opens after rejection.
+model ProjectCloseRequest {
+  id                String                @id @default(cuid())
+  projectId         String
+  requestedById     String                @db.Uuid
+  requestedAt       DateTime              @default(now())
+  note              String                @default("")
+  ksvDecision       CloseRequestDecision  @default(PENDING)
+  ksvDecidedById    String?               @db.Uuid
+  ksvDecidedAt      DateTime?
+  ksvRejectReason   String                @default("")
+  tcnlDecision      CloseRequestDecision  @default(PENDING)
+  tcnlDecidedById   String?               @db.Uuid
+  tcnlDecidedAt     DateTime?
+  tcnlRejectReason  String                @default("")
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requester User    @relation("CloseRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  ksv       User?   @relation("CloseKsv", fields: [ksvDecidedById], references: [id], onDelete: SetNull)
+  tcnl      User?   @relation("CloseTcnl", fields: [tcnlDecidedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, ksvDecision, tcnlDecision])
+  @@map("project_close_requests")
 }
 
 model ProjectDocument {
@@ -351,4 +434,37 @@ model CatalogGroup {
   values Json       @default("[]")
 
   @@map("catalog_groups")
+}
+
+/// v3.2 — in-app notifications. Push from BE on close-flow events and deadline alerts.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @db.Uuid
+  kind      NotificationKind
+  title     String           @default("")
+  body      String           @default("")
+  payload   Json             @default("{}")  // structured data for the FE (projectId, taskId, requestId, etc.)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+/// v3.2 — login/logout audit per BRD VIII.3 (IP, time, login state).
+/// userId is nullable for failed logins where we don't recognise the email.
+model AuthLog {
+  id         String        @id @default(cuid())
+  userId     String?       @db.Uuid
+  email      String        @default("")
+  ip         String        @default("")
+  userAgent  String        @default("")
+  status     AuthLogStatus
+  reason     String        @default("")
+  createdAt  DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("auth_logs")
 }

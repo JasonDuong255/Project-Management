@@ -79,13 +79,19 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
         title: 'Dang van hanh',
         description: 'Da duyet va ban giao cho PM',
         projects: projects.filter(
-          (project) => project.approvalInfo.status === 'APPROVED' && project.status !== 'DONE',
+          (project) =>
+            project.approvalInfo.status === 'APPROVED' && project.status === 'ACTIVE',
         ),
       },
       {
-        title: 'Da hoan tat',
+        title: 'Tam dong',
+        description: 'Tam dung trien khai',
+        projects: projects.filter((project) => project.status === 'PAUSED'),
+      },
+      {
+        title: 'Da dong',
         description: 'Du an dong',
-        projects: projects.filter((project) => project.status === 'DONE'),
+        projects: projects.filter((project) => project.status === 'CLOSED'),
       },
     ].filter((section) => section.projects.length)
   }

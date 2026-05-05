@@ -1,7 +1,11 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../../db/prisma.js'
 import { ApiError } from '../../middlewares/error.js'
-import { canEditProjectInfo, canManageProjectPlan } from '../../lib/permissions.js'
+import {
+  canCreateProject,
+  canEditProjectInfo,
+  canManageProjectPlan,
+} from '../../lib/permissions.js'
 import { diffFields, writeActivityLog } from '../../lib/activity-log.js'
 import type { AuthUser } from '../../types/domain.js'
 import type { CreateProjectInput, UpdateProjectInput } from './projects.schema.js'
@@ -32,11 +36,25 @@ const DEFAULT_PERSONNEL = {
 }
 
 export async function createProject(input: CreateProjectInput, currentUser: AuthUser) {
-  if (currentUser.role !== 'PMO' && currentUser.role !== 'ADMIN_HC') {
-    throw new ApiError(403, 'Only PMO/ADMIN_HC can create projects')
+  if (!canCreateProject(currentUser)) {
+    throw new ApiError(403, 'Only PMO or ADMIN_HC (TCHC) can create projects')
   }
 
-  const memberIds = Array.from(new Set(input.teamMembers.map((m) => m.userId)))
+  // Dedupe by userId, keeping the first occurrence's role/hours.
+  const seen = new Set<string>()
+  const dedupedMembers = input.teamMembers.filter((m) => {
+    if (seen.has(m.userId)) return false
+    seen.add(m.userId)
+    return true
+  })
+  // Map ProjectMember rows: promote string-match coordinator to a real flag.
+  const memberRowData = dedupedMembers.map((m) => ({
+    userId: m.userId,
+    isCoordinator: /dieu phoi du an/i.test(m.role),
+    roleInProject: m.role,
+    responsibility: '',
+    totalPlannedHours: m.totalPlannedHours,
+  }))
   const aitsMembers = await Promise.all(
     input.teamMembers.map(async (m) => {
       const user = await prisma.user.findUnique({ where: { id: m.userId } })
@@ -83,7 +101,7 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
         financialInfo: DEFAULT_FINANCIAL as Prisma.InputJsonValue,
         personnelInfo: { ...DEFAULT_PERSONNEL, aitsMembers } as Prisma.InputJsonValue,
         members: {
-          create: memberIds.map((userId) => ({ userId })),
+          create: memberRowData,
         },
       },
     })
@@ -207,7 +225,7 @@ export async function updateProject(
     }
 
     if (patch.status !== undefined && patch.status !== before.status) {
-      if (patch.status === 'DONE') {
+      if (patch.status === 'CLOSED') {
         await writeActivityLog(tx, {
           projectId,
           userId: currentUser.id,
@@ -215,9 +233,9 @@ export async function updateProject(
           entityType: 'PROJECT',
           entityId: projectId,
           entityName: updated.name,
-          changes: [{ field: 'status', oldValue: before.status, newValue: 'DONE' }],
+          changes: [{ field: 'status', oldValue: before.status, newValue: 'CLOSED' }],
         })
-      } else if (before.status === 'DONE') {
+      } else if (before.status === 'CLOSED') {
         await writeActivityLog(tx, {
           projectId,
           userId: currentUser.id,
@@ -225,7 +243,7 @@ export async function updateProject(
           entityType: 'PROJECT',
           entityId: projectId,
           entityName: updated.name,
-          changes: [{ field: 'status', oldValue: 'DONE', newValue: patch.status }],
+          changes: [{ field: 'status', oldValue: 'CLOSED', newValue: patch.status }],
         })
       }
     }

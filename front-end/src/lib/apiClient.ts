@@ -94,8 +94,10 @@ export async function login(identifier: string, password: string): Promise<AppSn
   const email = resolveEmail(identifier)
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error || !data.session) {
+    void logAuthEvent(email, 'FAILURE', error?.message ?? 'unknown')
     return null
   }
+  void logAuthEvent(email, 'SUCCESS', '')
   return apiCall<AppSnapshot>('/snapshot')
 }
 
@@ -226,4 +228,119 @@ export async function updateCatalogGroup<K extends keyof Catalogs>(
 
 export async function resetDemoData(): Promise<AppSnapshot> {
   return apiCall<AppSnapshot>('/admin/reset-demo-data', { method: 'POST' })
+}
+
+// ─── v3.2 Close workflow ───────────────────────────────────────────────────
+
+export async function pauseProject(projectId: string): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${projectId}/pause`, { method: 'POST' })
+}
+
+export async function resumeProject(projectId: string): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${projectId}/resume`, { method: 'POST' })
+}
+
+export async function requestProjectClose(
+  projectId: string,
+  note: string,
+): Promise<{ closeRequestId: string } & AppSnapshot> {
+  return apiCall(`/projects/${projectId}/close-requests`, {
+    method: 'POST',
+    body: { note },
+  })
+}
+
+export async function ksvDecideClose(
+  projectId: string,
+  closeRequestId: string,
+  decision: 'APPROVED' | 'REJECTED',
+  reason = '',
+): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(
+    `/projects/${projectId}/close-requests/${closeRequestId}/ksv`,
+    { method: 'PATCH', body: { decision, reason } },
+  )
+}
+
+export async function tcnlDecideClose(
+  projectId: string,
+  closeRequestId: string,
+  decision: 'APPROVED' | 'REJECTED',
+  reason = '',
+): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(
+    `/projects/${projectId}/close-requests/${closeRequestId}/tcnl`,
+    { method: 'PATCH', body: { decision, reason } },
+  )
+}
+
+export interface CloseInboxItem {
+  id: string
+  projectId: string
+  requestedById: string
+  requestedAt: string
+  note: string
+  ksvDecision: 'PENDING' | 'APPROVED' | 'REJECTED'
+  ksvDecidedById: string | null
+  ksvDecidedAt: string | null
+  ksvRejectReason: string
+  tcnlDecision: 'PENDING' | 'APPROVED' | 'REJECTED'
+  tcnlDecidedById: string | null
+  tcnlDecidedAt: string | null
+  tcnlRejectReason: string
+  project: { id: string; code: string; name: string }
+}
+
+export async function fetchCloseInbox(): Promise<{ items: CloseInboxItem[] }> {
+  return apiCall('/close-inbox')
+}
+
+// ─── v3.2 Notifications ────────────────────────────────────────────────────
+
+export interface NotificationItem {
+  id: string
+  userId: string
+  kind: string
+  title: string
+  body: string
+  payload: Record<string, unknown>
+  readAt: string | null
+  createdAt: string
+}
+
+export async function fetchNotifications(
+  unreadOnly = false,
+): Promise<{ items: NotificationItem[] }> {
+  return apiCall(`/notifications${unreadOnly ? '?unread=1' : ''}`)
+}
+
+export async function markNotificationRead(id: string): Promise<{ ok: boolean }> {
+  return apiCall(`/notifications/${id}/read`, { method: 'POST' })
+}
+
+export async function markAllNotificationsRead(): Promise<{ ok: boolean }> {
+  return apiCall('/notifications/read-all', { method: 'POST' })
+}
+
+// ─── v3.2 Auth log (BRD VIII.3) ────────────────────────────────────────────
+
+export async function logAuthEvent(
+  email: string,
+  status: 'SUCCESS' | 'FAILURE',
+  reason = '',
+): Promise<void> {
+  // Best-effort. Failures here must not block the user's login.
+  try {
+    const token = await getAccessToken()
+    await fetch(`${API_URL}/auth-log/event`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ email, status, reason }),
+    })
+  } catch {
+    /* swallow */
+  }
 }

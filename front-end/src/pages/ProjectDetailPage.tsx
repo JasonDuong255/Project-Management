@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { CloseFlowPanel } from '../components/CloseFlowPanel'
 import { GanttChart } from '../components/GanttChart'
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
@@ -1567,6 +1568,8 @@ export function ProjectDetailPage() {
       />
 
       {message ? <p className="form-success">{message}</p> : null}
+
+      <CloseFlowPanel project={project} />
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">

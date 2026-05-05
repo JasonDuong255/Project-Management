@@ -57,6 +57,22 @@ interface AppContextValue extends AppSnapshot {
     values: Catalogs[K],
   ) => Promise<void>
   resetDemoData: () => Promise<void>
+  // v3.2 close workflow
+  pauseProject: (projectId: string) => Promise<void>
+  resumeProject: (projectId: string) => Promise<void>
+  requestProjectClose: (projectId: string, note: string) => Promise<string>
+  ksvDecideClose: (
+    projectId: string,
+    closeRequestId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason?: string,
+  ) => Promise<void>
+  tcnlDecideClose: (
+    projectId: string,
+    closeRequestId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason?: string,
+  ) => Promise<void>
   getUser: (userId?: string) => User | null
 }
 
@@ -245,6 +261,43 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
+  async function pauseProject(projectId: string) {
+    const snapshot = await apiClient.pauseProject(projectId)
+    setState(snapshot)
+  }
+
+  async function resumeProject(projectId: string) {
+    const snapshot = await apiClient.resumeProject(projectId)
+    setState(snapshot)
+  }
+
+  async function requestProjectClose(projectId: string, note: string): Promise<string> {
+    const result = await apiClient.requestProjectClose(projectId, note)
+    const { closeRequestId, ...snapshot } = result
+    setState(snapshot)
+    return closeRequestId
+  }
+
+  async function ksvDecideClose(
+    projectId: string,
+    closeRequestId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason = '',
+  ) {
+    const snapshot = await apiClient.ksvDecideClose(projectId, closeRequestId, decision, reason)
+    setState(snapshot)
+  }
+
+  async function tcnlDecideClose(
+    projectId: string,
+    closeRequestId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason = '',
+  ) {
+    const snapshot = await apiClient.tcnlDecideClose(projectId, closeRequestId, decision, reason)
+    setState(snapshot)
+  }
+
   function getUser(userId?: string) {
     if (!userId) {
       return null
@@ -274,6 +327,11 @@ export function AppProvider({ children }: PropsWithChildren) {
         saveRisk,
         updateCatalogGroup,
         resetDemoData,
+        pauseProject,
+        resumeProject,
+        requestProjectClose,
+        ksvDecideClose,
+        tcnlDecideClose,
         getUser,
       }}
     >

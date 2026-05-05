@@ -13,7 +13,7 @@ export async function savePlanItem(
   user: AuthUser,
 ) {
   return prisma.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({ where: { id: projectId } })
+    const project = await tx.project.findUnique({ where: { id: projectId }, include: { members: true } })
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canManageProjectPlan(project, user)) throw new ApiError(403, 'Forbidden')
 
@@ -125,7 +125,7 @@ export async function savePlanItem(
 
 export async function deletePlanItem(projectId: string, planItemId: string, user: AuthUser) {
   return prisma.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({ where: { id: projectId } })
+    const project = await tx.project.findUnique({ where: { id: projectId }, include: { members: true } })
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canManageProjectPlan(project, user)) throw new ApiError(403, 'Forbidden')
 

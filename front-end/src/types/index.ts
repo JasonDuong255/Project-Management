@@ -6,14 +6,19 @@ export type UserRole =
   | 'PROJECT_ADMIN'
   | 'SYSTEM_ADMIN'
 
-export type ProjectStatus =
-  | 'INITIATION'
-  | 'PLANNING'
-  | 'IN_PROGRESS'
-  | 'AT_RISK'
-  | 'DONE'
+/** Functional title overlay on top of role. BRD I — TCNL/KSV identifiable. */
+export type FunctionalTitle = 'NORMAL' | 'TCNL' | 'KSV'
 
-export type HealthStatus = 'GREEN' | 'AMBER' | 'RED'
+/** v3.1: 3 operational values per BRD IV.2.2. */
+export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED'
+
+/** v3.1: derived from plan-item deadlines (computation in v3.2). */
+export type HealthStatus = 'STABLE' | 'NEEDS_REVIEW' | 'AT_RISK'
+
+/** BRD III.1.2.2.1 — drives KTQT cap validation. */
+export type ProjectType = 'PRELIMINARY' | 'FEASIBILITY' | 'CONTRACT' | 'INTERNAL'
+
+export type CloseRequestDecision = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export type PlanTaskStatus =
   | 'NOT_STARTED'
@@ -39,6 +44,9 @@ export interface User {
   /** Owned by Supabase Auth — never returned by the API. Demo accounts all use '123456'. */
   password?: string
   role: UserRole
+  /** v3.1 BRD I — TCNL/KSV identification independent of role. */
+  functionalTitle?: FunctionalTitle
+  isActive?: boolean
   employeeCode: string
   title: string
   unit: string
@@ -145,6 +153,14 @@ export interface ProjectPersonnelInfo {
   partners: ProjectExternalPersonnel[]
 }
 
+export interface ProjectMemberRow {
+  userId: string
+  isCoordinator: boolean
+  roleInProject: string
+  responsibility: string
+  totalPlannedHours: number
+}
+
 export interface Project {
   id: string
   code: string
@@ -156,7 +172,13 @@ export interface Project {
   ttkDecisionNumber: string
   createdById: string
   adminId: string
+  /** v3.1 BRD IV.4.1 — Project Sponsor user. Optional (server returns null when unset). */
+  psUserId?: string | null
+  /** v3.1 BRD III.1.2.2.1 — drives KTQT cap validation. */
+  projectType?: ProjectType
   memberIds: string[]
+  /** v3.1: first-class member rows replacing the personnelInfo string-match. */
+  members?: ProjectMemberRow[]
   startDate: string
   endDate: string
   status: ProjectStatus
@@ -165,6 +187,9 @@ export interface Project {
   currentPhase: string
   adjustedPlan: string
   riskSummary: string
+  /** v3.1 BRD III.1.2.5 — set when status moves to PAUSED / CLOSED. */
+  pausedAt?: string | null
+  closedAt?: string | null
   approvalInfo: ProjectApprovalInfo
   basisInfo: ProjectBasisInfo
   financialInfo: ProjectFinancialInfo

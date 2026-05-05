@@ -1,6 +1,7 @@
 import { CirclePlus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { ExternalPersonnelCatalogPanel } from '../components/ExternalPersonnelCatalogPanel'
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppContext'
@@ -156,6 +157,10 @@ export function AdminCatalogPage() {
           />
         ))}
       </section>
+
+      {/* v3.4: KH/Đối tác catalog (BRD IV.2.7). Lives outside catalog_groups
+          because it's a per-row table with audit fields, not a JSONB blob. */}
+      <ExternalPersonnelCatalogPanel />
     </div>
   )
 }

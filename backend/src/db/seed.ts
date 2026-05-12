@@ -52,7 +52,6 @@ interface SeedProject {
   currentPhase?: string
   adjustedPlan?: string
   riskSummary?: string
-  approvalInfo?: Record<string, unknown>
   basisInfo?: Record<string, unknown>
   financialInfo?: Record<string, unknown>
   personnelInfo?: { aitsMembers?: { userId?: string }[] } & Record<string, unknown>
@@ -266,7 +265,6 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
       .filter((x): x is string => Boolean(x))
 
     const personnelInfo = remapPersonnelUserIds(p.personnelInfo, idMap)
-    const approvalInfo = remapApprovalUserIds(p.approvalInfo, idMap, createdById)
 
     // v3.1: build project_member rows with isCoordinator + role/responsibility
     // sourced from the JSONB personnelInfo.aitsMembers entries (matched by userId).
@@ -319,7 +317,6 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         currentPhase: p.currentPhase ?? '',
         adjustedPlan: p.adjustedPlan ?? '',
         riskSummary: p.riskSummary ?? '',
-        approvalInfo: approvalInfo as Prisma.InputJsonValue,
         basisInfo: (p.basisInfo ?? {}) as Prisma.InputJsonValue,
         financialInfo: (p.financialInfo ?? {}) as Prisma.InputJsonValue,
         personnelInfo: personnelInfo as Prisma.InputJsonValue,
@@ -459,33 +456,6 @@ function remapPersonnelUserIds(
     }),
   )
   return { ...info, aitsMembers }
-}
-
-function remapApprovalUserIds(
-  info: Record<string, unknown> | undefined,
-  idMap: Map<string, string>,
-  fallback: string,
-): Record<string, unknown> {
-  if (!info) {
-    return {
-      status: 'PENDING',
-      requestedById: fallback,
-      requestFileName: '',
-      requestSubmittedAt: '',
-      approvedById: '',
-      approvedAt: '',
-      approvalFileName: '',
-      note: '',
-    }
-  }
-  const out = { ...info }
-  if (typeof out.requestedById === 'string') {
-    out.requestedById = idMap.get(out.requestedById) ?? fallback
-  }
-  if (typeof out.approvedById === 'string' && out.approvedById !== '') {
-    out.approvedById = idMap.get(out.approvedById) ?? ''
-  }
-  return out
 }
 
 // CLI entry lives in src/db/seed-cli.ts so importing this module from runtime

@@ -115,7 +115,6 @@ function serializeProject(p: ProjectRow) {
     currentPhase: p.currentPhase,
     adjustedPlan: p.adjustedPlan,
     riskSummary: p.riskSummary,
-    approvalInfo: p.approvalInfo,
     basisInfo: p.basisInfo,
     financialInfo: p.financialInfo,
     personnelInfo: p.personnelInfo,

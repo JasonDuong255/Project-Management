@@ -43,7 +43,6 @@ function buildInitialForm(projectCount: number, sponsorId: string) {
     adminId: '',
     startDate: dayjs().format('YYYY-MM-DD'),
     endDate: dayjs().add(4, 'month').endOf('month').format('YYYY-MM-DD'),
-    approvalRequestFileName: '',
     ttkDecisionNumber: '',
   }
 }
@@ -57,31 +56,15 @@ function buildEmptyMemberDraft(): MemberDraft {
   }
 }
 
-function getApprovalTone(project: Project) {
-  return project.approvalInfo.status === 'APPROVED' ? 'success' : 'warning'
-}
-
-function getApprovalLabel(project: Project) {
-  return project.approvalInfo.status === 'APPROVED' ? 'Da duyet TTK' : 'Cho HC duyet'
-}
-
 function buildProjectSections(projects: Project[], currentUser: User): ProjectSection[] {
   const normalizedRole = normalizeUserRole(currentUser.role)
 
   if (normalizedRole === 'PMO') {
     return [
       {
-        title: 'Cho phe duyet',
-        description: 'Doi hanh chinh xac nhan thanh lap TTK',
-        projects: projects.filter((project) => project.approvalInfo.status === 'PENDING'),
-      },
-      {
-        title: 'Dang van hanh',
-        description: 'Da duyet va ban giao cho PM',
-        projects: projects.filter(
-          (project) =>
-            project.approvalInfo.status === 'APPROVED' && project.status === 'ACTIVE',
-        ),
+        title: 'Dang trien khai',
+        description: 'Du an dang van hanh',
+        projects: projects.filter((project) => project.status === 'ACTIVE'),
       },
       {
         title: 'Tam dong',
@@ -99,14 +82,9 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
   if (normalizedRole === 'ADMIN_HC') {
     return [
       {
-        title: 'Cho phe duyet',
-        description: 'De nghi thanh lap TTK',
-        projects: projects.filter((project) => project.approvalInfo.status === 'PENDING'),
-      },
-      {
-        title: 'Da phe duyet',
-        description: 'Da ban giao cho PM',
-        projects: projects.filter((project) => project.approvalInfo.status === 'APPROVED'),
+        title: 'Du an da khoi tao',
+        description: 'Toan bo du an do To chuc Hanh chinh khoi tao',
+        projects,
       },
     ].filter((section) => section.projects.length)
   }
@@ -142,12 +120,12 @@ export function ProjectsPage() {
   const { currentUser, projects, users, catalogs, createProject, getUser } = useAppData()
   const [message, setMessage] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [documentInputKey, setDocumentInputKey] = useState(0)
 
   const normalizedRole = currentUser ? normalizeUserRole(currentUser.role) : null
   const visibleProjects = getVisibleProjects(projects, currentUser)
   const projectSections = currentUser ? buildProjectSections(visibleProjects, currentUser) : []
-  const canCreate = normalizedRole === 'PMO'
+  // BA decision 12/05/2026: only ADMIN_HC (TCHC) can create projects.
+  const canCreate = normalizedRole === 'ADMIN_HC'
   const sponsorCandidates = users.filter((user) => normalizeUserRole(user.role) !== 'DELIVERY_MEMBER')
   const deployableUsers = users.filter((user) => {
     const role = normalizeUserRole(user.role)
@@ -170,7 +148,6 @@ export function ProjectsPage() {
   function resetCreateState() {
     setForm(buildInitialForm(projects.length, defaultSponsorId))
     setMemberDrafts({})
-    setDocumentInputKey((current) => current + 1)
   }
 
   function openCreateModal() {
@@ -230,8 +207,8 @@ export function ProjectsPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!currentUser || normalizeUserRole(currentUser.role) !== 'PMO') {
-      setMessage('Chi PMO moi co quyen tao du an theo luong hien tai.')
+    if (!currentUser || normalizeUserRole(currentUser.role) !== 'ADMIN_HC') {
+      setMessage('Chi To chuc Hanh chinh (TCHC) moi co quyen tao du an.')
       return
     }
 
@@ -268,7 +245,6 @@ export function ProjectsPage() {
       adminId: form.adminId,
       startDate: form.startDate,
       endDate: form.endDate,
-      approvalRequestFileName: form.approvalRequestFileName,
       teamMembers: selectedMembers,
       department: currentUser.unit,
     })
@@ -330,7 +306,6 @@ export function ProjectsPage() {
                           label={getCatalogLabel(catalogs.projectStatuses, project.status)}
                           tone={getStatusTone(project.status)}
                         />
-                        <StatusPill label={getApprovalLabel(project)} tone={getApprovalTone(project)} />
                       </div>
                     </div>
 
@@ -507,28 +482,6 @@ export function ProjectsPage() {
                   placeholder="Vi du: QD-2026/001"
                   onChange={(event) => setForm((current) => ({ ...current, ttkDecisionNumber: event.target.value }))}
                 />
-              </label>
-
-              <label>
-                <span>File quyet dinh</span>
-                <div className="document-upload-field">
-                  <input
-                    key={documentInputKey}
-                    className="document-file-input"
-                    type="file"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        approvalRequestFileName: event.target.files?.[0]?.name ?? '',
-                      }))
-                    }
-                  />
-                  <div className="document-upload-meta">
-                    <FileText size={15} />
-                    <span>{form.approvalRequestFileName || 'Chua chon file'}</span>
-                  </div>
-                </div>
               </label>
 
               <div className="span-2 roster-builder">

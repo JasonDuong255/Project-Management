@@ -21,7 +21,6 @@ const p = new PrismaClient()
       adminId: true,
       status: true,
       progress: true,
-      approvalInfo: true,
       _count: {
         select: { members: true, planItems: true, documents: true, risks: true, monthlyAllocations: true },
       },
@@ -31,10 +30,9 @@ const p = new PrismaClient()
   console.log('\n═══ Projects ═══')
   for (const proj of projects) {
     const admin = profiles.find((u) => u.id === proj.adminId)
-    const approval = (proj.approvalInfo as { status?: string } | null)?.status ?? '-'
     console.log(`  ${proj.code} | ${proj.name}`)
     console.log(
-      `    admin=${admin?.username ?? '?'}  status=${proj.status}  progress=${proj.progress}%  approval=${approval}`,
+      `    admin=${admin?.username ?? '?'}  status=${proj.status}  progress=${proj.progress}%`,
     )
     console.log(
       `    members=${proj._count.members}  planItems=${proj._count.planItems}  ` +

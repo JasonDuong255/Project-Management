@@ -17,7 +17,6 @@ export const createProjectSchema = z.object({
   adminId: z.string().uuid(),
   startDate: z.string(),
   endDate: z.string(),
-  approvalRequestFileName: z.string().default(''),
   teamMembers: z.array(teamMemberInput).default([]),
   department: z.string().default(''),
 })
@@ -43,10 +42,26 @@ export const updateProjectSchema = z.object({
       adminId: z.string().uuid().optional(),
       startDate: z.string().optional(),
       endDate: z.string().optional(),
-      approvalInfo: z.record(z.unknown()).optional(),
       basisInfo: z.record(z.unknown()).optional(),
       financialInfo: z.record(z.unknown()).optional(),
-      personnelInfo: z.record(z.unknown()).optional(),
+      // AITS members must always be bound to a real User (userId is required).
+      // Free-text customer / partner rows remain unconstrained.
+      personnelInfo: z
+        .object({
+          aitsMembers: z
+            .array(
+              z
+                .object({
+                  userId: z.string().uuid({ message: 'aitsMembers[].userId is required (must be linked to a User)' }),
+                })
+                .passthrough(),
+            )
+            .optional(),
+          customerMembers: z.array(z.record(z.unknown())).optional(),
+          partners: z.array(z.record(z.unknown())).optional(),
+        })
+        .passthrough()
+        .optional(),
       monthlyAllocations: z
         .array(
           z.object({

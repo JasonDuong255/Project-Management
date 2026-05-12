@@ -34,7 +34,6 @@ export type DelayRaiseStatus = 'OPEN' | 'ACKNOWLEDGED' | 'REPLANNED'
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type TtkMode = 'CHUYEN_TRACH' | 'KIEM_NHIEM'
 export type DeploymentMode = 'HD_PLHD' | 'TK_THD' | 'NOI_BO'
-export type ProjectApprovalStatus = 'PENDING' | 'APPROVED'
 
 export interface User {
   id: string
@@ -138,17 +137,6 @@ export interface ProjectFinancialInfo {
   costSource: string
 }
 
-export interface ProjectApprovalInfo {
-  status: ProjectApprovalStatus
-  requestedById: string
-  requestFileName: string
-  requestSubmittedAt: string
-  approvedById: string
-  approvedAt: string
-  approvalFileName: string
-  note: string
-}
-
 export interface ProjectAitsPersonnel {
   userId: string
   employeeCode: string
@@ -215,7 +203,6 @@ export interface Project {
   /** v3.1 BRD III.1.2.5 — set when status moves to PAUSED / CLOSED. */
   pausedAt?: string | null
   closedAt?: string | null
-  approvalInfo: ProjectApprovalInfo
   basisInfo: ProjectBasisInfo
   financialInfo: ProjectFinancialInfo
   personnelInfo: ProjectPersonnelInfo
@@ -363,7 +350,6 @@ export interface CreateProjectInput {
   adminId: string
   startDate: string
   endDate: string
-  approvalRequestFileName: string
   teamMembers: CreateProjectTeamMemberInput[]
   department?: string
 }
@@ -389,7 +375,6 @@ export interface UpdateProjectInput {
       | 'adminId'
       | 'startDate'
       | 'endDate'
-      | 'approvalInfo'
       | 'basisInfo'
       | 'financialInfo'
       | 'personnelInfo'

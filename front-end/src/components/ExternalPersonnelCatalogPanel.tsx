@@ -8,7 +8,10 @@ import {
   updateExternalPersonnel,
   type ExternalPersonnelRow,
 } from '../lib/apiClient'
+import { useConfirm } from './ConfirmDialog'
+import { useLoading } from './LoadingOverlay'
 import { StatusPill } from './StatusPill'
+import { useToast } from './Toast'
 
 type Kind = 'CUSTOMER' | 'PARTNER'
 
@@ -37,6 +40,9 @@ const EMPTY_DRAFT: DraftFields = {
  * PMO can CRUD; QLDA can read.
  */
 export function ExternalPersonnelCatalogPanel() {
+  const toast = useToast()
+  const { confirm } = useConfirm()
+  const loadingOverlay = useLoading()
   const [items, setItems] = useState<ExternalPersonnelRow[]>([])
   const [filter, setFilter] = useState<'ALL' | Kind>('ALL')
   const [loading, setLoading] = useState(true)
@@ -86,33 +92,51 @@ export function ExternalPersonnelCatalogPanel() {
 
   async function handleSave() {
     if (!draft.fullName.trim()) {
-      setError('Họ tên không được để trống.')
+      toast.warning('Thiếu họ tên', 'Họ tên không được để trống.')
       return
     }
+    const isEdit = !!editingId
+    const ok = await confirm({
+      title: isEdit ? 'Lưu thay đổi nhân sự?' : 'Thêm nhân sự KH/Đối tác?',
+      description: `${draft.fullName} (${draft.kind === 'CUSTOMER' ? 'Khách hàng' : 'Đối tác'})`,
+      tone: 'primary',
+      confirmLabel: isEdit ? 'Lưu thay đổi' : 'Tạo mới',
+    })
+    if (!ok) return
     setBusy(true); setError('')
     try {
-      if (editingId) {
-        await updateExternalPersonnel(editingId, draft)
-      } else {
-        await createExternalPersonnel(draft)
-      }
+      await loadingOverlay.run(isEdit ? 'Đang lưu nhân sự…' : 'Đang thêm nhân sự…', async () => {
+        if (editingId) {
+          await updateExternalPersonnel(editingId, draft)
+        } else {
+          await createExternalPersonnel(draft)
+        }
+      })
       cancelEdit(); setShowCreate(false)
       await reload()
+      toast.success(isEdit ? 'Đã cập nhật nhân sự' : 'Đã thêm nhân sự', draft.fullName)
     } catch (e) {
-      setError((e as Error).message)
+      toast.error('Không lưu được', (e as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
   async function handleDelete(row: ExternalPersonnelRow) {
-    if (!window.confirm(`Gỡ ${row.fullName} khỏi danh mục?`)) return
+    const ok = await confirm({
+      title: `Xoá "${row.fullName}" khỏi danh mục?`,
+      description: `${row.kind === 'CUSTOMER' ? 'Khách hàng' : 'Đối tác'} này sẽ bị gỡ khỏi danh mục dùng chung. Các dự án đang liên kết qua external_personnel_id sẽ mất tham chiếu. Hành động không thể hoàn tác.`,
+      tone: 'danger',
+      confirmLabel: 'Xoá khỏi danh mục',
+    })
+    if (!ok) return
     setBusy(true); setError('')
     try {
-      await deleteExternalPersonnel(row.id)
+      await loadingOverlay.run('Đang xoá nhân sự…', () => deleteExternalPersonnel(row.id))
       await reload()
+      toast.success('Đã xoá khỏi danh mục', row.fullName)
     } catch (e) {
-      setError((e as Error).message)
+      toast.error('Không xoá được', (e as Error).message)
     } finally {
       setBusy(false)
     }

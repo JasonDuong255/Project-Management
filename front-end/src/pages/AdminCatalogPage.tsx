@@ -1,9 +1,12 @@
 import { CirclePlus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { useConfirm } from '../components/ConfirmDialog'
 import { ExternalPersonnelCatalogPanel } from '../components/ExternalPersonnelCatalogPanel'
+import { useLoading } from '../components/LoadingOverlay'
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
+import { useToast } from '../components/Toast'
 import { useAppData } from '../context/AppContext'
 import type { CatalogOption, Catalogs } from '../types'
 
@@ -29,9 +32,11 @@ const CATALOG_GROUPS: CatalogGroupDef[] = [
 
 export function AdminCatalogPage() {
   const { catalogs, currentUser, updateCatalogGroup, resetDemoData } = useAppData()
+  const toast = useToast()
+  const { confirm } = useConfirm()
+  const loading = useLoading()
   const [busyGroup, setBusyGroup] = useState<keyof Catalogs | null>(null)
-  const [resetState, setResetState] = useState<'idle' | 'confirm' | 'busy'>('idle')
-  const [message, setMessage] = useState('')
+  const [resetState, setResetState] = useState<'idle' | 'busy'>('idle')
 
   const isPmo = currentUser?.role === 'PMO'
 
@@ -39,11 +44,11 @@ export function AdminCatalogPage() {
     const trimmedValue = draft.value.trim()
     const trimmedLabel = draft.label.trim()
     if (!trimmedValue || !trimmedLabel) {
-      setMessage('Hãy nhập cả mã (value) lẫn nhãn (label).')
+      toast.warning('Thiếu thông tin', 'Hãy nhập cả mã (value) lẫn nhãn (label).')
       return
     }
     if (catalogs[key].some((opt) => opt.value === trimmedValue)) {
-      setMessage(`Mã "${trimmedValue}" đã tồn tại trong nhóm này.`)
+      toast.warning('Mã đã tồn tại', `"${trimmedValue}" đã có trong nhóm này.`)
       return
     }
 
@@ -57,37 +62,56 @@ export function AdminCatalogPage() {
           ...(draft.description ? { description: draft.description } : {}),
         },
       ]
-      await updateCatalogGroup(key, next)
-      setMessage(`Đã thêm "${trimmedLabel}" vào ${key}.`)
+      await loading.run('Đang lưu danh mục…', () => updateCatalogGroup(key, next))
+      toast.success('Đã thêm giá trị', `"${trimmedLabel}" vào nhóm ${key}.`)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Cập nhật thất bại.')
+      toast.error('Cập nhật thất bại', err instanceof Error ? err.message : '')
     } finally {
       setBusyGroup(null)
     }
   }
 
   async function handleRemoveOption(key: keyof Catalogs, value: string) {
+    const opt = catalogs[key].find((o) => o.value === value)
+    const ok = await confirm({
+      title: `Xoá giá trị "${opt?.label ?? value}"?`,
+      description: `Giá trị này sẽ bị gỡ khỏi nhóm "${key}". Các bản ghi hiện đang dùng giá trị này sẽ vẫn giữ mã cũ — nhưng nhãn hiển thị có thể trống. Hành động không thể hoàn tác.`,
+      tone: 'danger',
+      confirmLabel: 'Xoá giá trị',
+    })
+    if (!ok) return
+
     setBusyGroup(key)
     try {
-      const next = catalogs[key].filter((opt) => opt.value !== value)
-      await updateCatalogGroup(key, next)
-      setMessage(`Đã gỡ "${value}" khỏi ${key}.`)
+      const next = catalogs[key].filter((o) => o.value !== value)
+      await loading.run('Đang xoá giá trị…', () => updateCatalogGroup(key, next))
+      toast.success('Đã gỡ giá trị', `"${opt?.label ?? value}" khỏi nhóm ${key}.`)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Cập nhật thất bại.')
+      toast.error('Xoá thất bại', err instanceof Error ? err.message : '')
     } finally {
       setBusyGroup(null)
     }
   }
 
   async function handleReset() {
+    const ok = await confirm({
+      title: 'Reset toàn bộ dữ liệu demo?',
+      description: 'Mọi thay đổi của bạn (dự án, kế hoạch, worklog, rủi ro, tài liệu, phân bổ giờ công) sẽ bị xoá và thay bằng seed gốc. Hành động không thể hoàn tác.',
+      tone: 'danger',
+      confirmLabel: 'Reset dữ liệu',
+    })
+    if (!ok) {
+      setResetState('idle')
+      return
+    }
     setResetState('busy')
     try {
-      await resetDemoData()
-      setMessage('Đã reset toàn bộ dữ liệu demo từ seed.')
-      setResetState('idle')
+      await loading.run('Đang reset dữ liệu demo…', () => resetDemoData())
+      toast.success('Đã reset dữ liệu demo', 'Toàn bộ snapshot được khôi phục từ seed.')
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Reset thất bại.')
-      setResetState('confirm')
+      toast.error('Reset thất bại', err instanceof Error ? err.message : '')
+    } finally {
+      setResetState('idle')
     }
   }
 
@@ -98,12 +122,6 @@ export function AdminCatalogPage() {
         description="Quản lý LOV dùng chung"
       />
 
-      {message ? (
-        <div className="form-error" style={{ marginBottom: '0.5rem' }}>
-          {message}
-        </div>
-      ) : null}
-
       {isPmo ? (
         <section className="panel">
           <div className="panel-heading">
@@ -113,30 +131,9 @@ export function AdminCatalogPage() {
               <p>Khôi phục seed gốc. Thay đổi sẽ mất.</p>
             </div>
             {resetState === 'idle' ? (
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setResetState('confirm')}
-              >
+              <button type="button" className="ghost-button" onClick={() => void handleReset()}>
                 <RotateCcw size={15} /> Reset
               </button>
-            ) : resetState === 'confirm' ? (
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={() => void handleReset()}
-                >
-                  Xác nhận reset
-                </button>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => setResetState('idle')}
-                >
-                  Huỷ
-                </button>
-              </div>
             ) : (
               <StatusPill label="Đang reset..." tone="warning" />
             )}

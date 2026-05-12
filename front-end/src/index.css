@@ -776,6 +776,13 @@ td p,
 
 .section-header h2 {
   font-size: 1.35rem;
+  margin: 0;
+}
+
+.section-header__sub {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .section-actions {
@@ -1539,6 +1546,23 @@ td p,
 .overview-section__header h4 {
   margin: 0.15rem 0 0;
 }
+
+.overview-section__title,
+.personnel-group__title {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.close-flow__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.close-flow__title span { color: var(--ink); }
 
 .overview-section__header p,
 .overview-section__toolbar p,

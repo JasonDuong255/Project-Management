@@ -29,17 +29,11 @@ export function ReportsPage() {
 
   return (
     <div className="page-grid">
-      <SectionHeader
-        title="Báo cáo"
-        description="Dự án, nguồn lực và re-plan"
-      />
+      <SectionHeader title="Báo cáo" />
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Report 01</span>
-            <h3>Hiệu quả dự án</h3>
-          </div>
+          <h3>Hiệu quả dự án</h3>
           <StatusPill label={`${projectRows.length} dự án`} tone="info" />
         </div>
         <div className="table-wrapper">
@@ -73,10 +67,7 @@ export function ReportsPage() {
       <section className="two-column">
         <article className="panel">
           <div className="panel-heading">
-            <div>
-              <span className="eyebrow">Report 02</span>
-              <h3>Lệch giờ tháng {formatMonthLabel(month)}</h3>
-            </div>
+            <h3>Lệch giờ tháng {formatMonthLabel(month)}</h3>
           </div>
           <div className="table-wrapper">
             <table>
@@ -104,10 +95,7 @@ export function ReportsPage() {
 
         <article className="panel">
           <div className="panel-heading">
-            <div>
-              <span className="eyebrow">Report 03</span>
-              <h3>Raise chậm tiến độ</h3>
-            </div>
+            <h3>Raise chậm tiến độ</h3>
             <StatusPill label={`${raises.length} raise`} tone="warning" />
           </div>
           <div className="stack-list">

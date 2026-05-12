@@ -1843,16 +1843,6 @@ export function ProjectDetailPage() {
 
       {activeDetailTab === 'PROJECT_INIT' ? (
         <section className="panel panel--compact detail-tab-panel">
-          <div className="panel-heading panel-heading--compact">
-            <div>
-              <span className="eyebrow">Khoi tao</span>
-              <h3>Thong tin khoi tao</h3>
-            </div>
-            <div className="panel-actions">
-              <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
-            </div>
-          </div>
-
           <EditModeBar
             isEditing={initEdit.isEditing}
             canEdit={canManageProject}
@@ -1871,19 +1861,14 @@ export function ProjectDetailPage() {
 
           <form className="form-grid form-grid--compact overview-form" onSubmit={handleInitSubmit}>
             <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Du an</span>
-                  <h4>Thong tin co ban</h4>
-                </div>
-              </div>
+              <h4 className="overview-section__title">Thông tin cơ bản</h4>
               <div className="overview-section__grid">
                 <label>
-                  <span>Ma du an</span>
+                  <span>Mã dự án</span>
                   <input value={initForm.code} disabled />
                 </label>
                 <label>
-                  <span>Ten du an</span>
+                  <span>Tên dự án</span>
                   <input value={initForm.name} disabled />
                 </label>
                 <label className="span-2">
@@ -1916,15 +1901,10 @@ export function ProjectDetailPage() {
             </div>
 
             <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Quyet dinh</span>
-                  <h4>Thanh lap TTK</h4>
-                </div>
-              </div>
+              <h4 className="overview-section__title">Quyết định thành lập TTK</h4>
               <div className="overview-section__grid">
                 <label>
-                  <span>So quyet dinh TTK</span>
+                  <span>Số quyết định TTK</span>
                   <input
                     value={initForm.ttkDecisionNumber}
                     placeholder="VD: QD-2026/001"
@@ -1942,12 +1922,7 @@ export function ProjectDetailPage() {
             </div>
 
             <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Phan cong</span>
-                  <h4>PM va thoi gian</h4>
-                </div>
-              </div>
+              <h4 className="overview-section__title">PM và thời gian</h4>
               <div className="overview-section__grid">
                 <label>
                   <span>Sponsor</span>
@@ -2010,16 +1985,6 @@ export function ProjectDetailPage() {
 
       {activeDetailTab === 'OVERVIEW' ? (
       <section className="panel panel--compact detail-tab-panel">
-        <div className="panel-heading panel-heading--compact">
-          <div>
-            <span className="eyebrow">Overview</span>
-            <h3>Thong tin chung</h3>
-          </div>
-          <div className="panel-actions">
-            <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
-          </div>
-        </div>
-
         <EditModeBar
           isEditing={overviewEdit.isEditing}
           canEdit={canManageProject}
@@ -2046,17 +2011,11 @@ export function ProjectDetailPage() {
             className="edit-mode-fieldset"
           >
             <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Nhom 1</span>
-                  <h4>Thong tin chung</h4>
-                </div>
-                <p>Mo ta, tien do, trang thai va PM</p>
-              </div>
+              <h4 className="overview-section__title">Thông tin chung</h4>
 
               <div className="overview-section__grid">
                 <label className="span-2">
-                  <span>Mo ta</span>
+                  <span>Mô tả</span>
                   <textarea
                     rows={3}
                     value={overviewForm.summary}
@@ -2159,13 +2118,7 @@ export function ProjectDetailPage() {
             </div>
 
             <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Nhom 2</span>
-                  <h4>Can cu</h4>
-                </div>
-                <p>Hop dong, phe duyet, quyet dinh</p>
-              </div>
+              <h4 className="overview-section__title">Căn cứ</h4>
 
               <div className="overview-reference-grid">
                 {renderReferenceEditor('outputContracts')}
@@ -2278,13 +2231,7 @@ export function ProjectDetailPage() {
             </div>
 
             <div className="overview-section span-2">
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Nhom 3</span>
-                  <h4>Tai chinh</h4>
-                </div>
-                <p>Doanh thu, chi phi va loi nhuan</p>
-              </div>
+              <h4 className="overview-section__title">Tài chính</h4>
 
               <div className="overview-financial-grid">
                 <div className="overview-financial-card">
@@ -2431,16 +2378,6 @@ export function ProjectDetailPage() {
 
       {activeDetailTab === 'PERSONNEL' ? (
       <section className="panel panel--compact detail-tab-panel">
-        <div className="panel-heading panel-heading--compact">
-          <div>
-            <span className="eyebrow">Personnel</span>
-            <h3>Thong tin nhan su</h3>
-          </div>
-          <div className="panel-actions">
-            <StatusPill label={canManageProject ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
-          </div>
-        </div>
-
         <EditModeBar
           isEditing={personnelEdit.isEditing}
           canEdit={canManageProject}
@@ -2464,11 +2401,7 @@ export function ProjectDetailPage() {
           >
             <div className="personnel-group">
               <div className="personnel-group__header">
-                <div>
-                  <span className="eyebrow">Bang 1</span>
-                  <h4>Nhan su AITS</h4>
-                  <p>Nhan su noi bo va gio cong TK</p>
-                </div>
+                <h4 className="personnel-group__title">Nhân sự AITS</h4>
                 {personnelEditable ? (
                   <button
                     type="button"
@@ -2476,7 +2409,7 @@ export function ProjectDetailPage() {
                     onClick={addAitsPersonnelItem}
                   >
                     <CirclePlus size={15} />
-                    Them nhan su
+                    Thêm nhân sự
                   </button>
                 ) : null}
               </div>
@@ -2599,11 +2532,7 @@ export function ProjectDetailPage() {
 
             <div className="personnel-group">
               <div className="personnel-group__header">
-                <div>
-                  <span className="eyebrow">Bang 2</span>
-                  <h4>Nhan su khach hang</h4>
-                  <p>Dau moi phia khach hang</p>
-                </div>
+                <h4 className="personnel-group__title">Nhân sự khách hàng</h4>
                 {personnelEditable ? (
                   <button
                     type="button"
@@ -2611,7 +2540,7 @@ export function ProjectDetailPage() {
                     onClick={() => addExternalPersonnelItem('customerMembers')}
                   >
                     <CirclePlus size={15} />
-                    Them nhan su
+                    Thêm nhân sự
                   </button>
                 ) : null}
               </div>
@@ -2748,11 +2677,7 @@ export function ProjectDetailPage() {
 
             <div className="personnel-group">
               <div className="personnel-group__header">
-                <div>
-                  <span className="eyebrow">Bang 3</span>
-                  <h4>Doi tac</h4>
-                  <p>Nhan su doi tac tham gia du an</p>
-                </div>
+                <h4 className="personnel-group__title">Đối tác</h4>
                 {personnelEditable ? (
                   <button
                     type="button"
@@ -2760,7 +2685,7 @@ export function ProjectDetailPage() {
                     onClick={() => addExternalPersonnelItem('partners')}
                   >
                     <CirclePlus size={15} />
-                    Them doi tac
+                    Thêm đối tác
                   </button>
                 ) : null}
               </div>
@@ -2919,23 +2844,17 @@ export function ProjectDetailPage() {
       {activeDetailTab === 'DOCUMENTS' ? (
         <section className="panel panel--compact detail-tab-panel">
           <div className="panel-heading panel-heading--compact">
-            <div>
-              <span className="eyebrow">Documents</span>
-              <h3>Tai lieu du an</h3>
-            </div>
-            <div className="panel-actions">
-              <StatusPill label={`${totalDocumentCount} tai lieu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
-              {canManageProject ? (
-                <button
-                  type="button"
-                  className="primary-button primary-button--compact"
-                  onClick={() => openDocumentModal()}
-                >
-                  <CirclePlus size={16} />
-                  Them tai lieu
-                </button>
-              ) : null}
-            </div>
+            <StatusPill label={`${totalDocumentCount} tài liệu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
+            {canManageProject ? (
+              <button
+                type="button"
+                className="primary-button primary-button--compact"
+                onClick={() => openDocumentModal()}
+              >
+                <CirclePlus size={16} />
+                Thêm tài liệu
+              </button>
+            ) : null}
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -3014,38 +2933,24 @@ export function ProjectDetailPage() {
       {activeDetailTab === 'RISKS' ? (
         <section className="panel panel--compact detail-tab-panel">
           <div className="panel-heading panel-heading--compact">
-            <div>
-              <span className="eyebrow">Risk center</span>
-              <h3>Rui ro</h3>
-            </div>
-            <div className="panel-actions">
-              <StatusPill
-                label={canManagePlan ? 'Co the cap nhat' : 'Chi xem'}
-                tone={canManagePlan ? 'info' : 'neutral'}
-              />
-              {canManagePlan ? (
-                <button
-                  type="button"
-                  className="primary-button primary-button--compact"
-                  onClick={() => openRiskModal()}
-                >
-                  <CirclePlus size={16} />
-                  Them rui ro
-                </button>
-              ) : null}
-            </div>
+            <StatusPill
+              label={`${openRiskCount} đang mở · ${highRiskCount} mức cao`}
+              tone={highRiskCount ? 'danger' : openRiskCount ? 'warning' : 'success'}
+            />
+            {canManagePlan ? (
+              <button
+                type="button"
+                className="primary-button primary-button--compact"
+                onClick={() => openRiskModal()}
+              >
+                <CirclePlus size={16} />
+                Thêm rủi ro
+              </button>
+            ) : null}
           </div>
 
           <div className="risk-panel-shell">
             <form className="overview-section risk-summary-form" onSubmit={handleRiskSummarySubmit}>
-              <div className="overview-section__header">
-                <div>
-                  <span className="eyebrow">Tong quan</span>
-                  <h4>Tom tat rui ro</h4>
-                </div>
-                <p>Diem can theo doi va huong xu ly</p>
-              </div>
-
               <div className="risk-summary-strip">
                 <article className="risk-summary-card">
                   <span>Dang mo</span>
@@ -3139,23 +3044,17 @@ export function ProjectDetailPage() {
       <section className="task-workspace detail-tab-panel">
         <article className="panel panel--compact">
           <div className="panel-heading panel-heading--compact">
-            <div>
-              <span className="eyebrow">Plan builder</span>
-              <h3>Task & subtask</h3>
-            </div>
-            <div className="panel-actions">
-              <StatusPill label={canManagePlan ? 'Co the cap nhat' : 'Chi xem'} tone="info" />
-              {canManagePlan ? (
-                <button
-                  type="button"
-                  className="primary-button primary-button--compact"
-                  onClick={openTaskModal}
-                >
-                  <CirclePlus size={16} />
-                  Tao task
-                </button>
-              ) : null}
-            </div>
+            <StatusPill label={`${projectTasks.length} task`} tone="info" />
+            {canManagePlan ? (
+              <button
+                type="button"
+                className="primary-button primary-button--compact"
+                onClick={openTaskModal}
+              >
+                <CirclePlus size={16} />
+                Tạo task
+              </button>
+            ) : null}
           </div>
 
           <>
@@ -4310,23 +4209,24 @@ function WorkloadTabPanel({
 
   return (
     <div className="detail-tab-panel" style={{ display: 'grid', gap: '1rem' }}>
-      <div className="panel-heading">
-        <div>
-          <span className="eyebrow">Allocation planner</span>
-          <h3>Phan bo gio cong</h3>
-          <p style={{ margin: '0.2rem 0 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
-            {formatDate(project.startDate)} -{' '}
-            {formatDate(estimatedEndDate.format('YYYY-MM-DD'))} ({projectMonths.length} thang)
-          </p>
-        </div>
+      <div className="panel-heading panel-heading--compact">
+        <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+          {formatDate(project.startDate)} – {formatDate(estimatedEndDate.format('YYYY-MM-DD'))} ·{' '}
+          {projectMonths.length} tháng
+        </span>
         <div className="panel-actions">
           <button type="button" className="ghost-button ghost-button--compact" onClick={autoDistributeAll}>
             <Sparkles size={16} />
-            Chia deu
+            Chia đều
           </button>
-          <button type="button" className="primary-button primary-button--compact" onClick={handleSave} disabled={!canSave}>
+          <button
+            type="button"
+            className="primary-button primary-button--compact"
+            onClick={handleSave}
+            disabled={!canSave}
+          >
             <Save size={16} />
-            Luu phan bo
+            Lưu phân bổ
           </button>
         </div>
       </div>

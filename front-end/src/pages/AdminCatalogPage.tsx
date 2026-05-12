@@ -117,19 +117,12 @@ export function AdminCatalogPage() {
 
   return (
     <div className="page-grid">
-      <SectionHeader
-        title="Danh mục hệ thống"
-        description="Quản lý LOV dùng chung"
-      />
+      <SectionHeader title="Danh mục hệ thống" />
 
       {isPmo ? (
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">Demo data</span>
-              <h3>Reset dữ liệu demo</h3>
-              <p>Khôi phục seed gốc. Thay đổi sẽ mất.</p>
-            </div>
+        <section className="panel panel--compact">
+          <div className="panel-heading panel-heading--compact">
+            <h3>Reset dữ liệu demo</h3>
             {resetState === 'idle' ? (
               <button type="button" className="ghost-button" onClick={() => void handleReset()}>
                 <RotateCcw size={15} /> Reset

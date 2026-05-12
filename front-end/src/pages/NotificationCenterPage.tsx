@@ -27,10 +27,7 @@ export function NotificationCenterPage() {
 
   return (
     <div className="page-grid">
-      <SectionHeader
-        title="Thong bao"
-        description="Task sap den han trong 7 ngay"
-      />
+      <SectionHeader title="Thông báo" />
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">
@@ -53,12 +50,9 @@ export function NotificationCenterPage() {
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Deadline watcher</span>
-            <h3>Canh bao</h3>
-          </div>
+          <h3>Cảnh báo deadline</h3>
           <StatusPill
-            label={`${notifications.length} thong bao`}
+            label={`${notifications.length} thông báo`}
             tone={notifications.length ? 'warning' : 'success'}
           />
         </div>
@@ -69,14 +63,13 @@ export function NotificationCenterPage() {
               <article key={item.id} className="notification-card">
                 <div className="notification-card__header">
                   <div>
-                    <span className="eyebrow">Task tong quan</span>
                     <h3>{item.taskName}</h3>
                     <p>
                       {item.projectCode} | {item.projectName}
                     </p>
                   </div>
                   <StatusPill
-                    label={item.daysRemaining === 0 ? 'Den han hom nay' : `Con ${item.daysRemaining} ngay`}
+                    label={item.daysRemaining === 0 ? 'Đến hạn hôm nay' : `Còn ${item.daysRemaining} ngày`}
                     tone={item.daysRemaining <= 3 ? 'danger' : 'warning'}
                   />
                 </div>

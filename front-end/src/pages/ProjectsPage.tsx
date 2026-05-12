@@ -28,7 +28,6 @@ interface MemberDraft {
 
 interface ProjectSection {
   title: string
-  description: string
   projects: Project[]
 }
 
@@ -64,59 +63,29 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
 
   if (normalizedRole === 'PMO') {
     return [
-      {
-        title: 'Dang trien khai',
-        description: 'Du an dang van hanh',
-        projects: projects.filter((project) => project.status === 'ACTIVE'),
-      },
-      {
-        title: 'Tam dong',
-        description: 'Tam dung trien khai',
-        projects: projects.filter((project) => project.status === 'PAUSED'),
-      },
-      {
-        title: 'Da dong',
-        description: 'Du an dong',
-        projects: projects.filter((project) => project.status === 'CLOSED'),
-      },
+      { title: 'Đang triển khai', projects: projects.filter((p) => p.status === 'ACTIVE') },
+      { title: 'Tạm đóng', projects: projects.filter((p) => p.status === 'PAUSED') },
+      { title: 'Đã đóng', projects: projects.filter((p) => p.status === 'CLOSED') },
     ].filter((section) => section.projects.length)
   }
 
   if (normalizedRole === 'ADMIN_HC') {
-    return [
-      {
-        title: 'Du an da khoi tao',
-        description: 'Toan bo du an do To chuc Hanh chinh khoi tao',
-        projects,
-      },
-    ].filter((section) => section.projects.length)
+    return [{ title: 'Dự án đã khởi tạo', projects }].filter((section) => section.projects.length)
   }
 
   if (normalizedRole === 'PM') {
     return [
+      { title: 'PM phụ trách', projects: projects.filter((p) => p.adminId === currentUser.id) },
       {
-        title: 'PM phu trach',
-        description: 'Du an ban dang quan ly',
-        projects: projects.filter((project) => project.adminId === currentUser.id),
-      },
-      {
-        title: 'Tham gia dieu phoi',
-        description: 'Du an ban dieu phoi',
+        title: 'Tham gia điều phối',
         projects: projects.filter(
-          (project) =>
-            project.adminId !== currentUser.id && isProjectCoordinator(project, currentUser.id),
+          (p) => p.adminId !== currentUser.id && isProjectCoordinator(p, currentUser.id),
         ),
       },
     ].filter((section) => section.projects.length)
   }
 
-  return [
-    {
-      title: 'Du an tham gia',
-      description: 'Du an cua to trien khai',
-      projects,
-    },
-  ]
+  return [{ title: 'Dự án tham gia', projects }]
 }
 
 export function ProjectsPage() {
@@ -281,13 +250,12 @@ export function ProjectsPage() {
   return (
     <div className="page-grid">
       <SectionHeader
-        title="Du an"
-        description="Phan loai theo vai tro"
+        title="Dự án"
         actions={
           canCreate ? (
             <button type="button" className="primary-button" onClick={openCreateModal}>
               <CirclePlus size={16} />
-              Tao du an
+              Tạo dự án
             </button>
           ) : null
         }
@@ -299,11 +267,8 @@ export function ProjectsPage() {
         projectSections.map((section) => (
           <section key={section.title} className="project-section-block">
             <div className="panel-heading panel-heading--compact">
-              <div>
-                <h3>{section.title}</h3>
-                <p>{section.description}</p>
-              </div>
-              <StatusPill label={`${section.projects.length} du an`} tone="info" />
+              <h3>{section.title}</h3>
+              <StatusPill label={`${section.projects.length} dự án`} tone="info" />
             </div>
 
             <div className="project-grid">

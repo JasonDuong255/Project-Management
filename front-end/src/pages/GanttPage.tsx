@@ -31,10 +31,7 @@ export function GanttPage() {
 
   return (
     <div className="page-grid">
-      <SectionHeader
-        title="Biểu đồ Gantt"
-        description="Kế hoạch theo dự án hoặc thành viên"
-      />
+      <SectionHeader title="Biểu đồ Gantt" />
 
       <section className="panel">
         <div className="filter-row">

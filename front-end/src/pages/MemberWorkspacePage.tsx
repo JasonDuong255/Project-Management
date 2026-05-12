@@ -11,10 +11,7 @@ export function MemberWorkspacePage() {
   if (!currentUser || currentUser.role !== 'DELIVERY_MEMBER') {
     return (
       <div className="page-grid">
-        <SectionHeader
-          title="Việc của tôi"
-          description="Dành cho tài khoản thành viên triển khai"
-        />
+        <SectionHeader title="Việc của tôi" />
         <section className="panel empty-panel">
           <h3>Cần tài khoản thành viên</h3>
           <p>Dùng `dev.binh` hoặc `dev.duy` để xem dữ liệu mẫu.</p>
@@ -28,17 +25,11 @@ export function MemberWorkspacePage() {
 
   return (
     <div className="page-grid">
-      <SectionHeader
-        title="Việc của tôi"
-        description="Công việc và raise của bạn"
-      />
+      <SectionHeader title="Việc của tôi" />
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Assigned tasks</span>
-            <h3>Công việc của tôi</h3>
-          </div>
+          <h3>Công việc của tôi</h3>
           <StatusPill label={`${tasks.length} task`} tone="info" />
         </div>
 
@@ -82,10 +73,7 @@ export function MemberWorkspacePage() {
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Delay raises</span>
-            <h3>Raise đã gửi</h3>
-          </div>
+          <h3>Raise đã gửi</h3>
           <StatusPill label={`${raises.length} raise`} tone="warning" />
         </div>
         <div className="stack-list">

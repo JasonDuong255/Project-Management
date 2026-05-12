@@ -33,18 +33,14 @@ export function CloseFlowPanel({ project }: Props) {
 
   if (project.status === 'CLOSED') {
     return (
-      <section className="panel" data-close-flow="closed">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Trạng thái dự án</span>
-            <h3>
-              <Lock size={18} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} />
-              Dự án đã đóng
-            </h3>
-            <p>
-              Mọi thao tác chỉnh sửa thông tin, kế hoạch, nguồn lực, tài liệu và rủi ro đều bị
-              khóa. Đóng vào: {project.closedAt ? new Date(project.closedAt).toLocaleString('vi-VN') : '-'}
-            </p>
+      <section className="panel panel--compact" data-close-flow="closed">
+        <div className="panel-heading panel-heading--compact">
+          <div className="close-flow__title">
+            <Lock size={16} />
+            <span>
+              Đã đóng •{' '}
+              {project.closedAt ? new Date(project.closedAt).toLocaleString('vi-VN') : '-'}
+            </span>
           </div>
           <StatusPill label="Đã đóng" tone="success" />
         </div>
@@ -79,31 +75,30 @@ export function CloseFlowPanel({ project }: Props) {
 
   if (project.status === 'PAUSED') {
     return (
-      <section className="panel" data-close-flow="paused">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Trạng thái dự án</span>
-            <h3>Tạm đóng</h3>
-            <p>
-              Tạm dừng vào: {project.pausedAt ? new Date(project.pausedAt).toLocaleString('vi-VN') : '-'}.
-              {isAdmin ? ' Bạn có thể mở lại để tiếp tục triển khai.' : ' Liên hệ PM hoặc PMO để mở lại.'}
-            </p>
+      <section className="panel panel--compact" data-close-flow="paused">
+        <div className="panel-heading panel-heading--compact">
+          <div className="close-flow__title">
+            <Pause size={16} />
+            <span>
+              Tạm đóng •{' '}
+              {project.pausedAt ? new Date(project.pausedAt).toLocaleString('vi-VN') : '-'}
+            </span>
           </div>
-          <StatusPill label="Tạm đóng" tone="warning" />
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <StatusPill label="Tạm đóng" tone="warning" />
+            {isAdmin ? (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => void handleResume()}
+                disabled={busy}
+              >
+                <Play size={15} /> Mở lại
+              </button>
+            ) : null}
+          </div>
         </div>
         {error ? <p className="form-error">{error}</p> : null}
-        {isAdmin ? (
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => void handleResume()}
-              disabled={busy}
-            >
-              <Play size={15} /> Mở lại dự án
-            </button>
-          </div>
-        ) : null}
       </section>
     )
   }
@@ -114,23 +109,11 @@ export function CloseFlowPanel({ project }: Props) {
   }
 
   return (
-    <section className="panel" data-close-flow="active">
-      <div className="panel-heading">
-        <div>
-          <span className="eyebrow">Quy trình đóng dự án</span>
-          <h3>Tạm đóng / Đóng TTK</h3>
-          <p>
-            Tạm đóng có thể mở lại bất cứ lúc nào. Đóng TTK đi qua quy trình
-            QLDA → KSV → TCNL và sẽ khóa toàn bộ dự án.
-          </p>
-        </div>
-        <StatusPill label="Đang triển khai" tone="info" />
-      </div>
-
+    <section className="panel panel--compact" data-close-flow="active">
       {error ? <p className="form-error">{error}</p> : null}
 
       {showCloseForm ? (
-        <div className="form-stack" style={{ marginTop: '0.75rem' }}>
+        <div className="form-stack">
           <label>
             <span>Ghi chú gửi KSV (tuỳ chọn)</span>
             <textarea
@@ -160,23 +143,26 @@ export function CloseFlowPanel({ project }: Props) {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={() => void handlePause()}
-            disabled={busy}
-          >
-            <Pause size={15} /> Tạm đóng
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => setShowCloseForm(true)}
-            disabled={busy}
-          >
-            <Send size={15} /> Yêu cầu đóng TTK
-          </button>
+        <div className="panel-heading panel-heading--compact">
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => void handlePause()}
+              disabled={busy}
+            >
+              <Pause size={15} /> Tạm đóng
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => setShowCloseForm(true)}
+              disabled={busy}
+            >
+              <Send size={15} /> Yêu cầu đóng TTK
+            </button>
+          </div>
+          <StatusPill label="Đang triển khai" tone="info" />
         </div>
       )}
     </section>

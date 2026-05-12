@@ -1,11 +1,11 @@
-// E2E for the v3.2 close workflow.
+// E2E for the v3.2 close workflow (updated BA 14/05/2026: stage-2 = TCHC).
 // Server must be running on :4000 + DB seeded.
 //   1. PMO logs in, picks pm.an's project
 //   2. PM pauses → assert PAUSED
 //   3. PM resumes → assert ACTIVE
 //   4. PM submits close request → KSV (dev.duy) sees in inbox
-//   5. KSV approves → TCNL (dev.khang) sees in inbox
-//   6. TCNL approves → project CLOSED
+//   5. KSV approves → TCHC (hc.hoa = ADMIN_HC) sees in inbox
+//   6. TCHC approves → project CLOSED
 //   7. Try to PATCH closed project's summary → 423
 //   8. Reset demo data
 import 'dotenv/config'
@@ -38,7 +38,7 @@ interface Snap {
   projects: { id: string; code: string; status: string; adminId: string }[]
 }
 interface Inbox {
-  items: { id: string; projectId: string; ksvDecision: string; tcnlDecision: string; project: { code: string } }[]
+  items: { id: string; projectId: string; ksvDecision: string; tchcDecision: string; project: { code: string } }[]
 }
 
 async function main() {
@@ -83,11 +83,11 @@ async function main() {
   })
   console.log('  ✓ KSV approved')
 
-  console.log('\n[6] TCNL (dev.khang) sees inbox + approves → CLOSED')
-  const tcnl = await login('dev.khang@qlda.local')
-  const tcnlInbox = await api<Inbox>(tcnl, '/close-inbox')
-  if (!tcnlInbox.items.find((i) => i.id === closeRes)) throw new Error('TCNL inbox missing the request')
-  snap = await api<Snap>(tcnl, `/projects/${proj.id}/close-requests/${closeRes}/tcnl`, {
+  console.log('\n[6] TCHC (hc.hoa = ADMIN_HC) sees inbox + approves → CLOSED')
+  const tchc = await login('hc.hoa@qlda.local')
+  const tchcInbox = await api<Inbox>(tchc, '/close-inbox')
+  if (!tchcInbox.items.find((i) => i.id === closeRes)) throw new Error('TCHC inbox missing the request')
+  snap = await api<Snap>(tchc, `/projects/${proj.id}/close-requests/${closeRes}/tchc`, {
     method: 'PATCH',
     body: JSON.stringify({ decision: 'APPROVED' }),
   })

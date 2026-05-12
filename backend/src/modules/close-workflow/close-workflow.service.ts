@@ -1,6 +1,6 @@
 import { prisma } from '../../db/prisma.js'
 import { ApiError } from '../../middlewares/error.js'
-import { canManageProjectPlan, isKSV, isTCNL } from '../../lib/permissions.js'
+import { canManageProjectPlan, isKSV, isTCHC } from '../../lib/permissions.js'
 import { writeActivityLog } from '../../lib/activity-log.js'
 import { dispatchEmails, pushNotification } from '../notifications/notifications.service.js'
 import type { AuthUser } from '../../types/domain.js'
@@ -9,7 +9,7 @@ const TX_OPTS = { timeout: 15000 }
 import type {
   KsvDecisionInput,
   RequestCloseInput,
-  TcnlDecisionInput,
+  TchcDecisionInput,
 } from './close-workflow.schema.js'
 
 export async function pauseProject(projectId: string, user: AuthUser) {
@@ -104,7 +104,7 @@ export async function requestClose(
     const openRequest = project.closeRequests.find(
       (r) =>
         r.ksvDecision === 'PENDING' ||
-        (r.ksvDecision === 'APPROVED' && r.tcnlDecision === 'PENDING'),
+        (r.ksvDecision === 'APPROVED' && r.tchcDecision === 'PENDING'),
     )
     if (openRequest) {
       throw new ApiError(409, 'A close request is already in progress')
@@ -153,11 +153,12 @@ export async function ksvDecide(
   if (!isKSV(user)) {
     throw new ApiError(403, 'Only KSV can make this decision')
   }
-  // Pre-fetch TCNL list outside the transaction to keep the tx short.
-  const tcnls =
+  // Pre-fetch TCHC (ADMIN_HC) users outside the transaction to keep tx short.
+  // BA 14/05/2026: stage-2 approver is the regular ADMIN_HC role (was TCNL).
+  const tchcs =
     input.decision === 'APPROVED'
       ? await prisma.user.findMany({
-          where: { functionalTitle: 'TCNL', isActive: true },
+          where: { role: 'ADMIN_HC', isActive: true },
           select: { id: true },
         })
       : []
@@ -196,11 +197,11 @@ export async function ksvDecide(
 
     if (input.decision === 'APPROVED') {
       const job = await pushNotification(tx, {
-        userIds: tcnls.map((t) => t.id),
+        userIds: tchcs.map((t) => t.id),
         kind: 'CLOSE_REQUEST_RECEIVED',
-        title: `Đóng TTK: ${request.project.code} chờ TCNL xác nhận`,
+        title: `Đóng TTK: ${request.project.code} chờ TCHC xác nhận`,
         body: `KSV đã phê duyệt yêu cầu đóng dự án "${request.project.name}". Vui lòng xác nhận đóng.`,
-        payload: { projectId, closeRequestId, role: 'TCNL' },
+        payload: { projectId, closeRequestId, role: 'TCHC' },
         email: true,
       })
       return { emailJob: job }
@@ -219,14 +220,14 @@ export async function ksvDecide(
   void dispatchEmails(result.emailJob.emailUserIds, result.emailJob.subject, result.emailJob.body)
 }
 
-export async function tcnlDecide(
+export async function tchcDecide(
   projectId: string,
   closeRequestId: string,
-  input: TcnlDecisionInput,
+  input: TchcDecisionInput,
   user: AuthUser,
 ) {
-  if (!isTCNL(user)) {
-    throw new ApiError(403, 'Only TCNL can make this decision')
+  if (!isTCHC(user)) {
+    throw new ApiError(403, 'Only TCHC (ADMIN_HC) can make this decision')
   }
   const result = await prisma.$transaction(async (tx) => {
     const request = await tx.projectCloseRequest.findUnique({
@@ -237,19 +238,19 @@ export async function tcnlDecide(
       throw new ApiError(404, 'Close request not found')
     }
     if (request.ksvDecision !== 'APPROVED') {
-      throw new ApiError(409, 'KSV must approve before TCNL decision')
+      throw new ApiError(409, 'KSV must approve before TCHC decision')
     }
-    if (request.tcnlDecision !== 'PENDING') {
-      throw new ApiError(409, 'TCNL decision already recorded')
+    if (request.tchcDecision !== 'PENDING') {
+      throw new ApiError(409, 'TCHC decision already recorded')
     }
 
     await tx.projectCloseRequest.update({
       where: { id: closeRequestId },
       data: {
-        tcnlDecision: input.decision,
-        tcnlDecidedById: user.id,
-        tcnlDecidedAt: new Date(),
-        tcnlRejectReason: input.decision === 'REJECTED' ? input.reason : '',
+        tchcDecision: input.decision,
+        tchcDecidedById: user.id,
+        tchcDecidedAt: new Date(),
+        tchcRejectReason: input.decision === 'REJECTED' ? input.reason : '',
       },
     })
 
@@ -261,7 +262,7 @@ export async function tcnlDecide(
       await writeActivityLog(tx, {
         projectId,
         userId: user.id,
-        action: 'CLOSE_CONFIRMED_TCNL',
+        action: 'CLOSE_CONFIRMED_TCHC',
         entityType: 'PROJECT',
         entityId: projectId,
         entityName: request.project.name,
@@ -271,7 +272,7 @@ export async function tcnlDecide(
         userIds: [request.requestedById],
         kind: 'CLOSE_APPROVED',
         title: `Dự án ${request.project.code} đã được đóng`,
-        body: `TCNL đã xác nhận đóng dự án "${request.project.name}".`,
+        body: `TCHC đã xác nhận đóng dự án "${request.project.name}".`,
         payload: { projectId, closeRequestId },
         email: true,
       })
@@ -280,18 +281,18 @@ export async function tcnlDecide(
     await writeActivityLog(tx, {
       projectId,
       userId: user.id,
-      action: 'CLOSE_REJECTED_TCNL',
+      action: 'CLOSE_REJECTED_TCHC',
       entityType: 'PROJECT',
       entityId: projectId,
       entityName: request.project.name,
-      changes: [{ field: 'tcnlDecision', oldValue: 'PENDING', newValue: 'REJECTED' }],
+      changes: [{ field: 'tchcDecision', oldValue: 'PENDING', newValue: 'REJECTED' }],
     })
     const job = await pushNotification(tx, {
       userIds: [request.requestedById],
       kind: 'CLOSE_REJECTED',
-      title: `Yêu cầu đóng ${request.project.code} bị từ chối (TCNL)`,
-      body: input.reason || 'TCNL không xác nhận đóng. Vui lòng kiểm tra và gửi lại.',
-      payload: { projectId, closeRequestId, stage: 'TCNL' },
+      title: `Yêu cầu đóng ${request.project.code} bị từ chối (TCHC)`,
+      body: input.reason || 'TCHC không xác nhận đóng. Vui lòng kiểm tra và gửi lại.',
+      payload: { projectId, closeRequestId, stage: 'TCHC' },
       email: true,
     })
     return { emailJob: job }
@@ -309,9 +310,9 @@ export async function inboxFor(user: AuthUser) {
       orderBy: { requestedAt: 'desc' },
     })
   }
-  if (isTCNL(user)) {
+  if (isTCHC(user)) {
     return prisma.projectCloseRequest.findMany({
-      where: { ksvDecision: 'APPROVED', tcnlDecision: 'PENDING' },
+      where: { ksvDecision: 'APPROVED', tchcDecision: 'PENDING' },
       include: { project: { select: { id: true, code: true, name: true } } },
       orderBy: { ksvDecidedAt: 'desc' },
     })

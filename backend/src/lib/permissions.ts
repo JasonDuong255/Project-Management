@@ -13,14 +13,17 @@ export function isProjectMember(project: ProjectWithMembers, userId: string): bo
   return project.members.some((m) => m.userId === userId)
 }
 
-// ─── Functional-title helpers (BRD identifies TCNL/KSV inside ADMIN_HC) ─────
-
-export function isTCNL(user: AuthUser): boolean {
-  return user.functionalTitle === 'TCNL'
-}
+// ─── Approver helpers ───────────────────────────────────────────────────────
+// BA decision 14/05/2026: the second-stage approver after KSV is now TCHC,
+// which is identical to the ADMIN_HC role (no functional-title overlay).
+// KSV remains a functional title because it lives inside DBCL not HC.
 
 export function isKSV(user: AuthUser): boolean {
   return user.functionalTitle === 'KSV'
+}
+
+export function isTCHC(user: AuthUser): boolean {
+  return user.role === 'ADMIN_HC'
 }
 
 // ─── View / edit / manage gates ─────────────────────────────────────────────

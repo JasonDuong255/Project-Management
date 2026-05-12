@@ -68,7 +68,7 @@ interface AppContextValue extends AppSnapshot {
     decision: 'APPROVED' | 'REJECTED',
     reason?: string,
   ) => Promise<void>
-  tcnlDecideClose: (
+  tchcDecideClose: (
     projectId: string,
     closeRequestId: string,
     decision: 'APPROVED' | 'REJECTED',
@@ -294,13 +294,13 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
-  async function tcnlDecideClose(
+  async function tchcDecideClose(
     projectId: string,
     closeRequestId: string,
     decision: 'APPROVED' | 'REJECTED',
     reason = '',
   ) {
-    const snapshot = await apiClient.tcnlDecideClose(projectId, closeRequestId, decision, reason)
+    const snapshot = await apiClient.tchcDecideClose(projectId, closeRequestId, decision, reason)
     setState(snapshot)
   }
 
@@ -338,7 +338,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         resumeProject,
         requestProjectClose,
         ksvDecideClose,
-        tcnlDecideClose,
+        tchcDecideClose,
         getUser,
       }}
     >

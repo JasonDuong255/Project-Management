@@ -199,10 +199,10 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
 
     idMap.set(u.id, authId)
 
-    // v3.1 BRD I: assign TCNL/KSV functional titles on demo users so v3.2's
-    // close-workflow has live test users.  dev.duy → KSV, dev.khang → TCNL.
-    const functionalTitle =
-      u.username === 'dev.duy' ? 'KSV' : u.username === 'dev.khang' ? 'TCNL' : 'NORMAL'
+    // BA 14/05/2026: only KSV is a functional title now; TCHC = ADMIN_HC role
+    // (hc.hoa) and needs no overlay. The close-workflow's stage-2 approver is
+    // simply users.role === 'ADMIN_HC'.
+    const functionalTitle = u.username === 'dev.duy' ? 'KSV' : 'NORMAL'
 
     await prisma.user.upsert({
       where: { id: authId },

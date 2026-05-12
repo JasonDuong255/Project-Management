@@ -856,6 +856,60 @@ export function ProjectDetailPage() {
   const normalizedRole = normalizeUserRole(currentUser.role)
   const canManageProject = normalizedRole === 'PMO' || currentUser.id === project.adminId
   const canManagePlan = canManageProjectPlan(project, currentUser)
+  // Whether the read-only tab has been switched into edit mode — drives both
+  // the disabled cascade on inputs AND the visibility of row-level "Thêm" /
+  // "Xoá" action buttons (user feedback 13/05/2026: action buttons must be
+  // hidden, not just disabled, while reading).
+  const overviewEditable = canManageProject && overviewEdit.isEditing
+  const personnelEditable = canManageProject && personnelEdit.isEditing
+
+  /**
+   * Removing a personnel row only mutates draft state (the actual write
+   * happens on Save), but we still ask for confirmation so a stray click
+   * doesn't silently drop a row the user filled in.
+   */
+  async function confirmRemoveAitsRow(index: number) {
+    const member = personnelForm?.aitsMembers[index]
+    const ok = await confirm({
+      title: 'Xoá thành viên AITS khỏi dự án?',
+      description: member?.fullName
+        ? `Thành viên "${member.fullName}" sẽ bị gỡ khỏi danh sách. Thay đổi chưa lưu — bấm "Lưu thay đổi" để xác nhận.`
+        : 'Dòng này sẽ bị gỡ khỏi danh sách. Thay đổi chưa lưu — bấm "Lưu thay đổi" để xác nhận.',
+      tone: 'danger',
+      confirmLabel: 'Xoá khỏi danh sách',
+    })
+    if (ok) removeAitsPersonnelItem(index)
+  }
+
+  async function confirmRemoveExternalRow(
+    group: ExternalPersonnelGroupKey,
+    index: number,
+  ) {
+    const member = personnelForm?.[group][index]
+    const groupLabel = group === 'customerMembers' ? 'khách hàng' : 'đối tác'
+    const ok = await confirm({
+      title: `Xoá ${groupLabel} khỏi dự án?`,
+      description: member?.fullName
+        ? `"${member.fullName}" sẽ bị gỡ khỏi danh sách. Thay đổi chưa lưu — bấm "Lưu thay đổi" để xác nhận.`
+        : `Dòng này sẽ bị gỡ khỏi danh sách. Thay đổi chưa lưu — bấm "Lưu thay đổi" để xác nhận.`,
+      tone: 'danger',
+      confirmLabel: 'Xoá khỏi danh sách',
+    })
+    if (ok) removeExternalPersonnelItem(group, index)
+  }
+
+  async function confirmRemoveReferenceItem(
+    group: ReferenceGroupKey,
+    index: number,
+  ) {
+    const ok = await confirm({
+      title: 'Xoá mục tài liệu căn cứ?',
+      description: 'Dòng này sẽ bị gỡ khỏi danh sách. Thay đổi chưa lưu — bấm "Lưu thay đổi" để xác nhận.',
+      tone: 'danger',
+      confirmLabel: 'Xoá khỏi danh sách',
+    })
+    if (ok) removeReferenceItemFromGroup(group, index)
+  }
   const canUpdateSelectedTask =
     !!selectedTask &&
     (canManagePlan || getTaskAssigneeIds(selectedTask).includes(currentUser.id))
@@ -1122,7 +1176,7 @@ export function ProjectDetailPage() {
             <strong>{referenceGroupLabels[group]}</strong>
             <p>Tai lieu va ghi chu</p>
           </div>
-          {canManageProject ? (
+          {overviewEditable ? (
             <button
               type="button"
               className="ghost-button ghost-button--compact"
@@ -1158,13 +1212,13 @@ export function ProjectDetailPage() {
                     disabled={!canManageProject}
                   />
                 </label>
-                {canManageProject ? (
+                {overviewEditable ? (
                   <button
                     type="button"
                     className="ghost-button ghost-button--compact overview-reference-item__remove"
-                    onClick={() => removeReferenceItemFromGroup(group, index)}
+                    onClick={() => void confirmRemoveReferenceItem(group, index)}
                   >
-                    Xoa
+                    <Trash2 size={14} /> Xoa
                   </button>
                 ) : null}
               </div>
@@ -2415,7 +2469,7 @@ export function ProjectDetailPage() {
                   <h4>Nhan su AITS</h4>
                   <p>Nhan su noi bo va gio cong TK</p>
                 </div>
-                {canManageProject ? (
+                {personnelEditable ? (
                   <button
                     type="button"
                     className="ghost-button ghost-button--compact"
@@ -2438,7 +2492,7 @@ export function ProjectDetailPage() {
                       <th>Nhiem vu</th>
                       <th>Tong gio cong TK</th>
                       <th>Email / SDT</th>
-                      {canManageProject ? <th>Tac vu</th> : null}
+                      {personnelEditable ? <th>Tac vu</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -2517,14 +2571,14 @@ export function ProjectDetailPage() {
                               <span>{member.email || '—'}</span>
                               <p className="workload-cell-note">{member.phone || '—'}</p>
                             </td>
-                            {canManageProject ? (
+                            {personnelEditable ? (
                               <td className="personnel-table__actions">
                                 <button
                                   type="button"
                                   className="ghost-button ghost-button--compact"
-                                  onClick={() => removeAitsPersonnelItem(index)}
+                                  onClick={() => void confirmRemoveAitsRow(index)}
                                 >
-                                  Xoa
+                                  <Trash2 size={14} /> Xoa
                                 </button>
                               </td>
                             ) : null}
@@ -2533,7 +2587,7 @@ export function ProjectDetailPage() {
                       })
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 8 : 7} className="personnel-table__empty">
+                        <td colSpan={personnelEditable ? 8 : 7} className="personnel-table__empty">
                           Chua co nhan su AITS.
                         </td>
                       </tr>
@@ -2550,7 +2604,7 @@ export function ProjectDetailPage() {
                   <h4>Nhan su khach hang</h4>
                   <p>Dau moi phia khach hang</p>
                 </div>
-                {canManageProject ? (
+                {personnelEditable ? (
                   <button
                     type="button"
                     className="ghost-button ghost-button--compact"
@@ -2573,7 +2627,7 @@ export function ProjectDetailPage() {
                       <th>Nhiem vu</th>
                       <th>Email</th>
                       <th>SDT</th>
-                      {canManageProject ? <th>Tac vu</th> : null}
+                      {personnelEditable ? <th>Tac vu</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -2667,14 +2721,14 @@ export function ProjectDetailPage() {
                               disabled={!canManageProject}
                             />
                           </td>
-                          {canManageProject ? (
+                          {personnelEditable ? (
                             <td className="personnel-table__actions">
                               <button
                                 type="button"
                                 className="ghost-button ghost-button--compact"
-                                onClick={() => removeExternalPersonnelItem('customerMembers', index)}
+                                onClick={() => void confirmRemoveExternalRow('customerMembers', index)}
                               >
-                                Xoa
+                                <Trash2 size={14} /> Xoa
                               </button>
                             </td>
                           ) : null}
@@ -2682,7 +2736,7 @@ export function ProjectDetailPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 8 : 7} className="personnel-table__empty">
+                        <td colSpan={personnelEditable ? 8 : 7} className="personnel-table__empty">
                           Chua co dau moi khach hang.
                         </td>
                       </tr>
@@ -2699,7 +2753,7 @@ export function ProjectDetailPage() {
                   <h4>Doi tac</h4>
                   <p>Nhan su doi tac tham gia du an</p>
                 </div>
-                {canManageProject ? (
+                {personnelEditable ? (
                   <button
                     type="button"
                     className="ghost-button ghost-button--compact"
@@ -2723,7 +2777,7 @@ export function ProjectDetailPage() {
                       <th>Nhiem vu</th>
                       <th>Email</th>
                       <th>SDT</th>
-                      {canManageProject ? <th>Tac vu</th> : null}
+                      {personnelEditable ? <th>Tac vu</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -2831,14 +2885,14 @@ export function ProjectDetailPage() {
                               disabled={!canManageProject}
                             />
                           </td>
-                          {canManageProject ? (
+                          {personnelEditable ? (
                             <td className="personnel-table__actions">
                               <button
                                 type="button"
                                 className="ghost-button ghost-button--compact"
-                                onClick={() => removeExternalPersonnelItem('partners', index)}
+                                onClick={() => void confirmRemoveExternalRow('partners', index)}
                               >
-                                Xoa
+                                <Trash2 size={14} /> Xoa
                               </button>
                             </td>
                           ) : null}
@@ -2846,7 +2900,7 @@ export function ProjectDetailPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 9 : 8} className="personnel-table__empty">
+                        <td colSpan={personnelEditable ? 9 : 8} className="personnel-table__empty">
                           Chua co doi tac tham gia du an.
                         </td>
                       </tr>

@@ -2,8 +2,8 @@
 # Open a copy of the FSD, append "H. BIỂU ĐỒ PHÂN RÃ CHỨC NĂNG" and embed the PNG diagram.
 $ErrorActionPreference = 'Stop'
 
-$srcDocx = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v1.0.docx"
-$dstDocx = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v1.1.docx"
+$srcDocx = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v2.0.docx"
+$dstDocx = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v2.1.docx"
 $pngPath = "C:\Users\phucdm\Documents\QLDA\FDD_QLDA.png"
 
 # Copy first so we never write to the user's currently-open file.

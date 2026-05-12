@@ -1,11 +1,11 @@
 ﻿#requires -Version 5.1
 # Build the QLDA FSD .docx via Word COM automation.
-# Output: C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v1.0.docx
+# Output: C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v2.0.docx
 # Run with:  powershell -ExecutionPolicy Bypass -File .\build-fsd.ps1
 
 [CmdletBinding()]
 param(
-  [string]$OutputPath = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v1.0.docx"
+  [string]$OutputPath = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v2.0.docx"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -206,8 +206,8 @@ function AddPermissionMatrix {
     @("Quản trị danh mục KH/Đối tác", "x", "", "", "x (xem)", "", "", ""),
     @("Quản trị người dùng & phân quyền", "x", "", "", "", "", "", ""),
     @("Reset dữ liệu demo", "x", "", "", "", "", "", ""),
-    @("Dashboard tổng quan", "x (toàn hệ thống)", "x (đã duyệt)", "x (DA của mình)", "x (DA phụ trách)", "x (DA tham gia)", "", ""),
-    @("Tạo mới dự án", "", "x", "", "", "", "", ""),
+    @("Dashboard tổng quan", "x (toàn hệ thống)", "x (toàn hệ thống)", "x (DA của mình)", "x (DA phụ trách)", "x (DA tham gia)", "", ""),
+    @("Tạo mới dự án (BA 12/05/2026)", "", "x (chỉ TCHC)", "", "", "", "", ""),
     @("Xem danh sách dự án", "x", "x", "x", "x", "x", "", ""),
     @("Sửa thông tin khởi tạo", "x", "x", "x (PM của DA)", "x (DA phụ trách)", "", "", ""),
     @("Cập nhật thông tin chung / tài chính", "x", "", "x (PM của DA)", "x", "", "", ""),
@@ -258,8 +258,8 @@ function AddCoverPage {
   AddParagraph -Text "Thông tin tài liệu" -Align $wdAlignParagraphCenter -Bold $true -Size 13 | Out-Null
   AddBlank
   $tbl = NewTable -Rows 4 -Cols 2 -Headers @("Hạng mục", "Nội dung") -WidthPct @(40, 60)
-  FillRow -Table $tbl -Row 2 -Values @("Mã phần mềm", "D26-001-0")
-  FillRow -Table $tbl -Row 3 -Values @("Phiên bản tài liệu", "1.0")
+  FillRow -Table $tbl -Row 2 -Values @("Mã phần mềm", "D26-001-1")
+  FillRow -Table $tbl -Row 3 -Values @("Phiên bản tài liệu", "2.0")
   FillRow -Table $tbl -Row 4 -Values @("Đơn vị ban hành", "Tổ triển khai")
   AddBlank
   $tbl2 = NewTable -Rows 2 -Cols 2 -Headers @("Hạng mục", "Nội dung") -WidthPct @(40, 60)
@@ -277,8 +277,22 @@ function AddCoverPage {
 function AddChangeLog {
   AddHeading1 "BẢNG GHI NHẬN THAY ĐỔI TÀI LIỆU"
   AddParagraph -Text "T – Thêm mới, S – Sửa đổi, X – Xoá" -Italic $true -Align $wdAlignParagraphLeft | Out-Null
-  $tbl = NewTable -Rows 2 -Cols 5 -Headers @("Ngày thay đổi", "Mục, bảng thay đổi", "T S X", "Mô tả thay đổi", "Phiên bản mới") -WidthPct @(15, 25, 10, 35, 15)
+  $tbl = NewTable -Rows 4 -Cols 5 -Headers @("Ngày thay đổi", "Mục, bảng thay đổi", "T S X", "Mô tả thay đổi", "Phiên bản mới") -WidthPct @(13, 25, 8, 39, 15)
   FillRow -Table $tbl -Row 2 -Values @("05/2026", "Toàn bộ", "T", "Tạo tài liệu", "1.0")
+  FillRow -Table $tbl -Row 3 -Values @(
+    "12/05/2026",
+    "B.II.3 Ma trận phân quyền; C.III.2 Tạo mới dự án; C.IV.2 Nhân sự; C.V Đóng dự án; D Danh sách API; G Phụ lục",
+    "S, X",
+    "Loại bỏ luồng phê duyệt khởi tạo dự án (trạng thái PENDING → APPROVED). TCHC (ADMIN_HC) khởi tạo dự án trực tiếp. Ràng buộc nhân sự AITS phải liên kết với User trong hệ thống (User picker thay free-text).",
+    "1.5"
+  )
+  FillRow -Table $tbl -Row 4 -Values @(
+    "13/05/2026",
+    "C.III–C.X (toàn bộ module có thao tác CRUD); thêm phần Quy ước UX chung tại đầu phần C",
+    "T, S",
+    "Bổ sung quy ước UX chung: chế độ Cập nhật/Lưu thay đổi cho các tab readonly mặc định; popup xác nhận cho mọi thao tác xoá và cập nhật; loading overlay khi gọi API; toast thông báo ở góc dưới phải; bảng lịch sử thao tác tại cuối mỗi tab; cảnh báo highlight task quá hạn / sắp đến hạn trên Gantt.",
+    "2.0"
+  )
   AddBlank
 }
 
@@ -361,7 +375,7 @@ function AddSectionB {
 
   $flow = @(
     @{no=1; step="Đăng nhập hệ thống"; actor="Tất cả người dùng"; desc="Người dùng đăng nhập bằng tài khoản AD/LDAP của AITS. Nếu sai thông tin, hệ thống highlight trường lỗi và chặn truy cập. Ghi log đăng nhập (IP, thời gian, trạng thái)."},
-    @{no=2; step="Khởi tạo dự án"; actor="TCHC (ADMIN_HC)"; desc="Sau khi có Quyết định thành lập TTK, TCHC tạo dự án với các thông tin: mã, tên, số QĐ, hồ sơ căn cứ, nhiệm vụ TTK, ngày BĐ/KT, danh sách nhân sự TTK (chọn từ HRM). Trạng thái khởi tạo: ‘Đang triển khai’."},
+    @{no=2; step="Khởi tạo dự án"; actor="TCHC (ADMIN_HC)"; desc="Sau khi có Quyết định thành lập TTK, TCHC khởi tạo dự án trực tiếp với các thông tin: mã, tên, số QĐ, hồ sơ căn cứ, nhiệm vụ TTK, ngày BĐ/KT, danh sách nhân sự TTK (chọn từ HRM). Trạng thái khởi tạo: ‘Đang triển khai’. Quyết định BA 12/05/2026: bỏ luồng phê duyệt riêng (PENDING → APPROVED) — dự án có hiệu lực ngay khi TCHC lưu."},
     @{no=3; step="Cập nhật thông tin chung"; actor="Điều phối TTK / Chuyên viên QLDA"; desc="Điền hình thức TTK (Kiêm nhiệm / Chuyên trách), loại dự án (Tiền khả thi / Khả thi / Có HĐ / Nội bộ), thông tin tài chính (doanh thu, chi phí, lợi nhuận), thông tin khách hàng / đối tác."},
     @{no=4; step="Lập kế hoạch triển khai"; actor="Chuyên viên QLDA / PM"; desc="CRUD task tổng và subtask. Trường: nội dung, timeline, giờ công kế hoạch, người thực hiện. Ghi lịch sử sau khi kế hoạch được duyệt."},
     @{no=5; step="Phân bổ giờ công"; actor="Chuyên viên QLDA"; desc="Phân bổ giờ công theo tháng cho từng thành viên TTK. Với dự án Có HĐ / Khả thi: tổng giờ công không vượt quá KTQT — hệ thống tự đối chiếu, không cho lưu nếu vượt."},
@@ -408,8 +422,69 @@ function AddFunctionBlock {
 }
 
 # ─── C.I  Module Quản trị hệ thống ───
-function AddModuleAdmin {
+function AddUXConventions {
   AddHeading1 "C. ĐẶC TẢ CHI TIẾT YÊU CẦU CHỨC NĂNG"
+  AddHeading2 "0. Quy ước UX chung (áp dụng cho toàn bộ module)"
+  AddParagraph -Text "Các quy ước UI/UX dưới đây có hiệu lực ở mọi màn hình của hệ thống. Mô tả của từng chức năng trong các phần tiếp theo sẽ KHÔNG lặp lại các điểm này — mặc định coi như đã áp dụng. Khi có ngoại lệ, mô tả của chức năng đó sẽ nêu rõ." | Out-Null
+  AddBlank
+
+  AddHeading3 "0.1. Chế độ Xem / Chế độ Chỉnh sửa"
+  AddParagraph -Text "Toàn bộ tab có form thông tin cố định (không phải pop-up modal) sẽ ở Chế độ Xem khi mới mở — mọi trường đều readonly. Phía trên form có một thanh điều khiển EditModeBar với chỉ báo trạng thái và nút thao tác:" | Out-Null
+  AddBullets @(
+    "Chế độ xem (mặc định): hiển thị badge ‘○ Chế độ xem’ + nút ‘Cập nhật’ (biểu tượng bút chì). Bấm để chuyển sang Chế độ chỉnh sửa.",
+    "Chế độ chỉnh sửa: hiển thị badge ‘● Chế độ chỉnh sửa’ + 2 nút ‘Lưu thay đổi’ (biểu tượng đĩa lưu) và ‘Huỷ’. Toàn bộ trường trong form trở nên editable.",
+    "Khi bấm ‘Huỷ’: hệ thống khôi phục bản nháp từ snapshot mới nhất của server, không gửi mutation.",
+    "Khi bấm ‘Lưu thay đổi’: mở pop-up xác nhận (xem mục 0.2), sau đó gửi API và quay về Chế độ xem nếu thành công.",
+    "Trong Chế độ xem, các nút thao tác cấp dòng như ‘+ Thêm’, ‘Xoá’ trong bảng được ẨN hoàn toàn (không hiển thị, không chỉ disabled) để giao diện gọn và rõ trạng thái readonly.",
+    "Phạm vi áp dụng: tab Thông tin khởi tạo, tab Overview (thông tin chung & tài chính & cơ sở căn cứ), tab Nhân sự dự án. Các tab thao tác qua pop-up (Tài liệu, Rủi ro, Kế hoạch) giữ luồng cũ — bấm nút mở pop-up trực tiếp."
+  )
+
+  AddHeading3 "0.2. Pop-up xác nhận thao tác (ConfirmDialog)"
+  AddParagraph -Text "Mọi thao tác CẬP NHẬT hoặc XOÁ dữ liệu phải đi qua một pop-up xác nhận trước khi gọi API. Pop-up có cấu trúc thống nhất:" | Out-Null
+  AddBullets @(
+    "Icon trạng thái (cảnh báo cho xoá, check cho lưu) + tiêu đề câu hỏi rõ ràng nêu đối tượng/danh tính (ví dụ: Xoá tài liệu [HD-2026/001]).",
+    "Mô tả phụ giải thích hệ quả: cascade xoá subtask/worklog/raise; ghi vào lịch sử thao tác; không thể hoàn tác (nếu áp dụng).",
+    "Hai nút Huỷ / Xác nhận. Nút xác nhận có tone đỏ (danger) khi là xoá, tone xanh-teal khi là lưu/cập nhật. Click ra ngoài pop-up = Huỷ.",
+    "Không sử dụng window.confirm() native — toàn bộ confirm dùng component ConfirmDialog tuân thủ style chung của app."
+  )
+
+  AddHeading3 "0.3. Loading overlay khi gọi API"
+  AddParagraph -Text "Khi hệ thống đang xử lý request (sau khi user xác nhận), một overlay fullscreen được kích hoạt — chặn tương tác và hiển thị spinner + thông điệp mô tả tác vụ (vd ‘Đang lưu thay đổi…’, ‘Đang xoá rủi ro…’, ‘Đang tạo dự án…’). Overlay có tham chiếu đếm (reference-counted), tự ẩn khi tất cả tác vụ đồng thời kết thúc. Tránh việc user bấm 2 lần cùng một nút hoặc nghĩ ứng dụng đóng băng." | Out-Null
+
+  AddHeading3 "0.4. Toast thông báo kết quả (góc dưới phải)"
+  AddParagraph -Text "Kết quả của mọi thao tác (thành công hoặc thất bại) hiển thị qua toast pop-up nhỏ ở góc dưới phải màn hình. Không dùng banner message inline trong form. Quy tắc:" | Out-Null
+  AddBullets @(
+    "Toast success (tone xanh lá, border trái xanh): tự ẩn sau 4 giây. Tiêu đề ngắn gọn (‘Đã lưu thay đổi’) + mô tả phụ (tên đối tượng).",
+    "Toast error (tone đỏ, border trái đỏ): hiển thị 6 giây hoặc đến khi user đóng. Tiêu đề (‘Không lưu được tài liệu’) + chi tiết lỗi từ server (nếu có).",
+    "Toast warning (tone vàng): cho cảnh báo non-blocking — vd thiếu thông tin bắt buộc, vượt KTQT cap.",
+    "Tối đa hiển thị nhiều toast cùng lúc dạng stack — toast mới chèn xuống dưới, có nút ‘X’ ở mỗi card để đóng thủ công."
+  )
+
+  AddHeading3 "0.5. Bảng lịch sử thao tác (Activity Log) tại mỗi tab"
+  AddParagraph -Text "Mỗi tab thông tin của trang chi tiết dự án có một bảng ‘Nhật ký thay đổi’ ở cuối tab, hiển thị các activity log liên quan tới phạm vi tab đó. Mục đích: minh bạch — người xem có thể truy lại ai đã thay đổi gì, khi nào, từ giá trị cũ sang giá trị mới." | Out-Null
+  $tblLog = NewTable -Rows 8 -Cols 2 -Headers @("Tab", "Action filter (activity log)") -WidthPct @(35, 65)
+  FillRow -Table $tblLog -Row 2 -Values @("Thông tin khởi tạo", "PROJECT_INFO_UPDATED, PROJECT_CLOSED, PROJECT_REOPENED (chia sẻ với Overview)")
+  FillRow -Table $tblLog -Row 3 -Values @("Overview (Thông tin chung)", "PROJECT_INFO_UPDATED, PROJECT_CLOSED, PROJECT_REOPENED")
+  FillRow -Table $tblLog -Row 4 -Values @("Nhân sự", "PERSONNEL_UPDATED, PERSONNEL_ADDED, PERSONNEL_REMOVED")
+  FillRow -Table $tblLog -Row 5 -Values @("Tài liệu", "DOCUMENT_ADDED, DOCUMENT_UPDATED, DOCUMENT_DELETED")
+  FillRow -Table $tblLog -Row 6 -Values @("Quản lý rủi ro", "RISK_CREATED, RISK_UPDATED, RISK_DELETED")
+  FillRow -Table $tblLog -Row 7 -Values @("Kế hoạch", "TASK_*, SUBTASK_*, WORKLOG_ADDED, HOURS_CHANGED")
+  FillRow -Table $tblLog -Row 8 -Values @("Phân bổ giờ công", "ALLOCATION_UPDATED")
+  AddBlank
+  AddParagraph -Text "Cấu trúc bảng (mỗi tab): cột Thời gian (dd/MM/yyyy HH:mm), Người thực hiện (tên + avatar), Hành động (pill tiếng Việt theo ACTION_LABELS), Đối tượng (entityName), Chi tiết thay đổi (diff field → field, oldValue → newValue). Đọc-only — sắp xếp mới nhất trước." | Out-Null
+
+  AddHeading3 "0.6. Cảnh báo task quá hạn / sắp đến hạn trên Gantt + danh sách task"
+  AddParagraph -Text "Trên biểu đồ Gantt (cả tab Kế hoạch trong chi tiết dự án lẫn trang Gantt độc lập) và danh sách công việc tại trang Việc của tôi, hệ thống tự động phân loại deadline của task chưa hoàn thành (progress < 100 và status ≠ DONE):" | Out-Null
+  AddBullets @(
+    "Quá hạn (Overdue): endDate < hôm nay → viền đỏ trên thanh Gantt, gạch đỏ bên trái dòng task, badge ‘⚠ Quá hạn’ kèm tên task.",
+    "Sắp đến hạn (Due-soon): endDate trong vòng 4 ngày tới (≤ 4 ngày) → viền vàng trên thanh Gantt, gạch vàng bên trái dòng task, badge ‘◐ Sắp đến hạn’.",
+    "Task đã hoàn thành (DONE hoặc progress ≥ 100%) không bị highlight.",
+    "Tooltip khi hover thanh Gantt bổ sung trạng thái deadline ‘(Quá hạn)’ / ‘(Sắp đến hạn)’ vào nội dung."
+  )
+  PageBreak
+}
+
+function AddModuleAdmin {
   AddHeading2 "I. Module Quản trị hệ thống"
 
   # 1. Đăng nhập / Đăng xuất
@@ -516,7 +591,7 @@ function AddModuleInit {
   # III.1 Danh sách dự án
   AddFunctionBlock `
     -Title "1. Xem danh sách dự án" `
-    -Description "Cho phép người dùng xem danh sách dự án theo phạm vi vai trò: PMO thấy toàn hệ thống (chia 4 nhóm: Chờ phê duyệt, Đang vận hành, Tạm đóng, Đã đóng); ADMIN_HC thấy 2 nhóm (Chờ phê duyệt, Đã phê duyệt); PM thấy 2 nhóm (PM phụ trách, Tham gia điều phối); DELIVERY_MEMBER thấy 1 nhóm (Dự án tham gia). Mỗi dự án hiển thị thông tin tổng quan và đường tới trang chi tiết." `
+    -Description "Cho phép người dùng xem danh sách dự án theo phạm vi vai trò. Sau BA 12/05/2026 (đã loại bỏ luồng phê duyệt): PMO thấy 3 nhóm (Đang triển khai, Tạm đóng, Đã đóng) — không còn nhóm ‘Chờ phê duyệt’; ADMIN_HC thấy 1 nhóm gộp ‘Dự án đã khởi tạo’; PM thấy 2 nhóm (PM phụ trách, Tham gia điều phối); DELIVERY_MEMBER thấy 1 nhóm (Dự án tham gia). Mỗi dự án hiển thị thông tin tổng quan và đường tới trang chi tiết." `
     -Users "Mọi người dùng đã đăng nhập (lọc theo phạm vi vai trò)." `
     -Steps @(
       "Truy cập menu ‘Dự án’ ở sidebar.",
@@ -525,12 +600,11 @@ function AddModuleInit {
     ) `
     -UiNote "Mỗi section có heading (tên + mô tả + tổng số dự án); bên dưới là grid card. Card hiển thị mã, tên, status pill, approval pill, sponsor, PM, timeline, health pill, progress bar, số nhân sự, số tài liệu, số rủi ro, danh sách thành viên TTK." `
     -Fields @(
-      @{field="Nút ‘Tạo dự án’"; control="Button"; maxlen="-"; required="-"; desc="Chỉ hiển thị cho PMO. Mở pop-up ‘Tạo dự án mới’ (xem chức năng tiếp theo). Bố trí ở góc phải SectionHeader."},
+      @{field="Nút ‘Tạo dự án’"; control="Button"; maxlen="-"; required="-"; desc="Chỉ hiển thị cho ADMIN_HC (TCHC) sau BA 12/05/2026. Mở pop-up ‘Tạo dự án mới’ (xem chức năng tiếp theo). Bố trí ở góc phải SectionHeader."},
       @{field="Section group"; control="Group"; maxlen="-"; required="-"; desc="Chia theo vai trò. Mỗi group hiển thị: tiêu đề, mô tả ngắn, status-pill số lượng dự án."},
       @{field="Mã dự án"; control="Label"; maxlen="-"; required="-"; desc="Hiển thị eyebrow trên card. Ví dụ: PRJ-2026-001."},
       @{field="Tên dự án"; control="Label"; maxlen="-"; required="-"; desc="Heading trên card."},
-      @{field="Pill trạng thái"; control="Status pill"; maxlen="-"; required="-"; desc="Đang triển khai / Tạm đóng / Đã đóng (tone tương ứng info/warning/success)."},
-      @{field="Pill phê duyệt"; control="Status pill"; maxlen="-"; required="-"; desc="‘Chờ HC duyệt’ (warning) hoặc ‘Đã duyệt TTK’ (success)."},
+      @{field="Pill trạng thái"; control="Status pill"; maxlen="-"; required="-"; desc="Đang triển khai / Tạm đóng / Đã đóng (tone tương ứng info/warning/success). Pill ‘Chờ HC duyệt’ / ‘Đã duyệt TTK’ đã được loại bỏ sau BA 12/05/2026."},
       @{field="Tóm tắt"; control="Paragraph"; maxlen="-"; required="-"; desc="Mô tả ngắn nội dung dự án."},
       @{field="PM phụ trách"; control="Label"; maxlen="-"; required="-"; desc="Tên Project Manager (project.adminId → User.name)."},
       @{field="Sponsor"; control="Label"; maxlen="-"; required="-"; desc="Người bảo trợ dự án (chọn từ danh sách User non-DELIVERY)."},
@@ -545,15 +619,16 @@ function AddModuleInit {
   # III.2 Tạo mới dự án
   AddFunctionBlock `
     -Title "2. Tạo mới dự án" `
-    -Description "Cho phép TCHC (vai trò ADMIN_HC trong UI, lưu ý ở môi trường demo PMO cũng có quyền này) tạo dự án sau khi có Quyết định thành lập TTK. Hiển thị dưới dạng pop-up modal full-width. Yêu cầu chọn đầy đủ thông tin cơ bản, PM, danh sách nhân sự triển khai và vai trò từng nhân sự. Hệ thống kiểm tra: tên không trùng dự án đang hoạt động, ngày kết thúc > ngày bắt đầu, tổng ≥ 1 thành viên TTK, PM nằm trong danh sách thành viên." `
-    -Users "TCHC (UI hiện cho PMO; sẽ chuyển sang ADMIN_HC ở phiên bản v3.1)." `
+    -Description "Chỉ vai trò TCHC (ADMIN_HC) có quyền khởi tạo dự án (quyết định BA 12/05/2026 — đã loại bỏ luồng phê duyệt PENDING → APPROVED; PMO không còn thẩm quyền tạo dự án). Hiển thị dưới dạng pop-up modal full-width. Yêu cầu chọn đầy đủ thông tin cơ bản, PM, danh sách nhân sự triển khai và vai trò từng nhân sự. Hệ thống kiểm tra: tên không trùng dự án đang hoạt động, ngày kết thúc > ngày bắt đầu, tổng ≥ 1 thành viên TTK, PM nằm trong danh sách thành viên. Dự án có hiệu lực (status = ACTIVE) ngay khi TCHC bấm Tạo dự án — không còn pending state, không còn pill ‘Chờ phê duyệt’ / ‘Đã duyệt TTK’." `
+    -Users "TCHC (ADMIN_HC). Tài khoản khác (PMO, PM, …) sẽ không thấy nút ‘Tạo dự án’ trên giao diện và bị BE từ chối với HTTP 403 nếu gọi trực tiếp API." `
     -Steps @(
-      "Tại trang Dự án, bấm nút ‘Tạo dự án’.",
-      "Điền các thông tin: mã (tự sinh, có thể sửa), tên, tóm tắt, sponsor, PM, ngày BĐ/KT, nhiệm vụ, số QĐ TTK, file QĐ.",
+      "Đăng nhập với tài khoản TCHC (hc.hoa trong demo).",
+      "Tại trang Dự án, bấm nút ‘Tạo dự án’ (chỉ TCHC mới thấy).",
+      "Điền các thông tin: mã (tự sinh, có thể sửa), tên, tóm tắt, sponsor, PM, ngày BĐ/KT, nhiệm vụ, số QĐ TTK.",
       "Trong Roster builder: dùng dropdown ‘+ Thêm nhân sự’ để chọn thành viên, sau đó cập nhật Vai trò và Nhiệm vụ cho từng dòng.",
-      "Bấm ‘Tạo dự án’ để lưu. Nếu thiếu thông tin bắt buộc, hệ thống hiển thị message lỗi và không cho lưu."
+      "Bấm ‘Tạo dự án’ → pop-up xác nhận hiển thị tóm tắt (số thành viên, mã dự án). Bấm xác nhận → loading overlay → toast thành công."
     ) `
-    -UiNote "Pop-up modal full-width. Header có eyebrow ‘PMO workspace’, tiêu đề ‘Tạo dự án mới’, nút đóng (X). Phần body chia 2 cột grid form, bên dưới là Roster builder dạng bảng. Footer có nút Huỷ và Tạo dự án." `
+    -UiNote "Pop-up modal full-width. Header có eyebrow ‘TCHC workspace’, tiêu đề ‘Tạo dự án mới’, nút đóng (X). Phần body chia 2 cột grid form, bên dưới là Roster builder dạng bảng. Footer có nút Huỷ và Tạo dự án." `
     -Fields @(
       @{field="Mã dự án"; control="Input"; maxlen="40"; required="Có"; desc="Tự sinh theo định dạng PRJ-<năm>-<STT 3 chữ số> (ví dụ PRJ-2026-001). Có thể sửa, không trùng với mã dự án đang hoạt động."},
       @{field="Tên dự án"; control="Input"; maxlen="255"; required="Có"; desc="Tên dự án không trùng với tên dự án đang ACTIVE."},
@@ -563,8 +638,7 @@ function AddModuleInit {
       @{field="Ngày bắt đầu"; control="Date input"; maxlen="-"; required="Có"; desc="Định dạng yyyy-MM-dd. Mặc định = hôm nay."},
       @{field="Ngày kết thúc"; control="Date input"; maxlen="-"; required="Có"; desc="Định dạng yyyy-MM-dd. Mặc định = cuối tháng (+ 4 tháng). Validation: endDate > startDate."},
       @{field="Nhiệm vụ"; control="Textarea"; maxlen="1000"; required="Có"; desc="Mục tiêu / nhiệm vụ TTK."},
-      @{field="Số quyết định TTK"; control="Input"; maxlen="80"; required="Không"; desc="Ví dụ: QĐ-2026/001."},
-      @{field="File quyết định"; control="File input"; maxlen="-"; required="Không"; desc="Cho phép upload .pdf/.doc/.docx/.xls/.xlsx/.ppt/.pptx/ảnh. Lưu tên file vào approvalRequestFileName (v3.3 sẽ upload thật vào Supabase Storage)."},
+      @{field="Số quyết định TTK"; control="Input"; maxlen="80"; required="Không"; desc="Ví dụ: QĐ-2026/001. Sau quyết định BA 12/05/2026: trường ‘File quyết định’ (approvalRequestFileName) đã được loại bỏ — file QĐ được tải lên tại tab Tài liệu của dự án sau khi tạo, không còn nằm trong luồng tạo."},
       @{field="Roster — Thêm nhân sự"; control="Dropdown"; maxlen="-"; required="-"; desc="Liệt kê tất cả User có vai trò PM hoặc DELIVERY_MEMBER chưa được chọn. Chọn để thêm vào bảng roster."},
       @{field="Roster — Họ và tên"; control="Label"; maxlen="-"; required="-"; desc="Hiển thị tên thành viên (đồng bộ HRM, không cho sửa)."},
       @{field="Roster — Chức danh"; control="Label"; maxlen="-"; required="-"; desc="Title của User (đồng bộ HRM, không sửa)."},
@@ -572,23 +646,24 @@ function AddModuleInit {
       @{field="Roster — Vai trò"; control="Dropdown"; maxlen="-"; required="Có"; desc="Vai trò trong TTK. Mặc định ‘Thành viên triển khai’. Lấy từ catalogs.projectMemberRoles. Bị disable nếu là PM."},
       @{field="Roster — Nhiệm vụ"; control="Input"; maxlen="255"; required="Không"; desc="Nhiệm vụ cụ thể của thành viên trong dự án."},
       @{field="Roster — Mã NV"; control="Label"; maxlen="-"; required="-"; desc="Hiển thị User.employeeCode (đồng bộ HRM, không sửa)."},
-      @{field="Roster — Xoá"; control="Icon button"; maxlen="-"; required="-"; desc="Gỡ thành viên khỏi roster. Nếu thành viên là PM, hệ thống reset PM = rỗng."},
+      @{field="Roster — Xoá"; control="Icon button"; maxlen="-"; required="-"; desc="Gỡ thành viên khỏi roster. Nếu thành viên là PM, hệ thống reset PM = rỗng. Thao tác drafy state — không cần confirm."},
       @{field="Huỷ"; control="Button"; maxlen="-"; required="-"; desc="Đóng modal, không lưu."},
-      @{field="Tạo dự án"; control="Button (submit)"; maxlen="-"; required="-"; desc="Validate: chọn ≥1 thành viên, PM phải có trong roster. Gọi POST /api/projects, BE: tạo project + member rows + activity log; trả về snapshot. FE refresh + đóng modal + reset form. Trạng thái khởi tạo: ACTIVE; approvalInfo.status = PENDING."}
+      @{field="Tạo dự án"; control="Button (submit)"; maxlen="-"; required="-"; desc="Validate: chọn ≥1 thành viên, PM phải có trong roster. Mở ConfirmDialog xác nhận → gọi POST /api/projects (BE chỉ chấp nhận khi role = ADMIN_HC), BE: tạo project + member rows + activity log; trả về snapshot. FE refresh + đóng modal + reset form + hiển thị toast thành công ở góc dưới phải. Trạng thái khởi tạo: ACTIVE (không còn approvalInfo)."}
     )
 
   # III.3 Cập nhật thông tin khởi tạo
   AddFunctionBlock `
     -Title "3. Cập nhật thông tin khởi tạo" `
-    -Description "Cho phép TCHC (và PMO/PM phụ trách trong UI hiện tại) sửa các thông tin khởi tạo cơ bản của dự án: mã, tên, tóm tắt, sponsor, nhiệm vụ, số QĐ TTK, PM, ngày BĐ/KT, đơn vị. Mọi thay đổi được ghi vào activity log với action PROJECT_INFO_UPDATED và diff field-level." `
+    -Description "Cho phép TCHC / PMO / PM phụ trách sửa các thông tin khởi tạo cơ bản của dự án: mã, tên, tóm tắt, sponsor, nhiệm vụ, số QĐ TTK, PM, ngày BĐ/KT, đơn vị. Tab áp dụng quy ước UX chung — readonly khi mở (xem mục C.0.1) và phải bấm Cập nhật để chỉnh sửa. Mọi thay đổi được ghi vào activity log với action PROJECT_INFO_UPDATED và diff field-level; hiển thị tại bảng ‘Nhật ký thay đổi’ ở cuối tab." `
     -Users "TCHC / PMO / PM của dự án / Chuyên viên QLDA (có quyền canEditProjectInfo)." `
     -Steps @(
       "Mở trang chi tiết dự án (/projects/:id).",
-      "Vào tab ‘Thông tin khởi tạo’.",
+      "Vào tab ‘Thông tin khởi tạo’ — mặc định ở Chế độ xem, tất cả trường readonly.",
+      "Bấm ‘Cập nhật’ trên thanh EditModeBar → các trường trở thành editable.",
       "Chỉnh sửa các trường được phép.",
-      "Bấm ‘Lưu thay đổi’."
+      "Bấm ‘Lưu thay đổi’ → pop-up xác nhận → loading overlay → toast thành công ở góc dưới phải. Trang quay về Chế độ xem."
     ) `
-    -UiNote "Tab PROJECT_INIT — form 2 cột, mỗi trường là input/select/textarea/date. Cuối form có nút ‘Lưu thay đổi’." `
+    -UiNote "Tab PROJECT_INIT — phía trên có EditModeBar (badge trạng thái + nút Cập nhật / Lưu thay đổi / Huỷ). Form 2 cột, mỗi trường là input/select/textarea/date. Cuối tab là bảng Activity log (sắp xếp mới nhất trước)." `
     -Fields @(
       @{field="Mã dự án"; control="Input"; maxlen="40"; required="Có"; desc="Có thể sửa khi project chưa CLOSED."},
       @{field="Tên dự án"; control="Input"; maxlen="255"; required="Có"; desc="Có thể sửa."},
@@ -613,15 +688,16 @@ function AddModuleExecution {
   # IV.1 Tab Overview
   AddFunctionBlock `
     -Title "1. Cập nhật thông tin chung (Tab Overview)" `
-    -Description "Cập nhật các thông tin chung của dự án: tóm tắt, sponsor, nhiệm vụ, ngày bắt đầu, hình thức TTK (Kiêm nhiệm / Chuyên trách), hình thức triển khai (HD/PLHD, TK THD, Nội bộ), thời lượng dự kiến (ngày / giờ công), và 4 nhóm hồ sơ căn cứ: Hợp đồng đầu ra, Hợp đồng đầu vào, Phê duyệt triển khai, Quyết định thành lập tổ dự án. Bên cạnh đó là khối Tài chính: Doanh thu, Chi phí nội bộ, Chi phí thuê ngoài, Lợi nhuận và Nguồn chi phí." `
+    -Description "Cập nhật các thông tin chung của dự án: tóm tắt, sponsor, nhiệm vụ, ngày bắt đầu, hình thức TTK (Kiêm nhiệm / Chuyên trách), hình thức triển khai (HD/PLHD, TK THD, Nội bộ), thời lượng dự kiến (ngày / giờ công), và 4 nhóm hồ sơ căn cứ: Hợp đồng đầu ra, Hợp đồng đầu vào, Phê duyệt triển khai, Quyết định thành lập tổ dự án. Bên cạnh đó là khối Tài chính: Doanh thu, Chi phí nội bộ, Chi phí thuê ngoài, Lợi nhuận và Nguồn chi phí. Tab áp dụng quy ước UX chung (xem C.0.1) — readonly khi mở; nút ‘Thêm mục’ và ‘Xoá’ trong 4 nhóm hồ sơ căn cứ chỉ hiển thị sau khi bấm Cập nhật. Cuối tab có bảng Activity log lọc theo phạm vi Overview." `
     -Users "PMO / PM của dự án / Chuyên viên QLDA." `
     -Steps @(
-      "Mở tab ‘Overview’ trong trang chi tiết dự án.",
-      "Cập nhật các trường thông tin và 4 nhóm hồ sơ căn cứ (mỗi nhóm cho phép thêm/xoá nhiều dòng — mỗi dòng có tên tài liệu và ghi chú).",
+      "Mở tab ‘Overview’ — mặc định Chế độ xem (readonly).",
+      "Bấm ‘Cập nhật’ trên EditModeBar → form trở thành editable, các nút ‘+ Thêm mục’ và ‘Xoá’ trong 4 thẻ hồ sơ căn cứ hiển thị.",
+      "Cập nhật các trường thông tin chung và 4 nhóm hồ sơ căn cứ. Bấm ‘+ Thêm mục’ để thêm dòng; bấm ‘Xoá’ trên một dòng → ConfirmDialog danger yêu cầu xác nhận trước khi gỡ.",
       "Cập nhật khối Tài chính.",
-      "Bấm ‘Lưu thay đổi’."
+      "Bấm ‘Lưu thay đổi’ → ConfirmDialog → loading overlay → toast thành công."
     ) `
-    -UiNote "Bố cục tab Overview chia 3 khối: (1) Thông tin chung (2 cột); (2) Cơ sở căn cứ (4 thẻ — mỗi thẻ có toolbar ‘Thêm mục’ và danh sách dòng); (3) Tài chính (2 cột)." `
+    -UiNote "Bố cục tab Overview: phía trên EditModeBar; bên dưới chia 3 khối — (1) Thông tin chung (2 cột); (2) Cơ sở căn cứ (4 thẻ — mỗi thẻ có toolbar ‘+ Thêm mục’ trong edit-mode và danh sách dòng); (3) Tài chính (2 cột). Cuối tab là bảng Activity log." `
     -Fields @(
       @{field="Tóm tắt"; control="Textarea"; maxlen="1000"; required="Có"; desc="Cập nhật tóm tắt dự án."},
       @{field="Sponsor"; control="Dropdown"; maxlen="-"; required="Có"; desc="Chọn từ User ≠ DELIVERY_MEMBER."},
@@ -642,37 +718,37 @@ function AddModuleExecution {
       @{field="Chi phí thuê ngoài — Giá trị / Ghi chú"; control="Number + Input"; maxlen="14/500"; required="Không"; desc=""},
       @{field="Lợi nhuận — Giá trị / Ghi chú"; control="Number + Input"; maxlen="14/500"; required="Không"; desc="Có thể tự tính (Doanh thu − chi phí), hoặc nhập tay."},
       @{field="Nguồn chi phí"; control="Input"; maxlen="500"; required="Không"; desc="Nguồn ngân sách: ‘Nội bộ AITS’, ‘Hợp đồng VNA’, …"},
-      @{field="Lưu thay đổi"; control="Button"; maxlen="-"; required="-"; desc="Gọi PATCH /api/projects/:id. BE ghi activity log PROJECT_INFO_UPDATED với diff. Snapshot mới được trả về và FE refresh."}
+      @{field="Lưu thay đổi"; control="Button (EditModeBar)"; maxlen="-"; required="-"; desc="Mở ConfirmDialog xác nhận; sau khi xác nhận: loading overlay → PATCH /api/projects/:id → BE ghi activity log PROJECT_INFO_UPDATED với diff → trả snapshot → FE refresh → toast thành công → tab tự thoát Chế độ chỉnh sửa."}
     )
 
   # IV.2 Quản lý nhân sự
   AddFunctionBlock `
     -Title "2. Quản lý nhân sự dự án (Tab Nhân sự)" `
-    -Description "Quản lý 3 nhóm nhân sự dự án: (a) Nhân sự AITS — đồng bộ từ HRM, các trường định danh không sửa được; (b) Nhân sự Khách hàng — có thể chọn từ danh mục KH/Đối tác hoặc nhập tự do; (c) Đối tác — tương tự KH. Mỗi nhân sự có vai trò trong dự án, nhiệm vụ, tổng giờ công kế hoạch, email, SĐT. Khi xoá nhân sự khỏi dự án, giờ công đã thực hiện (worklog) vẫn được giữ nguyên." `
+    -Description "Quản lý 3 nhóm nhân sự dự án: (a) Nhân sự AITS — đồng bộ từ HRM, BẮT BUỘC liên kết với User trong hệ thống qua User picker (quyết định BA 12/05/2026: bỏ free-text, mỗi dòng phải có userId trỏ về User thật để có thể phân bổ capacity giờ công); (b) Nhân sự Khách hàng — chọn từ danh mục KH/Đối tác hoặc nhập tự do; (c) Đối tác — tương tự KH. Mỗi nhân sự có vai trò trong dự án, nhiệm vụ, tổng giờ công kế hoạch. Khi xoá nhân sự khỏi dự án, giờ công đã thực hiện (worklog) vẫn được giữ nguyên. Tab áp dụng quy ước UX chung (readonly mặc định + EditModeBar + nút Thêm/Xoá ẩn ở Chế độ xem). Khối ‘MAPPING — Nhân sự chưa liên kết’ ở phiên bản trước đã được loại bỏ vì không còn dòng AITS nào không có userId." `
     -Users "PMO / PM của dự án / Chuyên viên QLDA." `
     -Steps @(
-      "Mở tab ‘Nhân sự’ trong trang chi tiết dự án.",
-      "Trong từng nhóm (AITS / KH / Đối tác): bấm ‘Thêm nhân sự’ để thêm dòng mới, hoặc bấm ‘Xoá’ để loại khỏi dự án.",
-      "Cập nhật vai trò, nhiệm vụ, giờ công kế hoạch, email, SĐT.",
-      "Bấm ‘Lưu thông tin nhân sự’."
+      "Mở tab ‘Nhân sự’ — mặc định Chế độ xem; nút ‘+ Thêm nhân sự’ và cột ‘Tác vụ’ (chứa nút Xoá) bị ẩn.",
+      "Bấm ‘Cập nhật’ trên EditModeBar → form trở thành editable; nút ‘+ Thêm nhân sự’ trong mỗi bảng và cột ‘Tác vụ’ xuất hiện.",
+      "AITS: bấm ‘+ Thêm nhân sự’ → 1 dòng mới với select User dropdown; chọn nhân viên → các cột Họ tên / Chức danh / Đơn vị / Email / SĐT autofill và readonly. Chỉ nhập Vai trò / Nhiệm vụ / Tổng giờ công.",
+      "KH / Đối tác: thêm dòng → nhập tự do hoặc chọn từ danh mục dùng chung.",
+      "Để xoá: bấm icon thùng rác → ConfirmDialog danger (hiển thị tên thành viên) → xác nhận → dòng bị gỡ khỏi draft.",
+      "Bấm ‘Lưu thay đổi’ → ConfirmDialog xác nhận → loading overlay → API PATCH → toast thành công."
     ) `
-    -UiNote "Tab chia 3 khối — mỗi khối là một bảng. Header có nút ‘+ Thêm nhân sự’. Cột cuối là ‘Xoá’. Riêng nhóm AITS, cột Họ tên / Chức danh / Đơn vị / Mã NV là readonly (đồng bộ từ HRM)." `
+    -UiNote "Tab chia 3 khối — mỗi khối là một bảng. Trong Chế độ chỉnh sửa: mỗi khối có nút ‘+ Thêm nhân sự’ ở header và cột ‘Tác vụ’ (Xoá) ở cuối mỗi dòng. Trong Chế độ xem: 2 yếu tố này ẨN hoàn toàn. Riêng nhóm AITS, cột định danh (Họ tên / Chức danh / Đơn vị / Email / SĐT / Mã NV) là readonly autofill từ User; cột User picker là một select dropdown chỉ liệt kê User chưa được chọn ở dòng khác. Cuối tab là bảng Activity log." `
     -Fields @(
-      @{field="AITS — Mã NV"; control="Label"; maxlen="-"; required="-"; desc="Đồng bộ từ HRM. Không sửa."},
-      @{field="AITS — Họ tên"; control="Label"; maxlen="-"; required="-"; desc="Đồng bộ từ HRM. Không sửa."},
-      @{field="AITS — Chức danh"; control="Label"; maxlen="-"; required="-"; desc="Đồng bộ từ HRM. Không sửa."},
-      @{field="AITS — Đơn vị"; control="Label"; maxlen="-"; required="-"; desc="Đồng bộ từ HRM. Không sửa."},
+      @{field="AITS — User picker"; control="Select dropdown"; maxlen="-"; required="Có"; desc="BẮT BUỘC trong v2.0. Chọn 1 User từ danh sách (không bao gồm ADMIN_HC và những user đã được chọn ở dòng AITS khác). Khi pick: tự động fill userId + employeeCode + fullName + title + unit + email + phone từ User table. BE validate userId là UUID hợp lệ; nếu rỗng → trả 400 Bad Request."},
+      @{field="AITS — Họ tên"; control="Readonly label"; maxlen="-"; required="-"; desc="Lấy từ User được chọn. Không sửa được."},
+      @{field="AITS — Chức danh / Đơn vị"; control="Readonly label"; maxlen="-"; required="-"; desc="Lấy từ User được chọn (User.title, User.unit). Không sửa được."},
       @{field="AITS — Vai trò"; control="Input"; maxlen="120"; required="Có"; desc="Vai trò trong dự án (ví dụ ‘PM dự án’, ‘BA’, ‘Lập trình’, ‘Test’). Có thể nhập tự do hoặc gợi ý từ catalogs.projectMemberRoles."},
       @{field="AITS — Nhiệm vụ"; control="Input"; maxlen="500"; required="Không"; desc="Nhiệm vụ cụ thể."},
       @{field="AITS — Tổng giờ công"; control="Number"; maxlen="8"; required="Không"; desc="Tổng giờ kế hoạch của thành viên cho dự án (giờ)."},
-      @{field="AITS — Email"; control="Input"; maxlen="120"; required="Không"; desc="Email công ty."},
-      @{field="AITS — SĐT"; control="Input"; maxlen="20"; required="Không"; desc=""},
+      @{field="AITS — Email / SĐT"; control="Readonly label"; maxlen="-"; required="-"; desc="Lấy từ User. Không sửa."},
       @{field="KH — Họ tên"; control="Input"; maxlen="120"; required="Có"; desc="Họ tên nhân sự khách hàng. Có thể tự gõ hoặc bấm ‘Chọn từ danh mục’ để pick từ catalog KH/Đối tác."},
       @{field="KH — Chức danh / Đơn vị / Vai trò / Nhiệm vụ / Email / SĐT"; control="Input"; maxlen="120/120/120/500/120/20"; required="Không"; desc="Thông tin nhân sự khách hàng."},
       @{field="Đối tác — Họ tên + các trường tương tự KH"; control="Input"; maxlen="-"; required="Không"; desc="Tương tự KH, dùng cho nhân sự đối tác."},
-      @{field="+ Thêm nhân sự"; control="Button"; maxlen="-"; required="-"; desc="Thêm 1 dòng trống vào bảng tương ứng."},
-      @{field="Xoá"; control="Icon button"; maxlen="-"; required="-"; desc="Gỡ nhân sự khỏi dự án (chỉ trong form draft — chưa lưu API). Worklog đã có vẫn giữ nguyên sau khi Lưu."},
-      @{field="Lưu thông tin nhân sự"; control="Button"; maxlen="-"; required="-"; desc="Gọi PATCH /api/projects/:id với personnelInfo mới. BE ghi PERSONNEL_UPDATED log với diff danh sách."}
+      @{field="+ Thêm nhân sự / + Thêm đối tác"; control="Button"; maxlen="-"; required="-"; desc="CHỈ HIỂN THỊ trong Chế độ chỉnh sửa. Thêm 1 dòng trống vào bảng tương ứng — dòng AITS mặc định có userId rỗng và chưa hợp lệ; phải pick User trước khi Lưu."},
+      @{field="Xoá (icon thùng rác)"; control="Icon button"; maxlen="-"; required="-"; desc="CHỈ HIỂN THỊ trong Chế độ chỉnh sửa. Bấm → mở ConfirmDialog danger với tên thành viên (nếu đã có) → xác nhận → gỡ dòng khỏi draft. Worklog đã có vẫn giữ nguyên sau khi Lưu (BE cascade chỉ áp với delete project, không phải remove row personnel)."},
+      @{field="Lưu thay đổi"; control="Button (EditModeBar)"; maxlen="-"; required="-"; desc="ConfirmDialog → loading overlay → PATCH /api/projects/:id với personnelInfo mới. Trước khi gửi, FE drop bất kỳ dòng AITS nào có userId rỗng (sanitizeAitsPersonnel). BE strict-validate userId là UUID; trả 400 nếu vi phạm. BE ghi PERSONNEL_UPDATED log với diff danh sách. Toast thành công ở góc dưới phải."}
     )
 
   # IV.3 Quản lý tài liệu
@@ -741,7 +817,7 @@ function AddModuleExecution {
       "Trong khối Focus: bấm ‘+ Thêm subtask’, ‘Sửa task’, ‘Xoá task’ hoặc ‘Khai báo tiến độ’.",
       "Pop-up Plan modal cho phép nhập đầy đủ các trường task/subtask."
     ) `
-    -UiNote "Tab Plan chia 3 khối: (1) Gantt overview (task root); (2) Khối Focus (task được chọn) — Gantt subtask + bảng worklog + bảng raise; (3) Các nút thao tác và Pop-up Plan modal. Pop-up Khai báo tiến độ hiển thị: ngày, giờ công, % hoàn thành mới, nội dung kết quả." `
+    -UiNote "Tab Plan chia 3 khối: (1) Gantt overview (task root); (2) Khối Focus (task được chọn) — Gantt subtask + bảng worklog + bảng raise; (3) Các nút thao tác và Pop-up Plan modal. Pop-up Khai báo tiến độ hiển thị: ngày, giờ công, % hoàn thành mới, nội dung kết quả. Áp dụng cảnh báo deadline (xem C.0.6): mỗi task chưa hoàn thành có endDate quá hạn (< hôm nay) sẽ hiển thị viền đỏ trên thanh Gantt + gạch đỏ bên trái dòng + badge ‘⚠ Quá hạn’; các task sắp đến hạn (≤ 4 ngày) hiển thị viền vàng + badge ‘◐ Sắp đến hạn’. Tooltip khi hover thanh Gantt bổ sung trạng thái deadline. Cuối tab có bảng Activity log lọc theo Plan." `
     -Fields @(
       @{field="Task tổng quan / Subtask — Tên"; control="Input"; maxlen="255"; required="Có"; desc="Tên công việc."},
       @{field="Task cha"; control="Dropdown"; maxlen="-"; required="Khi tạo subtask"; desc="Chọn task root. Bắt buộc khi workType = SUBTASK."},
@@ -758,7 +834,8 @@ function AddModuleExecution {
       @{field="+ Thêm task tổng quan"; control="Button"; maxlen="-"; required="-"; desc="Mở Plan modal với parentId=null. Quyền: canManageProjectPlan."},
       @{field="+ Thêm subtask"; control="Button"; maxlen="-"; required="-"; desc="Mở Plan modal với parentId=focusedTask.id."},
       @{field="Sửa task"; control="Button"; maxlen="-"; required="-"; desc="Mở Plan modal có dữ liệu task hiện tại."},
-      @{field="Xoá task"; control="Button"; maxlen="-"; required="-"; desc="Yêu cầu xác nhận. Gọi DELETE /api/projects/:id/plan-items/:taskId. Cascade xoá subtask + assignee + worklog + delay-raise."},
+      @{field="Xoá task"; control="Button"; maxlen="-"; required="-"; desc="Mở ConfirmDialog danger (xem C.0.2) với tên task + cảnh báo cascade. Sau xác nhận: loading overlay → DELETE /api/projects/:id/plan-items/:taskId → toast thành công. BE cascade xoá subtask + assignee + worklog + delay-raise."},
+      @{field="Badge ‘⚠ Quá hạn’ / ‘◐ Sắp đến hạn’"; control="Badge inline"; maxlen="-"; required="-"; desc="Hiển thị tự động cạnh tên task trong cột bên trái Gantt cho task chưa hoàn thành: overdue khi endDate < hôm nay, due-soon khi endDate ≤ 4 ngày tới. Task DONE không bị flag."},
       @{field="Khai báo tiến độ"; control="Button"; maxlen="-"; required="-"; desc="Mở Execution modal — cho phép thành viên ghi worklog."},
       @{field="Raise chậm tiến độ"; control="Button"; maxlen="-"; required="-"; desc="Mở pop-up nhập lý do + ảnh hưởng. Gọi POST /api/projects/:id/delay-raises. Task chuyển trạng thái NEEDS_REPLAN; replanRequested=true."}
     )
@@ -806,13 +883,13 @@ function AddModuleExecution {
   # IV.8 Activity log
   AddFunctionBlock `
     -Title "8. Lịch sử thao tác (Activity Log)" `
-    -Description "Hệ thống ghi lại các thao tác quan trọng của người dùng trên dự án. Có 16 action enum: PROJECT_INFO_UPDATED, PERSONNEL_UPDATED, DOCUMENT_ADDED, DOCUMENT_DELETED, TASK_CREATED, SUBTASK_CREATED, TASK_UPDATED, SUBTASK_UPDATED, TASK_DELETED, SUBTASK_DELETED, TASK_HOURS_CHANGED, SUBTASK_HOURS_CHANGED, WORKLOG_ADDED, PROJECT_CLOSED, PROJECT_REOPENED (v3.4 sẽ bổ sung DOCUMENT_UPDATED, ALLOCATION_UPDATED, close-flow events). Mỗi log lưu diff field-level (changes[]). Activity log hiển thị theo tab tương ứng (Overview / Personnel / Documents / Plan)." `
+    -Description "Hệ thống ghi lại các thao tác quan trọng trên dự án. Mỗi log lưu diff field-level (changes[]). Sau quyết định BA 13/05/2026, bảng Activity log hiển thị tại CUỐI CỦA MỖI TAB của trang chi tiết dự án (Thông tin khởi tạo, Overview, Nhân sự, Tài liệu, Quản lý rủi ro, Kế hoạch, Phân bổ giờ công) — không chỉ một số tab như phiên bản trước. Mỗi tab lọc theo nhóm action phù hợp (xem bảng tại mục C.0.5 Quy ước UX chung)." `
     -Users "Mọi người dùng có quyền xem dự án — đọc-only." `
     -Steps @(
       "Mở tab tương ứng. Khối lịch sử nằm ở cuối tab.",
       "Bấm vào entry để mở rộng và xem chi tiết các trường đã thay đổi."
     ) `
-    -UiNote "Feed dạng timeline. Mỗi entry: avatar người thực hiện, tên hành động (ACTION_LABELS), entityName, thời gian, danh sách trường thay đổi (oldValue → newValue)." `
+    -UiNote "Bảng dạng panel ‘Nhật ký thay đổi’. Mỗi entry: avatar người thực hiện, tên hành động (ACTION_LABELS — tiếng Việt), entityName, thời gian (dd/MM/yyyy HH:mm), danh sách trường thay đổi (oldValue → newValue). Sắp xếp mới nhất trước. Read-only (không có thao tác Sửa/Xoá log)." `
     -Fields @(
       @{field="Người thực hiện"; control="Label"; maxlen="-"; required="-"; desc="User.name + avatar."},
       @{field="Hành động"; control="Pill"; maxlen="-"; required="-"; desc="Mã action và nhãn tiếng Việt; tone theo ACTION_TONES."},
@@ -1095,7 +1172,7 @@ function AddSectionD {
     @("POST", "/auth/login", "none", "Đăng nhập (qua Supabase Auth)"),
     @("POST", "/auth/logout", "auth", "Đăng xuất"),
     @("GET", "/api/snapshot", "requireAuth", "Lấy snapshot toàn hệ thống, filter theo phạm vi xem"),
-    @("POST", "/api/projects", "ADMIN_HC/PMO", "Tạo dự án + member rows + activity log"),
+    @("POST", "/api/projects", "ADMIN_HC (TCHC) only", "Tạo dự án + member rows + activity log. BA 12/05/2026: chỉ ADMIN_HC, đã loại bỏ PMO/PM khỏi danh sách quyền tạo."),
     @("PATCH", "/api/projects/:id", "canEditProjectInfo", "Cập nhật thông tin dự án; ghi diff log"),
     @("POST", "/api/projects/:id/documents", "canEditProjectInfo", "Thêm tài liệu"),
     @("PATCH", "/api/projects/:id/documents/:docId", "canEditProjectInfo", "Sửa tài liệu"),
@@ -1231,7 +1308,7 @@ function AddSectionG {
     @{ enum="ProjectStatus"; values="ACTIVE / PAUSED / CLOSED"; labels="Đang triển khai / Tạm đóng / Đã đóng" }
     @{ enum="HealthStatus"; values="STABLE / NEEDS_REVIEW / AT_RISK"; labels="Ổn định / Cần xem xét / Có rủi ro" }
     @{ enum="ProjectType"; values="PRELIMINARY / FEASIBILITY / CONTRACT / INTERNAL"; labels="Tiền khả thi / Khả thi / Có HĐ / Nội bộ" }
-    @{ enum="ApprovalStatus"; values="PENDING / APPROVED"; labels="Chờ HC duyệt / Đã duyệt TTK" }
+    @{ enum="ApprovalStatus (đã loại bỏ — BA 12/05/2026)"; values="—"; labels="Trường approvalInfo đã được drop khỏi schema; dự án có hiệu lực ngay khi TCHC tạo." }
     @{ enum="TtkMode"; values="CHUYEN_TRACH / KIEM_NHIEM"; labels="Chuyên trách / Kiêm nhiệm" }
     @{ enum="DeploymentMode"; values="HD_PLHD / TK_THD / NOI_BO"; labels="HĐ/PLHĐ / TK THD / Nội bộ" }
     @{ enum="PlanTaskStatus"; values="NOT_STARTED / IN_PROGRESS / BLOCKED / DONE / NEEDS_REPLAN"; labels="Chưa bắt đầu / Đang thực hiện / Bị chặn / Hoàn thành / Cần re-plan" }
@@ -1289,6 +1366,7 @@ AddApprovalPage
 AddTOC
 AddSectionA
 AddSectionB
+AddUXConventions
 AddModuleAdmin
 AddModuleDashboard
 AddModuleInit

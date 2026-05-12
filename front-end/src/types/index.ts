@@ -6,8 +6,14 @@ export type UserRole =
   | 'PROJECT_ADMIN'
   | 'SYSTEM_ADMIN'
 
-/** Functional title overlay on top of role. BRD I — TCNL/KSV identifiable. */
-export type FunctionalTitle = 'NORMAL' | 'TCNL' | 'KSV'
+/**
+ * Functional title overlay on top of role.
+ * - BRD I originally listed both TCNL and KSV. BA 14/05/2026 removed TCNL —
+ *   the second-stage close approver is now TCHC = the regular ADMIN_HC role
+ *   (no overlay needed).
+ * - KSV remains as a functional title because it lives inside DBCL, not HC.
+ */
+export type FunctionalTitle = 'NORMAL' | 'KSV'
 
 /** v3.1: 3 operational values per BRD IV.2.2. */
 export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED'

@@ -331,14 +331,14 @@ export async function ksvDecideClose(
   )
 }
 
-export async function tcnlDecideClose(
+export async function tchcDecideClose(
   projectId: string,
   closeRequestId: string,
   decision: 'APPROVED' | 'REJECTED',
   reason = '',
 ): Promise<AppSnapshot> {
   return apiCall<AppSnapshot>(
-    `/projects/${projectId}/close-requests/${closeRequestId}/tcnl`,
+    `/projects/${projectId}/close-requests/${closeRequestId}/tchc`,
     { method: 'PATCH', body: { decision, reason } },
   )
 }
@@ -353,10 +353,10 @@ export interface CloseInboxItem {
   ksvDecidedById: string | null
   ksvDecidedAt: string | null
   ksvRejectReason: string
-  tcnlDecision: 'PENDING' | 'APPROVED' | 'REJECTED'
-  tcnlDecidedById: string | null
-  tcnlDecidedAt: string | null
-  tcnlRejectReason: string
+  tchcDecision: 'PENDING' | 'APPROVED' | 'REJECTED'
+  tchcDecidedById: string | null
+  tchcDecidedAt: string | null
+  tchcRejectReason: string
   project: { id: string; code: string; name: string }
 }
 

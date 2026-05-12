@@ -5,7 +5,7 @@
 
 [CmdletBinding()]
 param(
-  [string]$OutputPath = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v2.0.docx"
+  [string]$OutputPath = "C:\Users\phucdm\Documents\QLDA\FSD_QLDA_v2.2.docx"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -198,36 +198,36 @@ function AddFlowTable {
 }
 
 function AddPermissionMatrix {
-  $cols = @("Chức năng", "PMO", "ADMIN_HC (TCHC)", "PM", "Chuyên viên QLDA", "Thành viên TTK", "KSV", "TCNL")
-  $widths = @(35, 8, 11, 7, 13, 11, 7, 8)
+  $cols = @("Chức năng", "PMO", "ADMIN_HC (TCHC)", "PM", "Chuyên viên QLDA", "Thành viên TTK", "KSV")
+  $widths = @(38, 8, 13, 8, 14, 11, 8)
   $rows = @(
-    @("Đăng nhập / Đăng xuất", "x", "x", "x", "x", "x", "x", "x"),
-    @("Quản trị danh mục hệ thống", "x", "", "", "", "", "", ""),
-    @("Quản trị danh mục KH/Đối tác", "x", "", "", "x (xem)", "", "", ""),
-    @("Quản trị người dùng & phân quyền", "x", "", "", "", "", "", ""),
-    @("Reset dữ liệu demo", "x", "", "", "", "", "", ""),
-    @("Dashboard tổng quan", "x (toàn hệ thống)", "x (toàn hệ thống)", "x (DA của mình)", "x (DA phụ trách)", "x (DA tham gia)", "", ""),
-    @("Tạo mới dự án (BA 12/05/2026)", "", "x (chỉ TCHC)", "", "", "", "", ""),
-    @("Xem danh sách dự án", "x", "x", "x", "x", "x", "", ""),
-    @("Sửa thông tin khởi tạo", "x", "x", "x (PM của DA)", "x (DA phụ trách)", "", "", ""),
-    @("Cập nhật thông tin chung / tài chính", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Quản lý nhân sự dự án", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Quản lý tài liệu dự án", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Quản lý rủi ro", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Quản lý kế hoạch (Task/Subtask)", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Khai báo tiến độ / worklog", "", "", "x", "x", "x (task được giao)", "", ""),
-    @("Raise chậm tiến độ", "", "", "", "", "x", "", ""),
-    @("Phân bổ giờ công theo tháng", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Biểu đồ Gantt", "x", "x", "x", "x", "x", "", ""),
-    @("Báo cáo", "x", "x", "x", "x", "x (đọc)", "", ""),
-    @("Thông báo cảnh báo deadline", "x", "x", "x", "x", "x", "", ""),
-    @("Tạm đóng / Mở lại dự án", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Yêu cầu đóng dự án", "x", "", "x (PM của DA)", "x", "", "", ""),
-    @("Phê duyệt yêu cầu đóng (KSV)", "", "", "", "", "", "x", ""),
-    @("Xác nhận đóng TTK (TCNL)", "", "", "", "", "", "", "x"),
-    @("Hộp thư duyệt", "", "", "", "", "", "x", "x")
+    @("Đăng nhập / Đăng xuất", "x", "x", "x", "x", "x", "x"),
+    @("Quản trị danh mục hệ thống", "x", "", "", "", "", ""),
+    @("Quản trị danh mục KH/Đối tác", "x", "", "", "x (xem)", "", ""),
+    @("Quản trị người dùng & phân quyền", "x", "", "", "", "", ""),
+    @("Reset dữ liệu demo", "x", "", "", "", "", ""),
+    @("Dashboard tổng quan", "x (toàn hệ thống)", "x (toàn hệ thống)", "x (DA của mình)", "x (DA phụ trách)", "x (DA tham gia)", ""),
+    @("Tạo mới dự án (BA 12/05/2026)", "", "x (chỉ TCHC)", "", "", "", ""),
+    @("Xem danh sách dự án", "x", "x", "x", "x", "x", ""),
+    @("Sửa thông tin khởi tạo", "x", "x", "x (PM của DA)", "x (DA phụ trách)", "", ""),
+    @("Cập nhật thông tin chung / tài chính", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Quản lý nhân sự dự án", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Quản lý tài liệu dự án", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Quản lý rủi ro", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Quản lý kế hoạch (Task/Subtask)", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Khai báo tiến độ / worklog", "", "", "x", "x", "x (task được giao)", ""),
+    @("Raise chậm tiến độ", "", "", "", "", "x", ""),
+    @("Phân bổ giờ công theo tháng", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Biểu đồ Gantt", "x", "x", "x", "x", "x", ""),
+    @("Báo cáo", "x", "x", "x", "x", "x (đọc)", ""),
+    @("Thông báo cảnh báo deadline", "x", "x", "x", "x", "x", ""),
+    @("Tạm đóng / Mở lại dự án", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Yêu cầu đóng dự án", "x", "", "x (PM của DA)", "x", "", ""),
+    @("Phê duyệt yêu cầu đóng (KSV)", "", "", "", "", "", "x"),
+    @("Xác nhận đóng TTK (TCHC) — BA 14/05/2026", "", "x", "", "", "", ""),
+    @("Hộp thư duyệt", "", "x (TCHC)", "", "", "", "x (KSV)")
   )
-  $tbl = NewTable -Rows ($rows.Count + 1) -Cols 8 -Headers $cols -WidthPct $widths
+  $tbl = NewTable -Rows ($rows.Count + 1) -Cols 7 -Headers $cols -WidthPct $widths
   for ($i = 0; $i -lt $rows.Count; $i++) {
     FillRow -Table $tbl -Row ($i + 2) -Values $rows[$i]
   }
@@ -258,8 +258,8 @@ function AddCoverPage {
   AddParagraph -Text "Thông tin tài liệu" -Align $wdAlignParagraphCenter -Bold $true -Size 13 | Out-Null
   AddBlank
   $tbl = NewTable -Rows 4 -Cols 2 -Headers @("Hạng mục", "Nội dung") -WidthPct @(40, 60)
-  FillRow -Table $tbl -Row 2 -Values @("Mã phần mềm", "D26-001-1")
-  FillRow -Table $tbl -Row 3 -Values @("Phiên bản tài liệu", "2.0")
+  FillRow -Table $tbl -Row 2 -Values @("Mã phần mềm", "D26-001-2")
+  FillRow -Table $tbl -Row 3 -Values @("Phiên bản tài liệu", "2.2")
   FillRow -Table $tbl -Row 4 -Values @("Đơn vị ban hành", "Tổ triển khai")
   AddBlank
   $tbl2 = NewTable -Rows 2 -Cols 2 -Headers @("Hạng mục", "Nội dung") -WidthPct @(40, 60)
@@ -277,7 +277,7 @@ function AddCoverPage {
 function AddChangeLog {
   AddHeading1 "BẢNG GHI NHẬN THAY ĐỔI TÀI LIỆU"
   AddParagraph -Text "T – Thêm mới, S – Sửa đổi, X – Xoá" -Italic $true -Align $wdAlignParagraphLeft | Out-Null
-  $tbl = NewTable -Rows 4 -Cols 5 -Headers @("Ngày thay đổi", "Mục, bảng thay đổi", "T S X", "Mô tả thay đổi", "Phiên bản mới") -WidthPct @(13, 25, 8, 39, 15)
+  $tbl = NewTable -Rows 5 -Cols 5 -Headers @("Ngày thay đổi", "Mục, bảng thay đổi", "T S X", "Mô tả thay đổi", "Phiên bản mới") -WidthPct @(13, 25, 8, 39, 15)
   FillRow -Table $tbl -Row 2 -Values @("05/2026", "Toàn bộ", "T", "Tạo tài liệu", "1.0")
   FillRow -Table $tbl -Row 3 -Values @(
     "12/05/2026",
@@ -292,6 +292,13 @@ function AddChangeLog {
     "T, S",
     "Bổ sung quy ước UX chung: chế độ Cập nhật/Lưu thay đổi cho các tab readonly mặc định; popup xác nhận cho mọi thao tác xoá và cập nhật; loading overlay khi gọi API; toast thông báo ở góc dưới phải; bảng lịch sử thao tác tại cuối mỗi tab; cảnh báo highlight task quá hạn / sắp đến hạn trên Gantt.",
     "2.0"
+  )
+  FillRow -Table $tbl -Row 5 -Values @(
+    "14/05/2026",
+    "B.II.3 Ma trận phân quyền; B.III Thuật ngữ; C.I.2 Phân quyền; C.V.5–6 Đóng dự án; D Danh sách API; G Phụ lục FunctionalTitle",
+    "S, X",
+    "Loại bỏ vai trò TCNL trong luồng đóng dự án. Người duyệt sau KSV chuyển sang TCHC = role ADMIN_HC (không còn functional title TCNL). Endpoint PATCH /close-requests/:id/tcnl đổi thành /tchc; các trường DB tcnlDecision/tcnlDecidedById/tcnlDecidedAt/tcnlRejectReason đổi thành tchc*. Activity log actions CLOSE_CONFIRMED_TCNL / CLOSE_REJECTED_TCNL đổi thành CLOSE_CONFIRMED_TCHC / CLOSE_REJECTED_TCHC.",
+    "2.2"
   )
   AddBlank
 }
@@ -336,7 +343,7 @@ function AddSectionA {
     @{abbr="QLDA"; desc="Hệ thống Quản lý dự án – phạm vi tài liệu này"},
     @{abbr="TTK"; desc="Tổ triển khai dự án"},
     @{abbr="TCHC"; desc="Tổ chức Hành chính – khởi tạo dự án, xác nhận đóng dự án"},
-    @{abbr="TCNL"; desc="Tổ chức Nhân lực – xác nhận đóng TTK sau khi KSV duyệt"},
+    @{abbr="TCHC (vai trò xác nhận đóng dự án)"; desc="Tổ chức Hành chính — sau quyết định BA 14/05/2026, TCHC chính là vai trò ADMIN_HC; xác nhận đóng TTK sau khi KSV duyệt (thay cho vai trò TCNL ở phiên bản trước)."},
     @{abbr="KSV"; desc="Kiểm soát viên (đơn vị DBCL) – phê duyệt yêu cầu đóng dự án"},
     @{abbr="BĐH"; desc="Ban điều hành"},
     @{abbr="PMO"; desc="Phòng Quản lý Dự án – quản trị hệ thống, danh mục, tạm đóng"},
@@ -366,8 +373,8 @@ function AddSectionB {
   AddHeading2 "I. Quy trình nghiệp vụ tổng quan"
 
   AddHeading3 "1. Luồng quy trình nghiệp vụ"
-  AddParagraph -Text "Sơ đồ luồng nghiệp vụ minh hoạ vòng đời một dự án — từ khi TCHC khởi tạo, qua các pha lập kế hoạch / triển khai / theo dõi tiến độ, tới khi đóng dự án qua phê duyệt KSV và xác nhận TCNL." | Out-Null
-  AddParagraph -Text "[Khoảng trống chèn diagram — minh hoạ luồng: Khởi tạo dự án → Lập kế hoạch → Triển khai (khai báo tiến độ, cập nhật rủi ro, cập nhật tài liệu) → Cảnh báo deadline → Tạm đóng / Mở lại → Gửi yêu cầu đóng → KSV duyệt → TCNL xác nhận → Đã đóng]" -Italic $true -Align $wdAlignParagraphCenter | Out-Null
+  AddParagraph -Text "Sơ đồ luồng nghiệp vụ minh hoạ vòng đời một dự án — từ khi TCHC khởi tạo, qua các pha lập kế hoạch / triển khai / theo dõi tiến độ, tới khi đóng dự án qua phê duyệt KSV và xác nhận TCHC (BA 14/05/2026 — vai trò TCNL trước đây được hợp nhất vào TCHC = ADMIN_HC)." | Out-Null
+  AddParagraph -Text "[Khoảng trống chèn diagram — minh hoạ luồng: Khởi tạo dự án → Lập kế hoạch → Triển khai (khai báo tiến độ, cập nhật rủi ro, cập nhật tài liệu) → Cảnh báo deadline → Tạm đóng / Mở lại → Gửi yêu cầu đóng → KSV duyệt → TCHC xác nhận → Đã đóng]" -Italic $true -Align $wdAlignParagraphCenter | Out-Null
   AddBlank
 
   AddHeading3 "2. Mô tả luồng nghiệp vụ"
@@ -386,8 +393,8 @@ function AddSectionB {
     @{no=10; step="Xuất báo cáo"; actor="Chuyên viên QLDA"; desc="Xuất báo cáo tuần TTK, báo cáo tổng hợp, báo cáo đánh giá PMO, báo cáo phát sinh — định dạng .xlsx hoặc .csv (template do khách hàng cung cấp)."},
     @{no=11; step="Tạm đóng / Mở lại dự án"; actor="PM / Chuyên viên QLDA"; desc="Tạm đóng → trạng thái PAUSED, có thể mở lại bất cứ lúc nào. Ghi lịch sử thao tác."},
     @{no=12; step="Gửi yêu cầu đóng dự án"; actor="Chuyên viên QLDA"; desc="Gửi hồ sơ + ghi chú tới nhân sự đơn vị DBCL chức danh KSV. Thông báo in-app + email tới KSV."},
-    @{no=13; step="Phê duyệt / Từ chối đóng (KSV)"; actor="KSV"; desc="Phê duyệt → chuyển tiếp cho TCNL. Từ chối → gửi lại Chuyên viên QLDA kèm lý do."},
-    @{no=14; step="Xác nhận và đóng TTK (TCNL)"; actor="TCNL"; desc="TCNL xác nhận → trạng thái ‘Đã đóng’. Từ chối → gửi lại Chuyên viên QLDA. Sau khi đã đóng: không cho phép sửa thông tin, kế hoạch, nguồn lực, tài liệu, rủi ro."},
+    @{no=13; step="Phê duyệt / Từ chối đóng (KSV)"; actor="KSV"; desc="Phê duyệt → chuyển tiếp cho TCHC. Từ chối → gửi lại Chuyên viên QLDA kèm lý do."},
+    @{no=14; step="Xác nhận và đóng TTK (TCHC)"; actor="TCHC (ADMIN_HC)"; desc="TCHC xác nhận → trạng thái ‘Đã đóng’. Từ chối → gửi lại Chuyên viên QLDA. Sau khi đã đóng: không cho phép sửa thông tin, kế hoạch, nguồn lực, tài liệu, rủi ro. BA 14/05/2026: bước này thay cho ‘TCNL xác nhận’ ở phiên bản trước — vai trò TCNL đã được loại bỏ, TCHC chính là ADMIN_HC."},
     @{no=15; step="Đăng xuất"; actor="Tất cả người dùng"; desc="Đăng xuất khỏi hệ thống. Token phiên bị huỷ."}
   )
   AddFlowTable -Rows $flow
@@ -510,7 +517,7 @@ function AddModuleAdmin {
   # 2. Phân quyền người dùng — based on BRD
   AddFunctionBlock `
     -Title "2. Phân quyền người dùng" `
-    -Description "Cho phép tài khoản Admin/PMO cấp vai trò cho các tài khoản khác trong hệ thống. Vai trò xác định phạm vi dữ liệu (xem dự án nào) và phạm vi chức năng (CRUD những gì). Danh sách 4 vai trò chuẩn: PMO, ADMIN_HC, PM, DELIVERY_MEMBER. Ngoài ra có thuộc tính chức danh chức năng FunctionalTitle = {NORMAL, TCNL, KSV} dùng để định danh người duyệt trong quy trình đóng dự án." `
+    -Description "Cho phép tài khoản Admin/PMO cấp vai trò cho các tài khoản khác trong hệ thống. Vai trò xác định phạm vi dữ liệu (xem dự án nào) và phạm vi chức năng (CRUD những gì). Danh sách 4 vai trò chuẩn: PMO, ADMIN_HC, PM, DELIVERY_MEMBER. Ngoài ra có thuộc tính chức danh chức năng FunctionalTitle = {NORMAL, KSV} dùng để định danh người duyệt KSV trong quy trình đóng dự án (BA 14/05/2026: TCNL đã bị loại bỏ — TCHC chính là vai trò ADMIN_HC, không cần overlay)." `
     -Users "Người dùng được phân quyền Admin/PMO." `
     -Steps @(
       "Đăng nhập với tài khoản PMO.",
@@ -526,7 +533,7 @@ function AddModuleAdmin {
       @{field="Email"; control="Label"; maxlen="-"; required="-"; desc="Email công ty."},
       @{field="Đơn vị"; control="Label"; maxlen="-"; required="-"; desc="Phòng/ban hiện tại của người dùng (đồng bộ từ HRM)."},
       @{field="Vai trò"; control="Dropdown"; maxlen="-"; required="Có"; desc="Một trong: PMO, ADMIN_HC, PM, DELIVERY_MEMBER. Hệ thống normalize SYSTEM_ADMIN → PMO và PROJECT_ADMIN → PM khi đọc dữ liệu."},
-      @{field="Chức danh chức năng"; control="Dropdown"; maxlen="-"; required="Không"; desc="NORMAL / KSV / TCNL — xác định ai sẽ nhận inbox phê duyệt đóng dự án."},
+      @{field="Chức danh chức năng"; control="Dropdown"; maxlen="-"; required="Không"; desc="NORMAL / KSV — chỉ KSV còn là functional title overlay (BA 14/05/2026 đã loại bỏ TCNL). KSV gán cho nhân sự DBCL đóng vai trò người phê duyệt đóng dự án (stage-1)."},
       @{field="Kích hoạt"; control="Toggle"; maxlen="-"; required="Có"; desc="Bật/tắt tài khoản. Tài khoản không kích hoạt không thể đăng nhập."},
       @{field="Ngày tạo / Ngày sửa cuối"; control="Label"; maxlen="-"; required="-"; desc="Audit columns — không cho chỉnh sửa."}
     )
@@ -903,7 +910,7 @@ function AddModuleExecution {
 # ─── C.V  Module Đóng / Tạm đóng dự án ───
 function AddModuleClose {
   AddHeading2 "V. Module Đóng / Tạm đóng dự án"
-  AddParagraph -Text "Quy trình đóng dự án gồm 3 vai trò người duyệt: Chuyên viên QLDA gửi yêu cầu → KSV phê duyệt → TCNL xác nhận đóng. Tạm đóng là cơ chế nhanh — PM/QLDA tự thực hiện và mở lại bất cứ lúc nào. Khi dự án đã CLOSED, tất cả mutation API bị deny (middleware checkProjectNotClosed)." | Out-Null
+  AddParagraph -Text "Quy trình đóng dự án gồm 3 vai trò người duyệt: Chuyên viên QLDA gửi yêu cầu → KSV phê duyệt → TCHC xác nhận đóng. TCHC chính là vai trò ADMIN_HC (quyết định BA 14/05/2026: bỏ functional title TCNL — TCHC không cần overlay vì nó vốn là vai trò gốc). Tạm đóng là cơ chế nhanh — PM/QLDA tự thực hiện và mở lại bất cứ lúc nào. Khi dự án đã CLOSED, tất cả mutation API bị deny (middleware checkProjectNotClosed)." | Out-Null
   AddBlank
 
   AddFunctionBlock `
@@ -936,7 +943,7 @@ function AddModuleClose {
 
   AddFunctionBlock `
     -Title "3. Gửi yêu cầu đóng dự án" `
-    -Description "Chuyên viên QLDA / PM gửi yêu cầu đóng dự án tới KSV. Yêu cầu kèm ghi chú tuỳ chọn. Hệ thống tạo bản ghi project_close_requests (status: KSV PENDING, TCNL PENDING). Gửi thông báo in-app + email tới tất cả người dùng có FunctionalTitle = KSV thuộc đơn vị DBCL." `
+    -Description "Chuyên viên QLDA / PM gửi yêu cầu đóng dự án tới KSV. Yêu cầu kèm ghi chú tuỳ chọn. Hệ thống tạo bản ghi project_close_requests (state: ksvDecision = PENDING, tchcDecision = PENDING). Gửi thông báo in-app + email tới tất cả người dùng có FunctionalTitle = KSV thuộc đơn vị DBCL." `
     -Users "PMO / PM của dự án / Chuyên viên QLDA (canManageProjectPlan = true)." `
     -Steps @(
       "Trong panel CloseFlow, bấm ‘Yêu cầu đóng TTK’.",
@@ -952,48 +959,48 @@ function AddModuleClose {
 
   AddFunctionBlock `
     -Title "4. KSV phê duyệt / từ chối yêu cầu đóng" `
-    -Description "Người dùng có FunctionalTitle = KSV mở Hộp thư duyệt, xem các yêu cầu đóng dự án đang chờ và phê duyệt hoặc từ chối. Khi phê duyệt, yêu cầu chuyển tiếp tới TCNL. Khi từ chối, gửi thông báo lại Chuyên viên QLDA kèm lý do." `
+    -Description "Người dùng có FunctionalTitle = KSV mở Hộp thư duyệt, xem các yêu cầu đóng dự án đang chờ và phê duyệt hoặc từ chối. Khi phê duyệt, yêu cầu chuyển tiếp tới TCHC (ADMIN_HC). Khi từ chối, gửi thông báo lại Chuyên viên QLDA kèm lý do." `
     -Users "Người dùng có functionalTitle = KSV (thuộc DBCL)." `
     -Steps @(
-      "Đăng nhập tài khoản KSV.",
+      "Đăng nhập tài khoản KSV (demo: dev.duy / 123456).",
       "Mở menu ‘Hộp thư duyệt’.",
       "Xem danh sách yêu cầu chờ duyệt — bấm ‘Phê duyệt’ hoặc nhập lý do và bấm ‘Từ chối’."
     ) `
-    -UiNote "Trang InboxPage hiển thị danh sách card. Mỗi card: mã + tên dự án (link), người gửi, ngày gửi, ghi chú, pill ‘KSV: PENDING/APPROVED/REJECTED’, pill ‘TCNL’. Khi cần quyết định, hiển thị input lý do + 2 nút." `
+    -UiNote "Trang InboxPage hiển thị danh sách card. Mỗi card: mã + tên dự án (link), người gửi, ngày gửi, ghi chú, pill ‘KSV: PENDING/APPROVED/REJECTED’, pill ‘TCHC: …’. Khi cần quyết định, hiển thị input lý do + 2 nút." `
     -Fields @(
       @{field="Lý do từ chối"; control="Input"; maxlen="500"; required="Khi từ chối"; desc="Lý do KSV từ chối yêu cầu."},
-      @{field="Phê duyệt"; control="Button"; maxlen="-"; required="-"; desc="Gọi PATCH /api/projects/:projectId/close-requests/:id/ksv với decision=APPROVED. BE chuyển ksvDecision=APPROVED, tcnlDecision=PENDING, thông báo TCNL."},
+      @{field="Phê duyệt"; control="Button"; maxlen="-"; required="-"; desc="Gọi PATCH /api/projects/:projectId/close-requests/:id/ksv với decision=APPROVED. BE chuyển ksvDecision=APPROVED, tchcDecision=PENDING, thông báo cho TCHC (= toàn bộ user role ADMIN_HC)."},
       @{field="Từ chối"; control="Button"; maxlen="-"; required="-"; desc="Tương tự với decision=REJECTED + ksvRejectReason. Yêu cầu Chuyên viên QLDA gửi lại."}
     )
 
   AddFunctionBlock `
-    -Title "5. TCNL xác nhận đóng TTK" `
-    -Description "Người dùng có FunctionalTitle = TCNL nhận inbox khi KSV đã phê duyệt. TCNL xác nhận đóng → dự án chuyển CLOSED, ghi closedAt, không cho phép chỉnh sửa. Nếu TCNL từ chối, dự án giữ ACTIVE, yêu cầu Chuyên viên QLDA gửi lại." `
-    -Users "Người dùng có functionalTitle = TCNL (thuộc TCHC)." `
+    -Title "5. TCHC xác nhận đóng TTK (BA 14/05/2026 — thay cho TCNL)" `
+    -Description "Người dùng có role = ADMIN_HC (TCHC) nhận inbox khi KSV đã phê duyệt. TCHC xác nhận đóng → dự án chuyển CLOSED, ghi closedAt, không cho phép chỉnh sửa. Nếu TCHC từ chối, dự án giữ ACTIVE, yêu cầu Chuyên viên QLDA gửi lại. Quyết định BA 14/05/2026: TCHC chính là ADMIN_HC — không còn functional title TCNL riêng biệt." `
+    -Users "Tất cả người dùng có role = ADMIN_HC (demo: hc.hoa / 123456)." `
     -Steps @(
-      "Đăng nhập tài khoản TCNL.",
-      "Mở menu ‘Hộp thư duyệt’.",
+      "Đăng nhập tài khoản TCHC (hc.hoa).",
+      "Mở menu ‘Hộp thư duyệt’ ở Sidebar.",
       "Xem các yêu cầu đã KSV duyệt — bấm ‘Phê duyệt’ hoặc nhập lý do và bấm ‘Từ chối’."
     ) `
-    -UiNote "Tương tự inbox KSV; chỉ hiển thị các yêu cầu có ksvDecision=APPROVED & tcnlDecision=PENDING." `
+    -UiNote "Tương tự inbox KSV; chỉ hiển thị các yêu cầu có ksvDecision=APPROVED & tchcDecision=PENDING." `
     -Fields @(
-      @{field="Lý do từ chối"; control="Input"; maxlen="500"; required="Khi từ chối"; desc=""},
-      @{field="Phê duyệt"; control="Button"; maxlen="-"; required="-"; desc="Gọi PATCH /api/projects/:projectId/close-requests/:id/tcnl với APPROVED. BE: project.status = CLOSED, closedAt = now, ghi PROJECT_CLOSED log."},
-      @{field="Từ chối"; control="Button"; maxlen="-"; required="-"; desc="decision=REJECTED + tcnlRejectReason."}
+      @{field="Lý do từ chối"; control="Input"; maxlen="500"; required="Khi từ chối"; desc="Lý do TCHC từ chối; gửi lại Chuyên viên QLDA."},
+      @{field="Phê duyệt"; control="Button"; maxlen="-"; required="-"; desc="Gọi PATCH /api/projects/:projectId/close-requests/:id/tchc với APPROVED. BE: project.status = CLOSED, closedAt = now, ghi PROJECT_CLOSED + CLOSE_CONFIRMED_TCHC log."},
+      @{field="Từ chối"; control="Button"; maxlen="-"; required="-"; desc="decision=REJECTED + tchcRejectReason; ghi CLOSE_REJECTED_TCHC log."}
     )
 
   AddFunctionBlock `
     -Title "6. Hộp thư duyệt (Inbox)" `
-    -Description "Menu Hộp thư duyệt chỉ hiển thị với người dùng có FunctionalTitle = KSV hoặc TCNL. Hiển thị danh sách yêu cầu đóng dự án theo phạm vi vai trò: KSV thấy yêu cầu chờ KSV; TCNL thấy yêu cầu đã KSV duyệt." `
-    -Users "KSV / TCNL." `
+    -Description "Menu Hộp thư duyệt chỉ hiển thị với người dùng có FunctionalTitle = KSV HOẶC role = ADMIN_HC (TCHC). Lọc theo phạm vi vai trò: KSV thấy yêu cầu chờ KSV; TCHC thấy yêu cầu đã KSV duyệt; người gửi (Chuyên viên QLDA / PM) thấy yêu cầu của chính mình." `
+    -Users "KSV (functional title) hoặc TCHC (role ADMIN_HC) hoặc người gửi yêu cầu." `
     -Steps @(
-      "Đăng nhập tài khoản KSV/TCNL.",
+      "Đăng nhập tài khoản KSV hoặc TCHC.",
       "Bấm menu ‘Hộp thư duyệt’ ở Sidebar."
     ) `
-    -UiNote "InboxPage — header ‘Hộp thư duyệt’ + description theo vai trò. Bên dưới là panel ‘KSV inbox’ hoặc ‘TCNL inbox’ + số lượng yêu cầu + danh sách card." `
+    -UiNote "InboxPage — heading ‘Hộp thư duyệt’ + bảng card. Mỗi card có 2 pill quyết định: ‘KSV: …’ và ‘TCHC: …’. Khi user cần quyết định, hiển thị input lý do + 2 nút." `
     -Fields @(
-      @{field="Bộ lọc theo vai trò"; control="Filter"; maxlen="-"; required="-"; desc="Tự động: KSV chỉ thấy yêu cầu PENDING-KSV; TCNL chỉ thấy KSV-APPROVED & TCNL-PENDING."},
-      @{field="Card yêu cầu"; control="Card"; maxlen="-"; required="-"; desc="Mỗi card có mã/tên dự án (link), người gửi, ngày, ghi chú, 2 pill quyết định, lý do từ chối (nếu có), input + 2 nút (nếu cần quyết định)."},
+      @{field="Bộ lọc theo vai trò"; control="Auto"; maxlen="-"; required="-"; desc="KSV → chỉ thấy yêu cầu PENDING-KSV. TCHC (role = ADMIN_HC) → chỉ thấy KSV-APPROVED & TCHC-PENDING. Người dùng khác → chỉ thấy yêu cầu của chính mình (theo dõi)."},
+      @{field="Card yêu cầu"; control="Card"; maxlen="-"; required="-"; desc="Mỗi card có mã/tên dự án (link), người gửi, ngày, ghi chú, 2 pill quyết định (KSV / TCHC), lý do từ chối (nếu có), input + 2 nút (khi user cần quyết định)."},
       @{field="Empty state"; control="Panel"; maxlen="-"; required="-"; desc="‘Tất cả yêu cầu đã được xử lý.’ khi không có yêu cầu chờ."}
     )
   PageBreak
@@ -1189,8 +1196,8 @@ function AddSectionD {
     @("POST", "/api/projects/:id/resume", "PMO / admin", "Mở lại dự án"),
     @("POST", "/api/projects/:id/close-requests", "canManageProjectPlan", "Gửi yêu cầu đóng (tạo close request)"),
     @("PATCH", "/api/projects/:id/close-requests/:reqId/ksv", "KSV", "KSV phê duyệt / từ chối"),
-    @("PATCH", "/api/projects/:id/close-requests/:reqId/tcnl", "TCNL", "TCNL xác nhận / từ chối"),
-    @("GET", "/api/close-inbox", "KSV/TCNL", "Lấy danh sách yêu cầu đóng theo vai trò"),
+    @("PATCH", "/api/projects/:id/close-requests/:reqId/tchc", "TCHC (ADMIN_HC role)", "TCHC xác nhận / từ chối (BA 14/05/2026 — endpoint /tcnl đã đổi thành /tchc; isTCHC = (user.role === 'ADMIN_HC'))"),
+    @("GET", "/api/close-inbox", "KSV / TCHC", "Lấy danh sách yêu cầu đóng theo vai trò (KSV xem PENDING-KSV; TCHC xem KSV-APPROVED & TCHC-PENDING)"),
     @("PATCH", "/api/catalogs/:groupKey", "PMO", "Cập nhật danh mục LOV"),
     @("GET", "/api/external-personnel", "PMO/QLDA", "Liệt kê KH/Đối tác"),
     @("POST", "/api/external-personnel", "PMO", "Thêm KH/Đối tác"),
@@ -1317,7 +1324,7 @@ function AddSectionG {
     @{ enum="RiskStatus"; values="OPEN / WATCHING / MITIGATED"; labels="Đang mở / Đang theo dõi / Đã giảm nhẹ" }
     @{ enum="DelayRaiseStatus"; values="OPEN / ACKNOWLEDGED / REPLANNED"; labels="Đã gửi / Đã ghi nhận / Đã re-plan" }
     @{ enum="UserRole"; values="PMO / ADMIN_HC / PM / DELIVERY_MEMBER"; labels="Phòng QLDA / Hành chính / PM / Thành viên TTK" }
-    @{ enum="FunctionalTitle"; values="NORMAL / KSV / TCNL"; labels="Bình thường / Kiểm soát viên / Tổ chức Nhân lực" }
+    @{ enum="FunctionalTitle (BA 14/05/2026)"; values="NORMAL / KSV"; labels="Bình thường / Kiểm soát viên — TCNL đã bị loại bỏ; người duyệt stage-2 chuyển sang TCHC = role ADMIN_HC, không cần overlay." }
     @{ enum="DocumentCategory"; values="CONTRACT / PROJECT_DOCUMENT / SUBMISSION / MEETING_MINUTES"; labels="Hợp đồng / Tài liệu dự án / Tờ trình / Biên bản họp" }
     @{ enum="ActivityLogAction (16)"; values="PROJECT_INFO_UPDATED, PERSONNEL_UPDATED, DOCUMENT_ADDED, DOCUMENT_DELETED, TASK_CREATED, SUBTASK_CREATED, TASK_UPDATED, SUBTASK_UPDATED, TASK_DELETED, SUBTASK_DELETED, TASK_HOURS_CHANGED, SUBTASK_HOURS_CHANGED, WORKLOG_ADDED, PROJECT_CLOSED, PROJECT_REOPENED"; labels="Mỗi action có nhãn tiếng Việt — xem ACTION_LABELS." }
   )

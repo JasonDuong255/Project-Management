@@ -8,12 +8,12 @@ import {
   pauseProject,
   requestClose,
   resumeProject,
-  tcnlDecide,
+  tchcDecide,
 } from './close-workflow.service.js'
 import {
   ksvDecisionSchema,
   requestCloseSchema,
-  tcnlDecisionSchema,
+  tchcDecisionSchema,
 } from './close-workflow.schema.js'
 
 export const closeWorkflowRouter = Router()
@@ -73,12 +73,12 @@ closeWorkflowRouter.patch(
 )
 
 closeWorkflowRouter.patch(
-  '/:projectId/close-requests/:requestId/tcnl',
-  validateBody(tcnlDecisionSchema),
+  '/:projectId/close-requests/:requestId/tchc',
+  validateBody(tchcDecisionSchema),
   async (req, res, next) => {
     try {
       if (!req.user) throw new ApiError(401, 'Authentication required')
-      await tcnlDecide(
+      await tchcDecide(
         String(req.params.projectId),
         String(req.params.requestId),
         req.body,
@@ -91,7 +91,7 @@ closeWorkflowRouter.patch(
   },
 )
 
-// Inbox for the current user (KSV / TCNL / requester views).
+// Inbox for the current user (KSV / TCHC / requester views).
 export const closeInboxRouter = Router()
 closeInboxRouter.get('/', async (req, res, next) => {
   try {

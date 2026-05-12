@@ -68,9 +68,10 @@ export function AppShell() {
   const { currentUser, logout, planItems, projects, users } = useAppData()
   const navigate = useNavigate()
   const location = useLocation()
-  // KSV/TCNL get the close-approval inbox in the sidebar.
+  // KSV (functional title) and TCHC (role = ADMIN_HC) get the close-approval
+  // inbox in the sidebar. BA 14/05/2026: TCNL was removed; stage-2 is now TCHC.
   const showInbox =
-    currentUser?.functionalTitle === 'KSV' || currentUser?.functionalTitle === 'TCNL'
+    currentUser?.functionalTitle === 'KSV' || currentUser?.role === 'ADMIN_HC'
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)

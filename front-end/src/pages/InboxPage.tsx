@@ -1,4 +1,4 @@
-import { Check, ListChecks, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -10,8 +10,18 @@ import { formatDate } from '../lib/formatters'
 
 type Decision = 'APPROVED' | 'REJECTED'
 
+/**
+ * Inbox role determines which stage of the close-flow this user can approve.
+ * - 'KSV'      → users with functionalTitle = 'KSV' (decide stage-1)
+ * - 'TCHC'     → users with role = 'ADMIN_HC'      (decide stage-2)
+ * - 'REQUESTER' → anyone else, sees their own submitted close requests
+ *
+ * BA 14/05/2026: TCNL was removed; stage-2 is now TCHC = ADMIN_HC role.
+ */
+type InboxRole = 'KSV' | 'TCHC' | 'REQUESTER'
+
 export function InboxPage() {
-  const { currentUser, ksvDecideClose, tcnlDecideClose, getUser } = useAppData()
+  const { currentUser, ksvDecideClose, tchcDecideClose, getUser } = useAppData()
   const [items, setItems] = useState<CloseInboxItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -37,22 +47,28 @@ export function InboxPage() {
   if (!currentUser) {
     return (
       <div className="page-grid">
-        <SectionHeader title="Hộp thư duyệt" description="Đăng nhập để xem" />
+        <SectionHeader title="Hộp thư duyệt" />
       </div>
     )
   }
 
-  const role = currentUser.functionalTitle ?? 'NORMAL'
-  const isReviewer = role === 'KSV' || role === 'TCNL'
+  const role: InboxRole =
+    currentUser.functionalTitle === 'KSV'
+      ? 'KSV'
+      : currentUser.role === 'ADMIN_HC'
+        ? 'TCHC'
+        : 'REQUESTER'
+  const isReviewer = role === 'KSV' || role === 'TCHC'
 
   async function handleDecide(item: CloseInboxItem, decision: Decision) {
-    setBusyId(item.id); setError('')
+    setBusyId(item.id)
+    setError('')
     const reason = reasonDraft[item.id] ?? ''
     try {
       if (role === 'KSV') {
         await ksvDecideClose(item.projectId, item.id, decision, reason)
-      } else if (role === 'TCNL') {
-        await tcnlDecideClose(item.projectId, item.id, decision, reason)
+      } else if (role === 'TCHC') {
+        await tchcDecideClose(item.projectId, item.id, decision, reason)
       }
       await reload()
     } catch (e) {
@@ -64,30 +80,15 @@ export function InboxPage() {
 
   return (
     <div className="page-grid">
-      <SectionHeader
-        title="Hộp thư duyệt"
-        description={
-          role === 'KSV'
-            ? 'Yêu cầu đóng TTK chờ KSV phê duyệt.'
-            : role === 'TCNL'
-              ? 'Yêu cầu đã được KSV duyệt, chờ TCNL xác nhận đóng TTK.'
-              : 'Yêu cầu đóng TTK do bạn gửi.'
-        }
-      />
+      <SectionHeader title="Hộp thư duyệt" />
 
       {error ? <p className="form-error">{error}</p> : null}
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <span className="eyebrow">
-              <ListChecks size={14} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
-              {role === 'KSV' ? 'KSV inbox' : role === 'TCNL' ? 'TCNL inbox' : 'Yêu cầu đã gửi'}
-            </span>
-            <h3>{loading ? 'Đang tải...' : `${items.length} yêu cầu`}</h3>
-          </div>
+          <h3>{loading ? 'Đang tải…' : `${items.length} yêu cầu`}</h3>
           <StatusPill
-            label={items.length ? `${items.length} pending` : 'Trống'}
+            label={items.length ? `${items.length} chờ xử lý` : 'Trống'}
             tone={items.length ? 'warning' : 'success'}
           />
         </div>
@@ -105,25 +106,47 @@ export function InboxPage() {
 
         {items.map((item) => {
           const requester = getUser(item.requestedById)
+          const showDecisionControls =
+            (role === 'KSV' && item.ksvDecision === 'PENDING') ||
+            (role === 'TCHC' &&
+              item.ksvDecision === 'APPROVED' &&
+              item.tchcDecision === 'PENDING')
           return (
-            <article key={item.id} className="list-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <article
+              key={item.id}
+              className="list-row"
+              style={{ flexDirection: 'column', alignItems: 'stretch' }}
+            >
               <div className="panel-heading" style={{ marginBottom: '0.5rem' }}>
                 <div>
                   <Link to={`/projects/${item.projectId}`} style={{ textDecoration: 'none' }}>
                     <strong>{item.project.code}</strong> — {item.project.name}
                   </Link>
                   <p>
-                    Người gửi: {requester?.name ?? item.requestedById} • {formatDate(item.requestedAt)}
+                    Người gửi: {requester?.name ?? item.requestedById} •{' '}
+                    {formatDate(item.requestedAt)}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <StatusPill
                     label={`KSV: ${item.ksvDecision}`}
-                    tone={item.ksvDecision === 'APPROVED' ? 'success' : item.ksvDecision === 'REJECTED' ? 'danger' : 'warning'}
+                    tone={
+                      item.ksvDecision === 'APPROVED'
+                        ? 'success'
+                        : item.ksvDecision === 'REJECTED'
+                          ? 'danger'
+                          : 'warning'
+                    }
                   />
                   <StatusPill
-                    label={`TCNL: ${item.tcnlDecision}`}
-                    tone={item.tcnlDecision === 'APPROVED' ? 'success' : item.tcnlDecision === 'REJECTED' ? 'danger' : 'warning'}
+                    label={`TCHC: ${item.tchcDecision}`}
+                    tone={
+                      item.tchcDecision === 'APPROVED'
+                        ? 'success'
+                        : item.tchcDecision === 'REJECTED'
+                          ? 'danger'
+                          : 'warning'
+                    }
                   />
                 </div>
               </div>
@@ -140,18 +163,14 @@ export function InboxPage() {
                   {item.ksvRejectReason}
                 </p>
               ) : null}
-              {item.tcnlRejectReason ? (
+              {item.tchcRejectReason ? (
                 <p style={{ color: 'var(--danger)' }}>
-                  <strong>TCNL từ chối: </strong>
-                  {item.tcnlRejectReason}
+                  <strong>TCHC từ chối: </strong>
+                  {item.tchcRejectReason}
                 </p>
               ) : null}
 
-              {/* Decision controls — only for KSV (PENDING-KSV) or TCNL (KSV-APPROVED + TCNL-PENDING) */}
-              {(role === 'KSV' && item.ksvDecision === 'PENDING') ||
-              (role === 'TCNL' &&
-                item.ksvDecision === 'APPROVED' &&
-                item.tcnlDecision === 'PENDING') ? (
+              {showDecisionControls ? (
                 <div className="form-stack">
                   <label>
                     <span>Lý do từ chối (chỉ điền khi từ chối)</span>

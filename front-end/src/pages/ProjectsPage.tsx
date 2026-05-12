@@ -3,8 +3,11 @@ import { CirclePlus, Eye, FileText, ShieldAlert, Trash2, Users, X } from 'lucide
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { useConfirm } from '../components/ConfirmDialog'
+import { useLoading } from '../components/LoadingOverlay'
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
+import { useToast } from '../components/Toast'
 import { useAppData } from '../context/AppContext'
 import {
   getHealthTone,
@@ -118,6 +121,9 @@ function buildProjectSections(projects: Project[], currentUser: User): ProjectSe
 
 export function ProjectsPage() {
   const { currentUser, projects, users, catalogs, createProject, getUser } = useAppData()
+  const toast = useToast()
+  const { confirm } = useConfirm()
+  const loading = useLoading()
   const [message, setMessage] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
 
@@ -234,24 +240,38 @@ export function ProjectsPage() {
       return
     }
 
-    await createProject({
-      code: form.code,
-      name: form.name,
-      summary: form.summary,
-      sponsor: form.sponsor,
-      objective: form.objective,
-      ttkDecisionNumber: form.ttkDecisionNumber,
-      createdById: currentUser.id,
-      adminId: form.adminId,
-      startDate: form.startDate,
-      endDate: form.endDate,
-      teamMembers: selectedMembers,
-      department: currentUser.unit,
+    const ok = await confirm({
+      title: 'Tạo dự án mới?',
+      description: `Mã ${form.code} · ${selectedMembers.length} thành viên. Sau khi lưu, dự án sẽ ở trạng thái Đang triển khai.`,
+      tone: 'primary',
+      confirmLabel: 'Tạo dự án',
     })
+    if (!ok) return
 
-    setMessage('Da tao du an moi thanh cong.')
-    setIsCreateOpen(false)
-    resetCreateState()
+    try {
+      await loading.run('Đang tạo dự án…', () =>
+        createProject({
+          code: form.code,
+          name: form.name,
+          summary: form.summary,
+          sponsor: form.sponsor,
+          objective: form.objective,
+          ttkDecisionNumber: form.ttkDecisionNumber,
+          createdById: currentUser.id,
+          adminId: form.adminId,
+          startDate: form.startDate,
+          endDate: form.endDate,
+          teamMembers: selectedMembers,
+          department: currentUser.unit,
+        }),
+      )
+      toast.success('Đã tạo dự án mới', form.code)
+      setIsCreateOpen(false)
+      resetCreateState()
+      setMessage('')
+    } catch (err) {
+      toast.error('Không tạo được dự án', err instanceof Error ? err.message : '')
+    }
   }
 
   if (!currentUser) {

@@ -15,9 +15,13 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { CloseFlowPanel } from '../components/CloseFlowPanel'
+import { useConfirm } from '../components/ConfirmDialog'
+import { EditModeBar, useEditMode } from '../components/EditModeBar'
 import { GanttChart } from '../components/GanttChart'
+import { useLoading } from '../components/LoadingOverlay'
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
+import { useToast } from '../components/Toast'
 import { useAppData } from '../context/AppContext'
 import {
   canManageProjectPlan,
@@ -709,6 +713,15 @@ export function ProjectDetailPage() {
     activityLogs: allActivityLogs,
     getUser,
   } = useAppData()
+  // BA decision 13/05/2026: replace inline form messages with bottom-right
+  // toast pops, use a confirmation modal in place of window.confirm, and show
+  // a global loading overlay while mutations are in flight.
+  const toast = useToast()
+  const { confirm } = useConfirm()
+  const loading = useLoading()
+  const initEdit = useEditMode()
+  const overviewEdit = useEditMode()
+  const personnelEdit = useEditMode()
   const project = getProjectById(projects, projectId)
   const projectActivityLogs = (allActivityLogs ?? []).filter(
     (log) => log.projectId === projectId,
@@ -793,6 +806,11 @@ export function ProjectDetailPage() {
     setDocumentInputKey((current) => current + 1)
     setIsRiskModalOpen(false)
     setPlanRiskPrompt(null)
+    // Reset edit-mode flags when switching between projects.
+    initEdit.exit()
+    overviewEdit.exit()
+    personnelEdit.exit()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, project?.id])
 
   useEffect(() => {
@@ -1163,10 +1181,14 @@ export function ProjectDetailPage() {
 
   async function handlePersonnelSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!personnelForm || !project) {
-      return
-    }
+    if (!personnelForm || !project) return
+    const ok = await confirm({
+      title: 'Lưu thông tin nhân sự?',
+      description: 'Toàn bộ thay đổi nhân sự AITS / KH / Đối tác sẽ được lưu và ghi vào lịch sử thao tác.',
+      tone: 'primary',
+      confirmLabel: 'Lưu thay đổi',
+    })
+    if (!ok) return
 
     const sanitizedPersonnel: ProjectPersonnelInfo = {
       aitsMembers: sanitizeAitsPersonnel(personnelForm.aitsMembers),
@@ -1174,310 +1196,398 @@ export function ProjectDetailPage() {
       partners: sanitizeExternalPersonnel(personnelForm.partners),
     }
 
-    await updateProject({
-      projectId: project.id,
-      patch: {
-        personnelInfo: sanitizedPersonnel,
-      },
+    await personnelEdit.withSave(async () => {
+      try {
+        await loading.run('Đang lưu thông tin nhân sự…', () =>
+          updateProject({ projectId: project.id, patch: { personnelInfo: sanitizedPersonnel } }),
+        )
+        setPersonnelForm(sanitizedPersonnel)
+        toast.success('Đã cập nhật thông tin nhân sự dự án')
+      } catch (err) {
+        toast.error('Không lưu được thông tin nhân sự', err instanceof Error ? err.message : '')
+        throw err
+      }
     })
-
-    setPersonnelForm(sanitizedPersonnel)
-    setMessage('Da cap nhat thong tin nhan su du an.')
   }
 
   async function handleInitSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!project || !initForm) return
-
-    await updateProject({
-      projectId: project.id,
-      patch: {
-        summary: initForm.summary.trim(),
-        sponsor: initForm.sponsor,
-        objective: initForm.objective.trim(),
-        ttkDecisionNumber: initForm.ttkDecisionNumber.trim(),
-        adminId: initForm.adminId,
-        startDate: initForm.startDate,
-        endDate: initForm.endDate,
-      },
+    const ok = await confirm({
+      title: 'Lưu thông tin khởi tạo?',
+      description: 'Các thay đổi được ghi vào lịch sử thao tác của dự án.',
+      tone: 'primary',
+      confirmLabel: 'Lưu thay đổi',
     })
+    if (!ok) return
 
-    setMessage('Da cap nhat thong tin khoi tao du an.')
+    await initEdit.withSave(async () => {
+      try {
+        await loading.run('Đang lưu thông tin khởi tạo…', () =>
+          updateProject({
+            projectId: project.id,
+            patch: {
+              summary: initForm.summary.trim(),
+              sponsor: initForm.sponsor,
+              objective: initForm.objective.trim(),
+              ttkDecisionNumber: initForm.ttkDecisionNumber.trim(),
+              adminId: initForm.adminId,
+              startDate: initForm.startDate,
+              endDate: initForm.endDate,
+            },
+          }),
+        )
+        toast.success('Đã cập nhật thông tin khởi tạo dự án')
+      } catch (err) {
+        toast.error('Không lưu được thông tin khởi tạo', err instanceof Error ? err.message : '')
+        throw err
+      }
+    })
   }
 
   async function handleOverviewSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!project || !overviewForm) return
+    const ok = await confirm({
+      title: 'Lưu thông tin chung?',
+      description: 'Các thay đổi được ghi vào lịch sử thao tác. Bao gồm: cơ sở căn cứ, tài chính, hình thức TTK.',
+      tone: 'primary',
+      confirmLabel: 'Lưu thay đổi',
+    })
+    if (!ok) return
 
     const sanitizedOverview = {
-      ...overviewForm!,
-      summary: overviewForm!.summary.trim(),
-      sponsor: overviewForm!.sponsor,
-      objective: overviewForm!.objective.trim(),
+      ...overviewForm,
+      summary: overviewForm.summary.trim(),
+      sponsor: overviewForm.sponsor,
+      objective: overviewForm.objective.trim(),
       basisInfo: {
-        ...overviewForm!.basisInfo,
-        outputContracts: sanitizeReferenceItems(overviewForm!.basisInfo.outputContracts),
-        inputContracts: sanitizeReferenceItems(overviewForm!.basisInfo.inputContracts),
-        deploymentApprovals: sanitizeReferenceItems(overviewForm!.basisInfo.deploymentApprovals),
-        projectTeamDecisions: sanitizeReferenceItems(overviewForm!.basisInfo.projectTeamDecisions),
-        durationDays: Number(overviewForm!.basisInfo.durationDays) || 0,
-        durationHours: Number(overviewForm!.basisInfo.durationHours) || 0,
+        ...overviewForm.basisInfo,
+        outputContracts: sanitizeReferenceItems(overviewForm.basisInfo.outputContracts),
+        inputContracts: sanitizeReferenceItems(overviewForm.basisInfo.inputContracts),
+        deploymentApprovals: sanitizeReferenceItems(overviewForm.basisInfo.deploymentApprovals),
+        projectTeamDecisions: sanitizeReferenceItems(overviewForm.basisInfo.projectTeamDecisions),
+        durationDays: Number(overviewForm.basisInfo.durationDays) || 0,
+        durationHours: Number(overviewForm.basisInfo.durationHours) || 0,
       },
       financialInfo: {
         revenue: {
-          amount: Number(overviewForm!.financialInfo.revenue.amount) || 0,
-          note: overviewForm!.financialInfo.revenue.note.trim(),
+          amount: Number(overviewForm.financialInfo.revenue.amount) || 0,
+          note: overviewForm.financialInfo.revenue.note.trim(),
         },
         internalCost: {
-          amount: Number(overviewForm!.financialInfo.internalCost.amount) || 0,
-          note: overviewForm!.financialInfo.internalCost.note.trim(),
+          amount: Number(overviewForm.financialInfo.internalCost.amount) || 0,
+          note: overviewForm.financialInfo.internalCost.note.trim(),
         },
         externalCost: {
-          amount: Number(overviewForm!.financialInfo.externalCost.amount) || 0,
-          note: overviewForm!.financialInfo.externalCost.note.trim(),
+          amount: Number(overviewForm.financialInfo.externalCost.amount) || 0,
+          note: overviewForm.financialInfo.externalCost.note.trim(),
         },
         profit: {
-          amount: Number(overviewForm!.financialInfo.profit.amount) || 0,
-          note: overviewForm!.financialInfo.profit.note.trim(),
+          amount: Number(overviewForm.financialInfo.profit.amount) || 0,
+          note: overviewForm.financialInfo.profit.note.trim(),
         },
-        costSource: overviewForm!.financialInfo.costSource.trim(),
+        costSource: overviewForm.financialInfo.costSource.trim(),
       },
     }
 
-    await updateProject({
-      projectId: project!.id,
-      patch: sanitizedOverview,
+    await overviewEdit.withSave(async () => {
+      try {
+        await loading.run('Đang lưu thông tin chung…', () =>
+          updateProject({ projectId: project.id, patch: sanitizedOverview }),
+        )
+        setOverviewForm(sanitizedOverview)
+        toast.success('Đã cập nhật thông tin chung dự án')
+      } catch (err) {
+        toast.error('Không lưu được thông tin chung', err instanceof Error ? err.message : '')
+        throw err
+      }
     })
-
-    setOverviewForm(sanitizedOverview)
-    setMessage('Da cap nhat thong tin chung du an.')
   }
 
   async function handleDocumentSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!project || !currentUser || !documentForm) {
-      return
-    }
-
+    if (!project || !currentUser || !documentForm) return
     if (!canManageProject) {
-      setMessage('Ban khong co quyen cap nhat tai lieu cua du an nay.')
+      toast.error('Không có quyền', 'Bạn không có quyền cập nhật tài liệu của dự án này.')
       return
     }
+    if (!documentForm.id && !documentForm.fileName) {
+      toast.warning('Thiếu file tài liệu', 'Hãy chọn file trước khi thêm mới.')
+      return
+    }
+    const ok = await confirm({
+      title: documentForm.id ? 'Cập nhật tài liệu?' : 'Thêm tài liệu mới?',
+      description: documentForm.id
+        ? 'Thay đổi sẽ được ghi vào lịch sử tài liệu.'
+        : 'Tài liệu sẽ được lưu vào danh mục của dự án.',
+      tone: 'primary',
+      confirmLabel: documentForm.id ? 'Lưu thay đổi' : 'Thêm tài liệu',
+    })
+    if (!ok) return
 
-    if (documentForm.id) {
-      await updateProjectDocument({
-        projectId: project.id,
-        documentId: documentForm.id,
-        title: documentForm.title.trim() || documentForm.fileName,
-        category: documentForm.category,
-        documentNumber: documentForm.documentNumber.trim(),
-        description: documentForm.description.trim(),
-        url: documentForm.fileName,
-        updatedBy: currentUser.id,
-      })
+    try {
+      if (documentForm.id) {
+        await loading.run('Đang lưu tài liệu…', () =>
+          updateProjectDocument({
+            projectId: project.id,
+            documentId: documentForm.id,
+            title: documentForm.title.trim() || documentForm.fileName,
+            category: documentForm.category,
+            documentNumber: documentForm.documentNumber.trim(),
+            description: documentForm.description.trim(),
+            url: documentForm.fileName,
+            updatedBy: currentUser.id,
+          }),
+        )
+        toast.success('Đã cập nhật tài liệu')
+      } else {
+        await loading.run('Đang thêm tài liệu…', () =>
+          addProjectDocument({
+            projectId: project.id,
+            title: documentForm.title.trim() || documentForm.fileName,
+            category: documentForm.category,
+            description: documentForm.description.trim(),
+            url: documentForm.fileName,
+            uploadedBy: currentUser.id,
+          }),
+        )
+        toast.success('Đã thêm tài liệu vào danh mục dự án')
+      }
       setDocumentForm(buildDocumentForm())
       setDocumentInputKey((current) => current + 1)
       setIsDocumentModalOpen(false)
-      setMessage('Da cap nhat tai lieu.')
-      return
+    } catch (err) {
+      toast.error('Không lưu được tài liệu', err instanceof Error ? err.message : '')
     }
-
-    if (!documentForm.fileName) {
-      setMessage('Hay chon file tai lieu truoc khi them moi.')
-      return
-    }
-
-    await addProjectDocument({
-      projectId: project.id,
-      title: documentForm.title.trim() || documentForm.fileName,
-      category: documentForm.category,
-      description: documentForm.description.trim(),
-      url: documentForm.fileName,
-      uploadedBy: currentUser.id,
-    })
-
-    setDocumentForm(buildDocumentForm())
-    setDocumentInputKey((current) => current + 1)
-    setIsDocumentModalOpen(false)
-    setMessage('Da them tai lieu vao danh muc du an.')
   }
 
   async function handleDeleteDocument(document: ProjectDocument) {
-    if (!project) {
-      return
-    }
-
+    if (!project) return
     if (!canManageProject) {
-      setMessage('Ban khong co quyen xoa tai lieu cua du an nay.')
+      toast.error('Không có quyền', 'Bạn không có quyền xóa tài liệu của dự án này.')
       return
     }
-
-    await deleteProjectDocument({
-      projectId: project.id,
-      documentId: document.id,
+    const ok = await confirm({
+      title: `Xóa tài liệu "${document.title}"?`,
+      description: 'Hành động này không thể hoàn tác. Tệp đính kèm sẽ bị gỡ khỏi danh mục dự án.',
+      tone: 'danger',
+      confirmLabel: 'Xóa tài liệu',
     })
+    if (!ok) return
 
-    setMessage(`Da xoa tai lieu ${document.title}.`)
+    try {
+      await loading.run('Đang xóa tài liệu…', () =>
+        deleteProjectDocument({ projectId: project.id, documentId: document.id }),
+      )
+      toast.success('Đã xóa tài liệu', document.title)
+    } catch (err) {
+      toast.error('Không xóa được tài liệu', err instanceof Error ? err.message : '')
+    }
   }
 
   async function handleDeletePlanItem(item: PlanItem) {
     if (!project || !canManagePlan) return
-    if (!window.confirm(`Xac nhan xoa "${item.name}"?`)) return
+    const ok = await confirm({
+      title: `Xóa task "${item.name}"?`,
+      description: 'Subtask, worklog và yêu cầu re-plan liên quan sẽ bị xóa theo (cascade). Không thể hoàn tác.',
+      tone: 'danger',
+      confirmLabel: 'Xóa task',
+    })
+    if (!ok) return
 
-    await deletePlanItem({ planItemId: item.id, projectId: project.id })
-
-    if (selectedTaskId === item.id) {
-      setSelectedTaskId('')
+    try {
+      await loading.run('Đang xóa task…', () =>
+        deletePlanItem({ planItemId: item.id, projectId: project.id }),
+      )
+      if (selectedTaskId === item.id) setSelectedTaskId('')
+      toast.success('Đã xóa task', item.name)
+    } catch (err) {
+      toast.error('Không xóa được task', err instanceof Error ? err.message : '')
     }
-
-    setMessage(`Da xoa: ${item.name}`)
   }
 
   async function handleRiskSummarySubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!project) {
-      return
-    }
-
+    if (!project) return
     if (!canManagePlan) {
-      setMessage('Ban khong co quyen cap nhat tong quan rui ro cua du an nay.')
+      toast.error('Không có quyền', 'Bạn không có quyền cập nhật tổng quan rủi ro của dự án này.')
       return
     }
-
-    await updateProject({
-      projectId: project.id,
-      patch: {
-        riskSummary: riskSummaryDraft.trim(),
-      },
+    const ok = await confirm({
+      title: 'Lưu tổng quan rủi ro?',
+      tone: 'primary',
+      confirmLabel: 'Lưu thay đổi',
     })
+    if (!ok) return
 
-    setMessage('Da cap nhat tong quan rui ro cua du an.')
+    try {
+      await loading.run('Đang lưu tổng quan rủi ro…', () =>
+        updateProject({
+          projectId: project.id,
+          patch: { riskSummary: riskSummaryDraft.trim() },
+        }),
+      )
+      toast.success('Đã cập nhật tổng quan rủi ro')
+    } catch (err) {
+      toast.error('Không lưu được tổng quan rủi ro', err instanceof Error ? err.message : '')
+    }
   }
 
   async function handleRiskSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!project || !currentUser || !riskForm) {
-      return
-    }
-
+    if (!project || !currentUser || !riskForm) return
     if (!canManagePlan) {
-      setMessage('Ban khong co quyen cap nhat rui ro cua du an nay.')
+      toast.error('Không có quyền', 'Bạn không có quyền cập nhật rủi ro của dự án này.')
       return
     }
-
-    await saveRisk({
-      projectId: project.id,
-      id: riskForm.id || undefined,
-      title: riskForm.title.trim(),
-      cause: riskForm.cause.trim(),
-      description: riskForm.description.trim(),
-      level: riskForm.level,
-      status: riskForm.status,
-      ownerId: riskForm.ownerId,
-      mitigation: riskForm.mitigation.trim(),
-      dueDate: riskForm.dueDate || null,
-      resolutionResult: riskForm.resolutionResult.trim(),
-      resolutionProgress: Number(riskForm.resolutionProgress) || 0,
-      nextPlan: riskForm.nextPlan.trim(),
-      notes: riskForm.notes.trim(),
+    const ok = await confirm({
+      title: riskForm.id ? 'Cập nhật rủi ro?' : 'Thêm rủi ro mới?',
+      tone: 'primary',
+      confirmLabel: riskForm.id ? 'Lưu thay đổi' : 'Thêm rủi ro',
     })
+    if (!ok) return
 
-    setIsRiskModalOpen(false)
-    setPlanRiskPrompt(null)
-    setRiskForm(buildRiskForm(project, currentUser.id))
-    setMessage(riskForm.id ? 'Da cap nhat muc rui ro.' : 'Da them muc rui ro moi.')
+    try {
+      await loading.run('Đang lưu rủi ro…', () =>
+        saveRisk({
+          projectId: project.id,
+          id: riskForm.id || undefined,
+          title: riskForm.title.trim(),
+          cause: riskForm.cause.trim(),
+          description: riskForm.description.trim(),
+          level: riskForm.level,
+          status: riskForm.status,
+          ownerId: riskForm.ownerId,
+          mitigation: riskForm.mitigation.trim(),
+          dueDate: riskForm.dueDate || null,
+          resolutionResult: riskForm.resolutionResult.trim(),
+          resolutionProgress: Number(riskForm.resolutionProgress) || 0,
+          nextPlan: riskForm.nextPlan.trim(),
+          notes: riskForm.notes.trim(),
+        }),
+      )
+      setIsRiskModalOpen(false)
+      setPlanRiskPrompt(null)
+      setRiskForm(buildRiskForm(project, currentUser.id))
+      toast.success(riskForm.id ? 'Đã cập nhật rủi ro' : 'Đã thêm rủi ro mới')
+    } catch (err) {
+      toast.error('Không lưu được rủi ro', err instanceof Error ? err.message : '')
+    }
   }
 
   async function handleRiskDelete() {
     if (!project || !riskForm?.id) return
-    if (!window.confirm('Xác nhận xóa rủi ro này? Lịch sử thao tác vẫn được giữ.')) return
+    const ok = await confirm({
+      title: 'Xóa rủi ro này?',
+      description: 'Lịch sử thao tác sẽ được giữ. Hành động không thể hoàn tác.',
+      tone: 'danger',
+      confirmLabel: 'Xóa rủi ro',
+    })
+    if (!ok) return
+
     try {
-      await deleteRisk({ projectId: project.id, riskId: riskForm.id })
+      await loading.run('Đang xóa rủi ro…', () =>
+        deleteRisk({ projectId: project.id, riskId: riskForm.id }),
+      )
       setIsRiskModalOpen(false)
       setRiskForm(buildRiskForm(project, currentUser?.id ?? project.adminId))
-      setMessage('Đã xóa rủi ro.')
+      toast.success('Đã xóa rủi ro')
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Không xóa được rủi ro.')
+      toast.error('Không xóa được rủi ro', err instanceof Error ? err.message : '')
     }
   }
 
   async function handlePlanSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!project || !currentUser || !planForm) {
-      return
-    }
+    if (!project || !currentUser || !planForm) return
 
     if (!canSubmitPlanForm) {
-      setMessage('Ban khong co quyen tao hoac cap nhat task nay.')
+      toast.error('Không có quyền', 'Bạn không có quyền tạo hoặc cập nhật task này.')
       return
     }
-
     if (!planForm.assigneeIds.length) {
-      setMessage('Hay chon it nhat mot nhan su tham gia task.')
+      toast.warning('Thiếu nhân sự', 'Hãy chọn ít nhất một nhân sự tham gia task.')
       return
     }
 
     const submittedPlan = { ...planForm }
-
-    await savePlanItem({
-      id: submittedPlan.id || undefined,
-      projectId: project.id,
-      parentId: submittedPlan.parentId || null,
-      name: submittedPlan.name,
-      workType: submittedPlan.parentId ? 'SUBTASK' : submittedPlan.workType,
-      ownerId: project.adminId,
-      assigneeId: submittedPlan.assigneeId || submittedPlan.assigneeIds[0],
-      assigneeIds: submittedPlan.assigneeIds,
-      status: submittedPlan.status,
-      baselineStartDate: submittedPlan.baselineStartDate || submittedPlan.startDate,
-      baselineEndDate: submittedPlan.baselineEndDate || submittedPlan.endDate,
-      startDate: submittedPlan.startDate,
-      endDate: submittedPlan.endDate,
-      progress: Number(submittedPlan.progress),
-      plannedHours: Number(submittedPlan.plannedHours),
-      monthAllocations: [],
-      dependencyNote: submittedPlan.dependencyNote,
-      deliverable: submittedPlan.deliverable,
+    const ok = await confirm({
+      title: submittedPlan.id ? 'Cập nhật task?' : 'Tạo task mới?',
+      description: submittedPlan.parentId
+        ? 'Task này thuộc về một task cha trong kế hoạch.'
+        : 'Task tổng quan sẽ được thêm vào kế hoạch triển khai.',
+      tone: 'primary',
+      confirmLabel: submittedPlan.id ? 'Lưu thay đổi' : 'Tạo task',
     })
+    if (!ok) return
 
-    const assigneeNames =
-      submittedPlan.assigneeIds
-        .map((memberId) => getUser(memberId)?.name ?? memberId)
-        .join(', ') || 'Chua phan cong'
-    const nextRiskPrompt = buildRiskDraftFromPlan(project, submittedPlan, assigneeNames)
+    try {
+      await loading.run('Đang lưu task…', () =>
+        savePlanItem({
+          id: submittedPlan.id || undefined,
+          projectId: project.id,
+          parentId: submittedPlan.parentId || null,
+          name: submittedPlan.name,
+          workType: submittedPlan.parentId ? 'SUBTASK' : submittedPlan.workType,
+          ownerId: project.adminId,
+          assigneeId: submittedPlan.assigneeId || submittedPlan.assigneeIds[0],
+          assigneeIds: submittedPlan.assigneeIds,
+          status: submittedPlan.status,
+          baselineStartDate: submittedPlan.baselineStartDate || submittedPlan.startDate,
+          baselineEndDate: submittedPlan.baselineEndDate || submittedPlan.endDate,
+          startDate: submittedPlan.startDate,
+          endDate: submittedPlan.endDate,
+          progress: Number(submittedPlan.progress),
+          plannedHours: Number(submittedPlan.plannedHours),
+          monthAllocations: [],
+          dependencyNote: submittedPlan.dependencyNote,
+          deliverable: submittedPlan.deliverable,
+        }),
+      )
 
-    setMessage(
-      submittedPlan.id
-        ? 'Da cap nhat task/subtask trong ke hoach trien khai.'
-        : 'Da them task/subtask moi cho ke hoach trien khai.',
-    )
-    setPlanForm(buildPlanForm(project))
-    setIsPlanModalOpen(false)
-    setPlanRiskPrompt(nextRiskPrompt)
+      const assigneeNames =
+        submittedPlan.assigneeIds
+          .map((memberId) => getUser(memberId)?.name ?? memberId)
+          .join(', ') || 'Chưa phân công'
+      const nextRiskPrompt = buildRiskDraftFromPlan(project, submittedPlan, assigneeNames)
+      setPlanForm(buildPlanForm(project))
+      setIsPlanModalOpen(false)
+      setPlanRiskPrompt(nextRiskPrompt)
+      toast.success(submittedPlan.id ? 'Đã cập nhật task' : 'Đã tạo task mới', submittedPlan.name)
+    } catch (err) {
+      toast.error('Không lưu được task', err instanceof Error ? err.message : '')
+    }
   }
 
   async function handleExecutionSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!selectedTask || !executionForm) {
-      return
-    }
-
-    await addWorklog({
-      taskId: selectedTask.id,
-      projectId: project!.id,
-      memberId: executionForm.memberId,
-      date: executionForm.date,
-      hours: Number(executionForm.hours),
-      progressNote: executionForm.progressNote,
-      progress: Number(executionForm.progress),
+    if (!selectedTask || !executionForm) return
+    const ok = await confirm({
+      title: 'Lưu khai báo tiến độ?',
+      description: 'Hệ thống sẽ cộng dồn giờ công, tự động cập nhật trạng thái task và đồng bộ tới a.Office.',
+      tone: 'primary',
+      confirmLabel: 'Lưu khai báo',
     })
+    if (!ok) return
 
-    setMessage('Da cap nhat tien do va gio cong thuc te cho task duoc chon.')
-    setIsExecutionModalOpen(false)
+    try {
+      await loading.run('Đang lưu tiến độ…', () =>
+        addWorklog({
+          taskId: selectedTask.id,
+          projectId: project!.id,
+          memberId: executionForm.memberId,
+          date: executionForm.date,
+          hours: Number(executionForm.hours),
+          progressNote: executionForm.progressNote,
+          progress: Number(executionForm.progress),
+        }),
+      )
+      setIsExecutionModalOpen(false)
+      toast.success('Đã cập nhật tiến độ và giờ công', selectedTask.name)
+    } catch (err) {
+      toast.error('Không lưu được tiến độ', err instanceof Error ? err.message : '')
+    }
   }
 
   function openTaskModal() {
@@ -1689,6 +1799,22 @@ export function ProjectDetailPage() {
             </div>
           </div>
 
+          <EditModeBar
+            isEditing={initEdit.isEditing}
+            canEdit={canManageProject}
+            saving={initEdit.saving}
+            onStartEdit={initEdit.start}
+            onSave={() =>
+              handleInitSubmit({ preventDefault: () => {} } as React.FormEvent<HTMLFormElement>)
+            }
+            onCancel={() => {
+              setInitForm(buildInitForm(project))
+              initEdit.exit()
+            }}
+            readingLabel="Bấm Cập nhật để chỉnh sửa thông tin khởi tạo dự án."
+            editingLabel="Sửa các trường, sau đó bấm Lưu thay đổi."
+          />
+
           <form className="form-grid form-grid--compact overview-form" onSubmit={handleInitSubmit}>
             <div className="overview-section span-2">
               <div className="overview-section__header">
@@ -1714,7 +1840,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, summary: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   />
                 </label>
                 <label>
@@ -1725,7 +1851,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, objective: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   />
                 </label>
                 <label>
@@ -1751,7 +1877,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, ttkDecisionNumber: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   />
                 </label>
                 <label>
@@ -1776,7 +1902,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, sponsor: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   >
                     {users.filter((u) => normalizeUserRole(u.role) !== 'DELIVERY_MEMBER').map((u) => (
                       <option key={u.id} value={u.id}>{u.name} - {u.title}</option>
@@ -1790,7 +1916,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, adminId: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   >
                     {users.filter((u) => normalizeUserRole(u.role) === 'PM').map((u) => (
                       <option key={u.id} value={u.id}>{u.name} - {u.employeeCode}</option>
@@ -1805,7 +1931,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, startDate: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   />
                 </label>
                 <label>
@@ -1816,19 +1942,15 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, endDate: event.target.value } : current)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canManageProject || !initEdit.isEditing}
                   />
                 </label>
               </div>
             </div>
-
-            {canManageProject ? (
-              <button type="submit" className="primary-button">
-                <Save size={16} />
-                Luu thay doi
-              </button>
-            ) : null}
           </form>
+
+          {/* Lịch sử thay đổi tab Thông tin khởi tạo */}
+          <InlineActivityLog logs={overviewLogs} getUser={getUser} />
         </section>
       ) : null}
 
@@ -1844,7 +1966,31 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
+        <EditModeBar
+          isEditing={overviewEdit.isEditing}
+          canEdit={canManageProject}
+          saving={overviewEdit.saving}
+          onStartEdit={overviewEdit.start}
+          onSave={() =>
+            handleOverviewSubmit({ preventDefault: () => {} } as React.FormEvent<HTMLFormElement>)
+          }
+          onCancel={() => {
+            setOverviewForm(buildOverviewForm(project))
+            overviewEdit.exit()
+          }}
+          readingLabel="Bấm Cập nhật để chỉnh sửa thông tin chung, cơ sở căn cứ, tài chính."
+          editingLabel="Sửa các trường, sau đó bấm Lưu thay đổi."
+        />
+
         <form className="form-grid form-grid--compact overview-form" onSubmit={handleOverviewSubmit}>
+          {/* fieldset[disabled] propagates the disabled attribute to every
+              form control inside, so we don't have to touch each individual
+              input's disabled prop. The display:contents removes it from
+              layout while preserving the disabled cascade. */}
+          <fieldset
+            disabled={!overviewEdit.isEditing || !canManageProject}
+            className="edit-mode-fieldset"
+          >
             <div className="overview-section span-2">
               <div className="overview-section__header">
                 <div>
@@ -2223,12 +2369,7 @@ export function ProjectDetailPage() {
               </label>
             </div>
 
-            {canManageProject ? (
-              <button type="submit" className="primary-button">
-                <Save size={16} />
-                Luu thay doi
-              </button>
-            ) : null}
+          </fieldset>
         </form>
         <InlineActivityLog logs={overviewLogs} getUser={getUser} />
       </section>
@@ -2246,7 +2387,27 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
+        <EditModeBar
+          isEditing={personnelEdit.isEditing}
+          canEdit={canManageProject}
+          saving={personnelEdit.saving}
+          onStartEdit={personnelEdit.start}
+          onSave={() =>
+            handlePersonnelSubmit({ preventDefault: () => {} } as React.FormEvent<HTMLFormElement>)
+          }
+          onCancel={() => {
+            setPersonnelForm(buildPersonnelForm(project))
+            personnelEdit.exit()
+          }}
+          readingLabel="Bấm Cập nhật để chỉnh sửa nhân sự AITS / Khách hàng / Đối tác."
+          editingLabel="Sửa các trường, sau đó bấm Lưu thay đổi."
+        />
+
         <form className="personnel-form" onSubmit={handlePersonnelSubmit}>
+          <fieldset
+            disabled={!personnelEdit.isEditing || !canManageProject}
+            className="edit-mode-fieldset"
+          >
             <div className="personnel-group">
               <div className="personnel-group__header">
                 <div>
@@ -2695,12 +2856,7 @@ export function ProjectDetailPage() {
               </div>
             </div>
 
-            {canManageProject ? (
-              <button type="submit" className="primary-button">
-                <Save size={16} />
-                Luu thay doi
-              </button>
-            ) : null}
+          </fieldset>
         </form>
         <InlineActivityLog logs={personnelLogs} getUser={getUser} />
       </section>
@@ -3861,6 +4017,8 @@ export function ProjectDetailPage() {
           users={users}
           projects={projects}
           updateProject={updateProject}
+          workloadLogs={projectActivityLogs.filter((l) => l.action === 'ALLOCATION_UPDATED')}
+          getUserById={getUser}
         />
       ) : null}
 
@@ -3934,12 +4092,19 @@ function WorkloadTabPanel({
   users,
   projects,
   updateProject,
+  workloadLogs,
+  getUserById,
 }: {
   project: Project
   users: User[]
   projects: Project[]
   updateProject: (input: { projectId: string; patch: Partial<Project> }) => Promise<void>
+  workloadLogs: import('../types').ActivityLog[]
+  getUserById: (id?: string) => User | null
 }) {
+  const toast = useToast()
+  const { confirm } = useConfirm()
+  const loading = useLoading()
   const projectMonths = getProjectAllocationMonths(project)
   const estimatedEndDate = getEstimatedProjectEndDate(project)
 
@@ -4050,6 +4215,14 @@ function WorkloadTabPanel({
   const canSave = invalidRows === 0
 
   async function handleSave() {
+    const ok = await confirm({
+      title: 'Lưu phân bổ giờ công?',
+      description: 'Hệ thống sẽ cập nhật phân bổ theo tháng cho từng thành viên TTK.',
+      tone: 'primary',
+      confirmLabel: 'Lưu phân bổ',
+    })
+    if (!ok) return
+
     const editableIds = new Set(resolvedMembers.map((m) => m.memberId))
     const editableMonths = new Set(projectMonths)
     const preserved = project.monthlyAllocations.filter(
@@ -4063,15 +4236,22 @@ function WorkloadTabPanel({
         }
       })
     })
-    await updateProject({
-      projectId: project.id,
-      patch: {
-        monthlyAllocations: next.sort((a, b) =>
-          a.month.localeCompare(b.month) || a.memberId.localeCompare(b.memberId),
-        ),
-      },
-    })
-    setMessage('Da luu phan bo gio cong.')
+    try {
+      await loading.run('Đang lưu phân bổ giờ công…', () =>
+        updateProject({
+          projectId: project.id,
+          patch: {
+            monthlyAllocations: next.sort((a, b) =>
+              a.month.localeCompare(b.month) || a.memberId.localeCompare(b.memberId),
+            ),
+          },
+        }),
+      )
+      setMessage('')
+      toast.success('Đã lưu phân bổ giờ công')
+    } catch (err) {
+      toast.error('Không lưu được phân bổ giờ công', err instanceof Error ? err.message : '')
+    }
   }
 
   return (
@@ -4192,6 +4372,8 @@ function WorkloadTabPanel({
           </tbody>
         </table>
       </div>
+
+      <InlineActivityLog logs={workloadLogs} getUser={getUserById} />
     </div>
   )
 }

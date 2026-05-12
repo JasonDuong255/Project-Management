@@ -1,7 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AppShell } from './components/AppShell'
+import { ConfirmDialogProvider } from './components/ConfirmDialog'
+import { LoadingOverlayProvider } from './components/LoadingOverlay'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { ToastProvider } from './components/Toast'
 import { AppProvider, useAppData } from './context/AppContext'
 import { AdminCatalogPage } from './pages/AdminCatalogPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -72,9 +75,15 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AppProvider>
-      <AppRoutes />
-    </AppProvider>
+    <ToastProvider>
+      <ConfirmDialogProvider>
+        <LoadingOverlayProvider>
+          <AppProvider>
+            <AppRoutes />
+          </AppProvider>
+        </LoadingOverlayProvider>
+      </ConfirmDialogProvider>
+    </ToastProvider>
   )
 }
 

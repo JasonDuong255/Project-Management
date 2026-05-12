@@ -37,6 +37,23 @@ function getStatusLabel(status: string) {
   }
 }
 
+/**
+ * Classify a task w.r.t. its deadline. A task that is not yet DONE is:
+ * - "overdue"  if its endDate has already passed today,
+ * - "due-soon" if its endDate is within the next 4 days (BRD VI.1).
+ * DONE tasks are never flagged.
+ */
+function classifyDeadline(item: GanttItem): 'overdue' | 'due-soon' | null {
+  if (item.status === 'DONE' || item.progress >= 100) return null
+  const end = dayjs(item.endDate)
+  if (!end.isValid()) return null
+  const today = dayjs().startOf('day')
+  if (end.isBefore(today)) return 'overdue'
+  const daysLeft = end.startOf('day').diff(today, 'day')
+  if (daysLeft >= 0 && daysLeft <= 4) return 'due-soon'
+  return null
+}
+
 /* ── work-type icon ── */
 function WorkTypeIcon({ type }: { type: string }) {
   if (type === 'MILESTONE') {
@@ -138,11 +155,15 @@ export function GanttChart({
           const colors = getBarColors(item.status)
           const indent = item.depth * (isCompact ? 16 : 22)
 
+          const deadlineClass = classifyDeadline(item)
+
           const rowClass = [
             'gantt-row',
             isActive ? 'gantt-row--active' : '',
             onSelect ? 'gantt-row--interactive' : '',
             item.depth > 0 ? 'gantt-row--child' : '',
+            deadlineClass === 'overdue' ? 'gantt-row--overdue' : '',
+            deadlineClass === 'due-soon' ? 'gantt-row--due-soon' : '',
           ]
             .filter(Boolean)
             .join(' ')
@@ -166,16 +187,28 @@ export function GanttChart({
               }
             >
               {/* ── Left sticky column ── */}
-              <div className="gantt-sticky" style={{ paddingLeft: `${12 + indent}px` }}>
+              <div className="gantt-sticky gantt-label-block" style={{ paddingLeft: `${12 + indent}px` }}>
                 <div className="gantt-task-name">
                   <WorkTypeIcon type={item.workType} />
                   <div className="gantt-task-name__text">
                     <strong>{item.label}</strong>
-                    {item.childCount > 0 && (
-                      <span className="gantt-child-badge">
-                        {item.childCount} subtask
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center', marginTop: 2 }}>
+                      {item.childCount > 0 && (
+                        <span className="gantt-child-badge">
+                          {item.childCount} subtask
+                        </span>
+                      )}
+                      {deadlineClass === 'overdue' ? (
+                        <span className="task-overdue-badge task-overdue-badge--overdue">
+                          ⚠ Quá hạn
+                        </span>
+                      ) : null}
+                      {deadlineClass === 'due-soon' ? (
+                        <span className="task-overdue-badge task-overdue-badge--soon">
+                          ◐ Sắp đến hạn
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 {!isCompact && (
@@ -206,14 +239,27 @@ export function GanttChart({
 
                 {/* Bar container */}
                 <div
-                  className={`gantt-bar${isActive ? ' gantt-bar--active' : ''}`}
+                  className={[
+                    'gantt-bar',
+                    isActive ? 'gantt-bar--active' : '',
+                    deadlineClass === 'overdue' ? 'gantt-bar--overdue' : '',
+                    deadlineClass === 'due-soon' ? 'gantt-bar--due-soon' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   style={{
                     left: `${left}%`,
                     width: `${Math.max(width, 5)}%`,
                     backgroundColor: colors.bg,
                     borderColor: colors.fill,
                   }}
-                  title={`${item.label}: ${item.progress}% – ${getStatusLabel(item.status)}`}
+                  title={`${item.label}: ${item.progress}% – ${getStatusLabel(item.status)}${
+                    deadlineClass === 'overdue'
+                      ? ' (Quá hạn)'
+                      : deadlineClass === 'due-soon'
+                        ? ' (Sắp đến hạn)'
+                        : ''
+                  }`}
                 >
                   {/* Progress fill */}
                   <div

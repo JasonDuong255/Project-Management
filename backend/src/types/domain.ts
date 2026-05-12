@@ -19,7 +19,6 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type RiskStatus = 'OPEN' | 'WATCHING' | 'MITIGATED'
 export type TtkMode = 'CHUYEN_TRACH' | 'KIEM_NHIEM'
 export type DeploymentMode = 'HD_PLHD' | 'TK_THD' | 'NOI_BO'
-export type ProjectApprovalStatus = 'PENDING' | 'APPROVED'
 
 export type ActivityLogAction =
   | 'PROJECT_INFO_UPDATED'
@@ -80,17 +79,6 @@ export interface AuthUser {
 
 export interface ProjectReferenceItem {
   name: string
-  note: string
-}
-
-export interface ProjectApprovalInfo {
-  status: ProjectApprovalStatus
-  requestedById: string
-  requestFileName: string
-  requestSubmittedAt: string
-  approvedById: string
-  approvedAt: string
-  approvalFileName: string
   note: string
 }
 

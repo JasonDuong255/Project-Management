@@ -273,17 +273,10 @@ function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
       email: item.email.trim(),
       phone: item.phone.trim(),
     }))
-    .filter(
-      (item) =>
-        item.fullName ||
-        item.title ||
-        item.unit ||
-        item.role ||
-        item.responsibility ||
-        item.email ||
-        item.phone ||
-        item.totalPlannedHours,
-    )
+    // BA decision 12/05/2026: every AITS row must be bound to a real User
+    // (userId is a valid UUID). Unbound drafts are silently dropped here so
+    // the BE strict validator never rejects the whole save.
+    .filter((item) => item.userId.length > 0)
 }
 
 function sanitizeExternalPersonnel(items: ProjectExternalPersonnel[]) {
@@ -622,20 +615,14 @@ function getProjectAllocationMonths(project: Project) {
   return months
 }
 
+/**
+ * Resolve an AITS personnel row to its real User record. Since BA decision
+ * 12/05/2026, every AITS member MUST have a userId — the BE rejects rows
+ * lacking it. The old email/fullName fallback chain has been removed.
+ */
 function resolveAitsUser(personnel: ProjectAitsPersonnel, allUsers: User[]) {
-  if (personnel.userId) {
-    return allUsers.find((user) => user.id === personnel.userId) ?? null
-  }
-  if (personnel.email) {
-    const byEmail = allUsers.find(
-      (user) => user.email.toLowerCase() === personnel.email.toLowerCase(),
-    )
-    if (byEmail) return byEmail
-  }
-  if (personnel.fullName) {
-    return allUsers.find((user) => user.name.toLowerCase() === personnel.fullName.toLowerCase()) ?? null
-  }
-  return null
+  if (!personnel.userId) return null
+  return allUsers.find((user) => user.id === personnel.userId) ?? null
 }
 
 function buildFallbackAitsPersonnel(
@@ -946,6 +933,37 @@ export function ProjectDetailPage() {
         ...current,
         aitsMembers: current.aitsMembers.map((item, itemIndex) =>
           itemIndex === index ? { ...item, [field]: value } : item,
+        ),
+      }
+    })
+  }
+
+  /**
+   * Bind an AITS personnel row to a real User. Required since BA decision
+   * 12/05/2026: free-text entries are no longer allowed; identity fields
+   * (name/title/unit/email/phone/employeeCode) are derived from the User
+   * record. Only role / responsibility / totalPlannedHours stay editable.
+   */
+  function bindAitsPersonnelUser(index: number, userId: string) {
+    const picked = users.find((u) => u.id === userId)
+    if (!picked) return
+    setPersonnelForm((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        aitsMembers: current.aitsMembers.map((item, itemIndex) =>
+          itemIndex === index
+            ? {
+                ...item,
+                userId: picked.id,
+                employeeCode: picked.employeeCode,
+                fullName: picked.name,
+                title: picked.title,
+                unit: picked.unit,
+                email: picked.email,
+                phone: picked.phone,
+              }
+            : item,
         ),
       }
     })
@@ -1737,16 +1755,8 @@ export function ProjectDetailPage() {
                   />
                 </label>
                 <label>
-                  <span>File quyet dinh</span>
-                  <input value={project.approvalInfo.requestFileName || 'Chua co file'} disabled />
-                </label>
-                <label>
                   <span>Nguoi tao</span>
                   <input value={getUser(project.createdById)?.name ?? project.createdById} disabled />
-                </label>
-                <label>
-                  <span>Ngay tao</span>
-                  <input value={formatDate(project.approvalInfo.requestSubmittedAt)} disabled />
                 </label>
               </div>
             </div>
@@ -2261,118 +2271,108 @@ export function ProjectDetailPage() {
                   <thead>
                     <tr>
                       <th>STT</th>
-                      <th>Ho va ten</th>
-                      <th>Chuc danh</th>
-                      <th>Don vi</th>
+                      <th>Nhan vien AITS</th>
+                      <th>Chuc danh / Don vi</th>
                       <th>Vai tro</th>
                       <th>Nhiem vu</th>
                       <th>Tong gio cong TK</th>
-                      <th>Email</th>
-                      <th>SDT</th>
+                      <th>Email / SDT</th>
                       {canManageProject ? <th>Tac vu</th> : null}
                     </tr>
                   </thead>
                   <tbody>
                     {personnelForm.aitsMembers.length ? (
-                      personnelForm.aitsMembers.map((member, index) => (
-                        <tr key={`aits-${index}`}>
-                          <td className="personnel-table__index">{index + 1}</td>
-                          <td>
-                            <input
-                              value={member.fullName}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'fullName', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={member.title}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'title', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={member.unit}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'unit', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={member.role}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'role', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              value={member.responsibility}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'responsibility', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="number"
-                              min={0}
-                              value={member.totalPlannedHours}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(
-                                  index,
-                                  'totalPlannedHours',
-                                  Number(event.target.value),
-                                )
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="email"
-                              value={member.email}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'email', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          <td>
-                            <input
-                              type="tel"
-                              value={member.phone}
-                              onChange={(event) =>
-                                updateAitsPersonnelItem(index, 'phone', event.target.value)
-                              }
-                              disabled={!canManageProject}
-                            />
-                          </td>
-                          {canManageProject ? (
-                            <td className="personnel-table__actions">
-                              <button
-                                type="button"
-                                className="ghost-button ghost-button--compact"
-                                onClick={() => removeAitsPersonnelItem(index)}
+                      personnelForm.aitsMembers.map((member, index) => {
+                        // Pool of valid AITS members = all internal Users not already selected
+                        // on another row. The current row's user stays selectable.
+                        const otherSelectedIds = new Set(
+                          personnelForm.aitsMembers
+                            .map((m, i) => (i === index ? '' : m.userId))
+                            .filter(Boolean),
+                        )
+                        const aitsPool = users.filter(
+                          (u) =>
+                            normalizeUserRole(u.role) !== 'ADMIN_HC' &&
+                            !otherSelectedIds.has(u.id),
+                        )
+                        return (
+                          <tr key={`aits-${index}`}>
+                            <td className="personnel-table__index">{index + 1}</td>
+                            <td>
+                              <select
+                                value={member.userId}
+                                onChange={(event) => bindAitsPersonnelUser(index, event.target.value)}
+                                disabled={!canManageProject}
                               >
-                                Xoa
-                              </button>
+                                <option value="">— Chon nhan vien —</option>
+                                {aitsPool.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name} ({u.employeeCode})
+                                  </option>
+                                ))}
+                              </select>
+                              {member.userId ? (
+                                <p className="workload-cell-note">{member.fullName}</p>
+                              ) : null}
                             </td>
-                          ) : null}
-                        </tr>
-                      ))
+                            <td>
+                              <strong>{member.title || '—'}</strong>
+                              <p className="workload-cell-note">{member.unit || '—'}</p>
+                            </td>
+                            <td>
+                              <input
+                                value={member.role}
+                                onChange={(event) =>
+                                  updateAitsPersonnelItem(index, 'role', event.target.value)
+                                }
+                                disabled={!canManageProject}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                value={member.responsibility}
+                                onChange={(event) =>
+                                  updateAitsPersonnelItem(index, 'responsibility', event.target.value)
+                                }
+                                disabled={!canManageProject}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                min={0}
+                                value={member.totalPlannedHours}
+                                onChange={(event) =>
+                                  updateAitsPersonnelItem(
+                                    index,
+                                    'totalPlannedHours',
+                                    Number(event.target.value),
+                                  )
+                                }
+                                disabled={!canManageProject}
+                              />
+                            </td>
+                            <td>
+                              <span>{member.email || '—'}</span>
+                              <p className="workload-cell-note">{member.phone || '—'}</p>
+                            </td>
+                            {canManageProject ? (
+                              <td className="personnel-table__actions">
+                                <button
+                                  type="button"
+                                  className="ghost-button ghost-button--compact"
+                                  onClick={() => removeAitsPersonnelItem(index)}
+                                >
+                                  Xoa
+                                </button>
+                              </td>
+                            ) : null}
+                          </tr>
+                        )
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={canManageProject ? 10 : 9} className="personnel-table__empty">
+                        <td colSpan={canManageProject ? 8 : 7} className="personnel-table__empty">
                           Chua co nhan su AITS.
                         </td>
                       </tr>
@@ -3970,9 +3970,8 @@ function WorkloadTabPanel({
     return [...mappedMembers, ...fallbackMembers]
   })()
 
-  const unmappedMembers = project.personnelInfo.aitsMembers.filter(
-    (personnel) => !resolveAitsUser(personnel, users),
-  )
+  // Since 12/05/2026 every aitsMember has a userId, so the "Nhan su chua lien
+  // ket" panel that surfaced free-text orphans has been retired.
 
   const [draftAllocations, setDraftAllocations] = useState<Record<string, number>>(() =>
     buildProjectDraftAllocations(project, resolvedMembers, projectMonths),
@@ -4118,29 +4117,6 @@ function WorkloadTabPanel({
           <strong>{overloadedCells}</strong>
         </div>
       </section>
-
-      {unmappedMembers.length ? (
-        <section className="panel panel--compact">
-          <div className="panel-heading panel-heading--compact">
-            <div>
-              <span className="eyebrow">Mapping</span>
-              <h3>Nhan su chua lien ket</h3>
-            </div>
-            <StatusPill label={`${unmappedMembers.length} nhan su`} tone="warning" />
-          </div>
-          <div className="stack-list">
-            {unmappedMembers.map((member, index) => (
-              <div key={`${member.fullName}-${index}`} className="list-row list-row--compact">
-                <div>
-                  <strong>{member.fullName || 'Chua co ten'}</strong>
-                  <p>{member.email || 'Khong co email'} | {member.title || 'Chua co chuc danh'} - {member.unit}</p>
-                </div>
-                <StatusPill label="Chua co capacity" tone="warning" />
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <div className="table-wrapper workload-planner-table-wrapper">
         <table className="workload-planner-table">

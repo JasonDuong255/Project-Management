@@ -23,7 +23,6 @@ interface Snapshot {
     documents: { id: string; title: string }[]
     risks: { id: string; title: string }[]
     monthlyAllocations: { memberId: string; month: string; hours: number }[]
-    approvalInfo: { status: string }
   }[]
   planItems: { id: string; projectId: string; name: string; progress: number; status: string }[]
   worklogs: { id: string; taskId: string; hours: number }[]
@@ -113,25 +112,8 @@ async function main() {
   console.log('  ✓ doc cycle complete')
 
   console.log('\n[4] PM creates plan item then a subtask')
-  // First make sure project is APPROVED so canManageProjectPlan passes.
-  step('approve project (PMO)')
-  await api<Snapshot>(pmoToken, `/projects/${projectId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({
-      patch: {
-        approvalInfo: {
-          status: 'APPROVED',
-          requestedById: adminId,
-          requestFileName: 'e2e-request.pdf',
-          requestSubmittedAt: new Date().toISOString(),
-          approvedById: pmoSnap.currentUser.id,
-          approvedAt: new Date().toISOString(),
-          approvalFileName: 'e2e-approval.pdf',
-          note: 'auto-approve for e2e',
-        },
-      },
-    }),
-  })
+  // canManageProjectPlan now only requires project.status === 'ACTIVE'.
+  // Approval flow has been removed (BA decision 12/05/2026).
 
   const pmToken = await login('pm.an@qlda.local')
   step('POST /projects/:id/plan-items (parent)')

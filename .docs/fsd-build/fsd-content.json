@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "title": "PHẦN MỀM QUẢN LÝ DỰ ÁN QLDA",
+    "subtitle": "TÀI LIỆU PHÂN TÍCH THIẾT KẾ PHẦN MỀM",
+    "companyLine1": "CÔNG TY CỔ PHẦN TIN HỌC VIỄN THÔNG HÀNG KHÔNG",
+    "softwareCode": "D26-001-0",
+    "version": "1.0",
+    "issuer": "Tổ triển khai",
+    "issueDate": "05/2026",
+    "location": "HÀ NỘI (05/2026)",
+    "author": "Dương Minh Phúc",
+    "reviewer": "Lê Ngọc Huy",
+    "checker": "Trần Thị Hà",
+    "approver": "Trịnh Quốc Phong"
+  },
+  "changes": [
+    { "date": "05/2026", "section": "Toàn bộ", "type": "T", "desc": "Tạo tài liệu", "ver": "1.0" }
+  ],
+  "terms": [
+    { "abbr": "QLDA", "desc": "Hệ thống Quản lý dự án — phạm vi tài liệu này" },
+    { "abbr": "TTK", "desc": "Tổ triển khai dự án" },
+    { "abbr": "TCHC", "desc": "Tổ chức Hành chính — tạo dự án, xác nhận đóng dự án" },
+    { "abbr": "TCNL", "desc": "Tổ chức Nhân lực — xác nhận đóng TTK sau khi KSV duyệt" },
+    { "abbr": "KSV", "desc": "Kiểm soát viên (đơn vị DBCL) — phê duyệt yêu cầu đóng dự án" },
+    { "abbr": "BĐH", "desc": "Ban điều hành" },
+    { "abbr": "PMO", "desc": "Phòng Quản lý Dự án — quản trị hệ thống, danh mục, tạm đóng" },
+    { "abbr": "PM", "desc": "Project Manager — Quản trị viên dự án" },
+    { "abbr": "QLDA (vai trò)", "desc": "Chuyên viên QLDA — quản lý kế hoạch, rủi ro, tài liệu" },
+    { "abbr": "Điều phối TTK", "desc": "Người điều phối tổ triển khai trong một dự án" },
+    { "abbr": "Thành viên TTK", "desc": "Thành viên tổ triển khai — khai báo giờ công, raise tiến độ" },
+    { "abbr": "HRM", "desc": "Human Resource Management — hệ thống nhân sự (ngoài)" },
+    { "abbr": "KTQT", "desc": "Kế toán Quản trị — hệ thống quản lý giờ công trần (ngoài)" },
+    { "abbr": "a.Office", "desc": "Hệ thống chấm công / kế hoạch cá nhân (ngoài)" },
+    { "abbr": "AD/LDAP", "desc": "Active Directory / LDAP — xác thực SSO" },
+    { "abbr": "TT", "desc": "Trạng thái" },
+    { "abbr": "TTLH", "desc": "Trạng thái lớp/đầu việc" },
+    { "abbr": "LOV", "desc": "List of Values — danh mục" }
+  ],
+  "businessFlow": [
+    { "no": 1, "step": "Đăng nhập hệ thống", "actor": "Tất cả người dùng", "desc": "Người dùng đăng nhập bằng tài khoản AD/LDAP của AITS. Nếu sai thông tin, hệ thống highlight trường lỗi và chặn truy cập." },
+    { "no": 2, "step": "Khởi tạo dự án", "actor": "TCHC (ADMIN_HC)", "desc": "Sau khi có Quyết định thành lập TTK, TCHC tạo dự án với các thông tin: mã, tên, số QĐ, hồ sơ căn cứ, nhiệm vụ TTK, ngày BĐ/KT, danh sách nhân sự TTK (chọn từ HRM). Trạng thái khởi tạo: 'Đang triển khai'." },
+    { "no": 3, "step": "Cập nhật thông tin chung", "actor": "Điều phối TTK / Chuyên viên QLDA", "desc": "Điền hình thức TTK (Kiêm nhiệm / Chuyên trách), loại dự án (Tiền khả thi / Khả thi / Có HĐ / Nội bộ), thông tin tài chính (doanh thu, chi phí, lợi nhuận), thông tin khách hàng / đối tác." },
+    { "no": 4, "step": "Lập kế hoạch triển khai", "actor": "Chuyên viên QLDA / PM", "desc": "CRUD task tổng và subtask. Trường: nội dung, timeline, giờ công kế hoạch, người thực hiện. Hệ thống ghi lịch sử sau khi kế hoạch được duyệt." },
+    { "no": 5, "step": "Phân bổ giờ công", "actor": "Chuyên viên QLDA", "desc": "Phân bổ giờ công theo tháng cho từng thành viên TTK. Với dự án Có HĐ / Khả thi: tổng giờ công không vượt quá KTQT, hệ thống tự đối chiếu, không cho lưu nếu vượt." },
+    { "no": 6, "step": "Cập nhật nhân sự / tài liệu / rủi ro", "actor": "Chuyên viên QLDA", "desc": "CRUD nhân sự TTK / KH / Đối tác (chọn từ danh mục hoặc tạo mới), CRUD tài liệu (file, loại, ghi chú), CRUD rủi ro (nguyên nhân, giải pháp, người xử lý, hạn, tiến độ xử lý)." },
+    { "no": 7, "step": "Khai báo tiến độ / giờ công", "actor": "Thành viên TTK", "desc": "Khai báo % hoàn thành, giờ công thực hiện, nội dung kết quả. Hệ thống tổng hợp giờ công, đồng bộ worklog sang a.Office, tự động chuyển trạng thái task NOT_STARTED → IN_PROGRESS, ≥100% → DONE." },
+    { "no": 8, "step": "Raise chậm tiến độ", "actor": "Thành viên TTK", "desc": "Khi không đạt tiến độ, gửi yêu cầu re-plan kèm lý do và ảnh hưởng. PM tiếp nhận để điều chỉnh kế hoạch." },
+    { "no": 9, "step": "Cảnh báo gần đến hạn / quá hạn", "actor": "Hệ thống", "desc": "Trước hạn ≤ 4 ngày (chưa xong) → trạng thái dự án chuyển 'Cần xem xét'. Đến hạn (chưa xong) → 'Có rủi ro'. Thông báo gửi toàn bộ thành viên TTK." },
+    { "no": 10, "step": "Xuất báo cáo", "actor": "Chuyên viên QLDA", "desc": "Xuất báo cáo tuần TTK, báo cáo tổng hợp, báo cáo đánh giá PMO, báo cáo phát sinh — định dạng .xlsx hoặc .csv (template do khách hàng cung cấp)." },
+    { "no": 11, "step": "Tạm đóng / Mở lại dự án", "actor": "PM / Chuyên viên QLDA", "desc": "Tạm đóng → trạng thái PAUSED, có thể mở lại bất cứ lúc nào. Ghi lịch sử thao tác." },
+    { "no": 12, "step": "Gửi yêu cầu đóng dự án", "actor": "Chuyên viên QLDA", "desc": "Gửi hồ sơ + ghi chú tới nhân sự đơn vị DBCL chức danh KSV. Thông báo in-app + email tới KSV." },
+    { "no": 13, "step": "Phê duyệt / Từ chối đóng (KSV)", "actor": "KSV", "desc": "Phê duyệt → chuyển tiếp cho TCNL. Từ chối → gửi lại Chuyên viên QLDA kèm lý do." },
+    { "no": 14, "step": "Xác nhận và đóng TTK (TCNL)", "actor": "TCNL", "desc": "TCNL xác nhận → trạng thái 'Đã đóng'. Từ chối → gửi lại Chuyên viên QLDA. Sau khi đã đóng: không cho phép sửa thông tin, kế hoạch, nguồn lực, tài liệu, rủi ro." },
+    { "no": 15, "step": "Đăng xuất", "actor": "Tất cả người dùng", "desc": "Đăng xuất khỏi hệ thống. Token phiên bị huỷ." }
+  ]
+}

@@ -45,28 +45,59 @@
     "personnelInfo": {
       "aitsMembers": [
         {
-          "fullName": "Nguyen An",
-          "titleUnit": "Project Manager - PMO",
-          "role": "PM phu trach",
+          "userId": "u-pm-1",
+          "employeeCode": "PM001",
+          "fullName": "Nguyen Van An",
+          "title": "Project Manager",
+          "unit": "PMO",
+          "role": "PM du an",
           "responsibility": "Dieu phoi tong the, chot pham vi va ke hoach",
           "totalPlannedHours": 0,
-          "email": "an.nguyen@aits.vn",
-          "phone": "0901000001"
+          "email": "an.pm@company.vn",
+          "phone": "0909000003"
         },
         {
-          "fullName": "Le Binh",
-          "titleUnit": "Business Analyst - Trung tam Giai phap",
+          "userId": "u-mem-1",
+          "employeeCode": "NV101",
+          "fullName": "Tran Thi Binh",
+          "title": "Business Analyst",
+          "unit": "To trien khai so 1",
           "role": "BA",
           "responsibility": "Lam viec nghiep vu va dac ta quy trinh",
           "totalPlannedHours": 124,
-          "email": "binh.le@aits.vn",
-          "phone": "0901000002"
+          "email": "binh.dev@company.vn",
+          "phone": "0909000101"
+        },
+        {
+          "userId": "u-mem-2",
+          "employeeCode": "NV102",
+          "fullName": "Pham Quoc Duy",
+          "title": "Ky su tich hop",
+          "unit": "To trien khai so 1",
+          "role": "Thanh vien trien khai",
+          "responsibility": "Tich hop HRM va kiem thu API",
+          "totalPlannedHours": 110,
+          "email": "duy.dev@company.vn",
+          "phone": "0909000102"
+        },
+        {
+          "userId": "u-mem-4",
+          "employeeCode": "NV104",
+          "fullName": "Nguyen Thi Lan",
+          "title": "Kiem thu vien",
+          "unit": "To trien khai so 2",
+          "role": "Thanh vien trien khai",
+          "responsibility": "Kiem thu chuc nang ho so va phan quyen",
+          "totalPlannedHours": 90,
+          "email": "lan.dev@company.vn",
+          "phone": "0909000104"
         }
       ],
       "customerMembers": [
         {
           "fullName": "Tran Thu Ha",
-          "titleUnit": "Pho phong Nhan su - Khoi Nhan su",
+          "title": "Pho phong Nhan su",
+          "unit": "Khoi Nhan su",
           "role": "",
           "responsibility": "Dau moi nghiep vu va phe duyet UAT",
           "email": "ha.tran@customer.vn",
@@ -76,7 +107,8 @@
       "partners": [
         {
           "fullName": "Pham Quoc Dat",
-          "titleUnit": "Technical Lead - Tich hop du lieu",
+          "title": "Technical Lead",
+          "unit": "Tich hop du lieu",
           "role": "Doi tac tich hop",
           "responsibility": "Ho tro ETL va mapping du lieu",
           "email": "dat.pham@partner.vn",
@@ -170,28 +202,47 @@
     "personnelInfo": {
       "aitsMembers": [
         {
-          "fullName": "Nguyen An",
-          "titleUnit": "Project Manager - PMO",
-          "role": "PM phu trach",
+          "userId": "u-pm-1",
+          "employeeCode": "PM001",
+          "fullName": "Nguyen Van An",
+          "title": "Project Manager",
+          "unit": "PMO",
+          "role": "PM du an",
           "responsibility": "Quan ly trien khai va xu ly phu thuoc",
           "totalPlannedHours": 0,
-          "email": "an.nguyen@aits.vn",
-          "phone": "0901000001"
+          "email": "an.pm@company.vn",
+          "phone": "0909000003"
         },
         {
-          "fullName": "Do Minh Chau",
-          "titleUnit": "Data Engineer - Khoi Cong nghe",
+          "userId": "u-mem-2",
+          "employeeCode": "NV102",
+          "fullName": "Pham Quoc Duy",
+          "title": "Ky su tich hop",
+          "unit": "To trien khai so 1",
           "role": "Data engineer",
           "responsibility": "Xay dung ETL va chuan hoa du lieu",
           "totalPlannedHours": 136,
-          "email": "chau.do@aits.vn",
-          "phone": "0901000005"
+          "email": "duy.dev@company.vn",
+          "phone": "0909000102"
+        },
+        {
+          "userId": "u-mem-3",
+          "employeeCode": "NV103",
+          "fullName": "Vo Minh Khang",
+          "title": "Lap trinh vien frontend",
+          "unit": "To trien khai so 2",
+          "role": "Thanh vien trien khai",
+          "responsibility": "Phat trien giao dien tra cuu hop dong",
+          "totalPlannedHours": 132,
+          "email": "khang.dev@company.vn",
+          "phone": "0909000103"
         }
       ],
       "customerMembers": [
         {
           "fullName": "Bui Lan Anh",
-          "titleUnit": "Chuyen vien Phap che - Khoi Phap che",
+          "title": "Chuyen vien Phap che",
+          "unit": "Khoi Phap che",
           "role": "",
           "responsibility": "Chot mau hop dong va nghiep vu nhac han",
           "email": "anh.bui@customer.vn",
@@ -201,7 +252,8 @@
       "partners": [
         {
           "fullName": "Nguyen Thanh Son",
-          "titleUnit": "Solution Architect - Doi tac so hoa",
+          "title": "Solution Architect",
+          "unit": "Doi tac so hoa",
           "role": "Tu van giai phap",
           "responsibility": "Tu van mo hinh kho hop dong va data flow",
           "email": "son.nguyen@partner.vn",
@@ -293,28 +345,59 @@
     "personnelInfo": {
       "aitsMembers": [
         {
-          "fullName": "Pham Mai Linh",
-          "titleUnit": "Project Manager - PMO",
-          "role": "PM phu trach",
+          "userId": "u-pm-2",
+          "employeeCode": "PM002",
+          "fullName": "Hoang Thu Ha",
+          "title": "Project Manager",
+          "unit": "PMO",
+          "role": "PM du an",
           "responsibility": "Chot pham vi va dieu phoi WBS",
           "totalPlannedHours": 0,
-          "email": "linh.pham@aits.vn",
-          "phone": "0901000006"
+          "email": "ha.pm@company.vn",
+          "phone": "0909000004"
         },
         {
-          "fullName": "Hoang Gia Bao",
-          "titleUnit": "Tester - Trung tam QA",
+          "userId": "u-mem-1",
+          "employeeCode": "NV101",
+          "fullName": "Tran Thi Binh",
+          "title": "Business Analyst",
+          "unit": "To trien khai so 1",
+          "role": "BA",
+          "responsibility": "Lam viec nghiep vu quan ly tai san",
+          "totalPlannedHours": 92,
+          "email": "binh.dev@company.vn",
+          "phone": "0909000101"
+        },
+        {
+          "userId": "u-mem-3",
+          "employeeCode": "NV103",
+          "fullName": "Vo Minh Khang",
+          "title": "Lap trinh vien frontend",
+          "unit": "To trien khai so 2",
           "role": "QA",
           "responsibility": "Xay dung test case va xac nhan nghiep vu",
           "totalPlannedHours": 94,
-          "email": "bao.hoang@aits.vn",
-          "phone": "0901000007"
+          "email": "khang.dev@company.vn",
+          "phone": "0909000103"
+        },
+        {
+          "userId": "u-mem-4",
+          "employeeCode": "NV104",
+          "fullName": "Nguyen Thi Lan",
+          "title": "Kiem thu vien",
+          "unit": "To trien khai so 2",
+          "role": "Thanh vien trien khai",
+          "responsibility": "Kiem thu bia giao va quy trinh kiem ke",
+          "totalPlannedHours": 86,
+          "email": "lan.dev@company.vn",
+          "phone": "0909000104"
         }
       ],
       "customerMembers": [
         {
           "fullName": "Le Hong Minh",
-          "titleUnit": "Truong phong Hanh chinh - Khoi Hanh chinh",
+          "title": "Truong phong Hanh chinh",
+          "unit": "Khoi Hanh chinh",
           "role": "",
           "responsibility": "Xac nhan quy trinh ban giao va kiem ke",
           "email": "minh.le@customer.vn",
@@ -324,7 +407,8 @@
       "partners": [
         {
           "fullName": "Tran Quang Huy",
-          "titleUnit": "Ky su barcode - Doi tac thiet bi",
+          "title": "Ky su barcode",
+          "unit": "Doi tac thiet bi",
           "role": "Ho tro thiet bi",
           "responsibility": "Cung cap giai phap tem nhan va may quet",
           "email": "huy.tran@partner.vn",

@@ -51,9 +51,13 @@ export function canEditProjectInfo(project: ProjectWithMembers, user: AuthUser):
   return isProjectCoordinator(project, user.id)
 }
 
-/** BRD IV.4.1: project creation belongs to TCHC (= ADMIN_HC). PMO retained as super-admin. */
+/**
+ * BRD IV.4.1: project creation belongs exclusively to TCHC (= ADMIN_HC).
+ * The earlier draft also allowed PMO as a super-admin; this is removed per
+ * BA decision (12/05/2026) — TCHC is the only role that may create projects.
+ */
 export function canCreateProject(user: AuthUser): boolean {
-  return user.role === 'PMO' || user.role === 'ADMIN_HC'
+  return user.role === 'ADMIN_HC'
 }
 
 // ─── List filtering ─────────────────────────────────────────────────────────

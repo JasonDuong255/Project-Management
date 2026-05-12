@@ -219,7 +219,8 @@ model Project {
   closedAt          DateTime?                                    // BRD III.1.2.5 — Đóng timestamp
 
   // Nested sub-objects → JSONB. See types/domain.ts for shapes.
-  approvalInfo  Json @default("{}")
+  // (v3.x: approvalInfo column removed — TCHC creates projects directly,
+  // no PENDING→APPROVED flow; see BA decision 12/05/2026.)
   basisInfo     Json @default("{}")
   financialInfo Json @default("{}")
   personnelInfo Json @default("{}")

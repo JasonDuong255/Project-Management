@@ -37,7 +37,7 @@ const DEFAULT_PERSONNEL = {
 
 export async function createProject(input: CreateProjectInput, currentUser: AuthUser) {
   if (!canCreateProject(currentUser)) {
-    throw new ApiError(403, 'Only PMO or ADMIN_HC (TCHC) can create projects')
+    throw new ApiError(403, 'Only ADMIN_HC (TCHC) can create projects')
   }
 
   // Dedupe by userId, keeping the first occurrence's role/hours.
@@ -87,16 +87,6 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
         adminId: input.adminId,
         startDate: new Date(input.startDate),
         endDate: new Date(input.endDate),
-        approvalInfo: {
-          status: 'PENDING',
-          requestedById: input.createdById,
-          requestFileName: input.approvalRequestFileName,
-          requestSubmittedAt: new Date().toISOString(),
-          approvedById: '',
-          approvedAt: '',
-          approvalFileName: '',
-          note: '',
-        } as Prisma.InputJsonValue,
         basisInfo: DEFAULT_BASIS as Prisma.InputJsonValue,
         financialInfo: DEFAULT_FINANCIAL as Prisma.InputJsonValue,
         personnelInfo: { ...DEFAULT_PERSONNEL, aitsMembers } as Prisma.InputJsonValue,
@@ -161,7 +151,6 @@ export async function updateProject(
     if (patch.createdById !== undefined) data.createdBy = { connect: { id: patch.createdById } }
     if (patch.startDate !== undefined) data.startDate = new Date(patch.startDate)
     if (patch.endDate !== undefined) data.endDate = new Date(patch.endDate)
-    if (patch.approvalInfo !== undefined) data.approvalInfo = patch.approvalInfo as Prisma.InputJsonValue
     if (patch.basisInfo !== undefined) data.basisInfo = patch.basisInfo as Prisma.InputJsonValue
     if (patch.financialInfo !== undefined)
       data.financialInfo = patch.financialInfo as Prisma.InputJsonValue

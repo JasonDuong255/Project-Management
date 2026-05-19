@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+﻿import type { Prisma } from '@prisma/client'
 import { prisma } from '../../db/prisma.js'
 import { ApiError } from '../../middlewares/error.js'
 import {
@@ -7,6 +7,7 @@ import {
   canManageProjectPlan,
 } from '../../lib/permissions.js'
 import { diffFields, writeActivityLog } from '../../lib/activity-log.js'
+import { storeProjectFile } from '../../lib/file-storage.js'
 import type { AuthUser } from '../../types/domain.js'
 import type { CreateProjectInput, UpdateProjectInput } from './projects.schema.js'
 
@@ -15,6 +16,11 @@ const DEFAULT_BASIS = {
   inputContracts: [],
   deploymentApprovals: [],
   projectTeamDecisions: [],
+  businessCenterCode: 'BU1',
+  customerGroupCode: 'VNA',
+  marketCode: 'HK',
+  domainCode: 'PM',
+  projectKindCode: 'NC',
   ttkMode: 'CHUYEN_TRACH',
   deploymentMode: 'NOI_BO',
   durationDays: 0,
@@ -52,7 +58,7 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
     userId: m.userId,
     isCoordinator: /dieu phoi du an/i.test(m.role),
     roleInProject: m.role,
-    responsibility: '',
+    responsibility: m.responsibility,
     totalPlannedHours: m.totalPlannedHours,
   }))
   const aitsMembers = await Promise.all(
@@ -65,7 +71,7 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
         title: user?.title ?? '',
         unit: user?.unit ?? '',
         role: m.role,
-        responsibility: '',
+        responsibility: m.responsibility,
         totalPlannedHours: m.totalPlannedHours,
         email: user?.email ?? '',
         phone: user?.phone ?? '',
@@ -87,7 +93,14 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
         adminId: input.adminId,
         startDate: new Date(input.startDate),
         endDate: new Date(input.endDate),
-        basisInfo: DEFAULT_BASIS as Prisma.InputJsonValue,
+        basisInfo: {
+          ...DEFAULT_BASIS,
+          businessCenterCode: input.businessCenterCode,
+          customerGroupCode: input.customerGroupCode,
+          marketCode: input.marketCode,
+          domainCode: input.domainCode,
+          projectKindCode: input.projectKindCode,
+        } as Prisma.InputJsonValue,
         financialInfo: DEFAULT_FINANCIAL as Prisma.InputJsonValue,
         personnelInfo: { ...DEFAULT_PERSONNEL, aitsMembers } as Prisma.InputJsonValue,
         members: {
@@ -95,6 +108,21 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
         },
       },
     })
+
+    if (input.ttkDecisionAttachment?.fileName) {
+      const documentUrl = await storeProjectFile(project.id, input.ttkDecisionAttachment)
+      await tx.projectDocument.create({
+        data: {
+          projectId: project.id,
+          title: input.ttkDecisionAttachment.title ?? input.ttkDecisionAttachment.fileName,
+          category: 'TTK_DECISION',
+          documentNumber: input.ttkDecisionNumber,
+          description: 'Tep dinh kem so quyet dinh thanh lap TTK',
+          url: documentUrl,
+          uploadedBy: currentUser.id,
+        },
+      })
+    }
 
     await writeActivityLog(tx, {
       projectId: project.id,

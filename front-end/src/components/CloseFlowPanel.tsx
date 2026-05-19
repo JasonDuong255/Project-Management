@@ -1,4 +1,4 @@
-import { Lock, Pause, Play, Send } from 'lucide-react'
+import { Lock, Pause, Play, Send, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { useAppData } from '../context/AppContext'
@@ -10,20 +10,14 @@ interface Props {
   project: Project
 }
 
-/**
- * BRD IV.6: project-close-workflow controls. Renders different UIs depending
- * on the project's status and the current user's role.
- *
- * - ACTIVE  + can-manage  → "Tạm đóng" + "Yêu cầu đóng TTK"
- * - PAUSED  + admin/PMO   → "Mở lại"
- * - CLOSED                 → read-only badge
- */
+type TransitionMode = 'pause' | 'resume' | 'close'
+
 export function CloseFlowPanel({ project }: Props) {
   const { currentUser, pauseProject, resumeProject, requestProjectClose } = useAppData()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [showCloseForm, setShowCloseForm] = useState(false)
-  const [closeNote, setCloseNote] = useState('')
+  const [mode, setMode] = useState<TransitionMode | null>(null)
+  const [note, setNote] = useState('')
 
   if (!currentUser) return null
 
@@ -31,41 +25,39 @@ export function CloseFlowPanel({ project }: Props) {
   const canManage = canManageProjectPlan(project, currentUser)
   const isAdmin = project.adminId === currentUser.id || normalizedRole === 'PMO'
 
-  if (project.status === 'CLOSED') {
-    return (
-      <section className="panel panel--compact" data-close-flow="closed">
-        <div className="panel-heading panel-heading--compact">
-          <div className="close-flow__title">
-            <Lock size={16} />
-            <span>
-              Đã đóng •{' '}
-              {project.closedAt ? new Date(project.closedAt).toLocaleString('vi-VN') : '-'}
-            </span>
-          </div>
-          <StatusPill label="Đã đóng" tone="success" />
-        </div>
-      </section>
-    )
+  function openModal(nextMode: TransitionMode) {
+    setMode(nextMode)
+    setNote('')
+    setError('')
   }
 
-  async function handlePause() {
-    setBusy(true); setError('')
-    try { await pauseProject(project.id) } catch (e) { setError((e as Error).message) }
-    finally { setBusy(false) }
+  function closeModal() {
+    if (busy) return
+    setMode(null)
+    setNote('')
+    setError('')
   }
 
-  async function handleResume() {
-    setBusy(true); setError('')
-    try { await resumeProject(project.id) } catch (e) { setError((e as Error).message) }
-    finally { setBusy(false) }
-  }
+  async function handleSubmit() {
+    if (!mode) return
+    const trimmedNote = note.trim()
+    if ((mode === 'pause' || mode === 'resume') && !trimmedNote) {
+      setError('Vui lòng nhập lý do.')
+      return
+    }
 
-  async function handleSubmitCloseRequest() {
-    setBusy(true); setError('')
+    setBusy(true)
+    setError('')
     try {
-      await requestProjectClose(project.id, closeNote)
-      setShowCloseForm(false)
-      setCloseNote('')
+      if (mode === 'pause') {
+        await pauseProject(project.id, trimmedNote)
+      } else if (mode === 'resume') {
+        await resumeProject(project.id, trimmedNote)
+      } else {
+        await requestProjectClose(project.id, trimmedNote)
+      }
+      setMode(null)
+      setNote('')
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -73,98 +65,110 @@ export function CloseFlowPanel({ project }: Props) {
     }
   }
 
-  if (project.status === 'PAUSED') {
-    return (
-      <section className="panel panel--compact" data-close-flow="paused">
-        <div className="panel-heading panel-heading--compact">
-          <div className="close-flow__title">
-            <Pause size={16} />
-            <span>
-              Tạm đóng •{' '}
-              {project.pausedAt ? new Date(project.pausedAt).toLocaleString('vi-VN') : '-'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+  const modalTitle =
+    mode === 'pause'
+      ? 'Tạm đóng dự án'
+      : mode === 'resume'
+        ? 'Mở lại dự án'
+        : 'Gửi yêu cầu đóng TTK'
+  const modalLabel =
+    mode === 'close' ? 'Ghi chú gửi phê duyệt' : 'Lý do'
+  const modalSubmit =
+    mode === 'pause' ? 'Tạm đóng' : mode === 'resume' ? 'Mở lại' : 'Gửi yêu cầu'
+
+  return (
+    <>
+      <div className="close-flow-compact">
+        {project.status === 'CLOSED' ? (
+          <StatusPill label="Đã đóng" tone="success" />
+        ) : project.status === 'PAUSED' ? (
+          <>
             <StatusPill label="Tạm đóng" tone="warning" />
             {isAdmin ? (
               <button
                 type="button"
-                className="primary-button"
-                onClick={() => void handleResume()}
+                className="primary-button primary-button--compact"
+                onClick={() => openModal('resume')}
                 disabled={busy}
               >
-                <Play size={15} /> Mở lại
+                <Play size={15} />
+                Mở lại
               </button>
             ) : null}
-          </div>
-        </div>
-        {error ? <p className="form-error">{error}</p> : null}
-      </section>
-    )
-  }
-
-  // status === 'ACTIVE'
-  if (!canManage) {
-    return null  // user has no controls; keep the panel hidden
-  }
-
-  return (
-    <section className="panel panel--compact" data-close-flow="active">
-      {error ? <p className="form-error">{error}</p> : null}
-
-      {showCloseForm ? (
-        <div className="form-stack">
-          <label>
-            <span>Ghi chú gửi KSV (tuỳ chọn)</span>
-            <textarea
-              rows={3}
-              value={closeNote}
-              onChange={(e) => setCloseNote(e.target.value)}
-              placeholder="VD: Đã hoàn tất bàn giao và biên bản nghiệm thu."
-            />
-          </label>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          </>
+        ) : canManage ? (
+          <>
             <button
               type="button"
-              className="primary-button"
-              onClick={() => void handleSubmitCloseRequest()}
+              className="ghost-button ghost-button--compact"
+              onClick={() => openModal('pause')}
               disabled={busy}
             >
-              <Send size={15} /> Gửi yêu cầu đóng
+              <Pause size={15} />
+              Tạm đóng
             </button>
             <button
               type="button"
-              className="ghost-button"
-              onClick={() => { setShowCloseForm(false); setCloseNote('') }}
+              className="primary-button primary-button--compact"
+              onClick={() => openModal('close')}
               disabled={busy}
             >
-              Huỷ
+              <Send size={15} />
+              Đóng
             </button>
-          </div>
-        </div>
-      ) : (
-        <div className="panel-heading panel-heading--compact">
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => void handlePause()}
-              disabled={busy}
-            >
-              <Pause size={15} /> Tạm đóng
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => setShowCloseForm(true)}
-              disabled={busy}
-            >
-              <Send size={15} /> Yêu cầu đóng TTK
-            </button>
-          </div>
+          </>
+        ) : (
           <StatusPill label="Đang triển khai" tone="info" />
+        )}
+        {project.status === 'CLOSED' ? <Lock size={16} aria-hidden="true" /> : null}
+      </div>
+
+      {mode ? (
+        <div className="modal-backdrop" onClick={closeModal}>
+          <div className="modal-card close-flow-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-heading">
+              <div>
+                <span className="eyebrow">Trạng thái dự án</span>
+                <h3>{modalTitle}</h3>
+                <p>{project.code} · {project.name}</p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button icon-button"
+                onClick={closeModal}
+                aria-label="Đóng"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <label>
+              <span>{modalLabel}</span>
+              <textarea
+                rows={4}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder={
+                  mode === 'close'
+                    ? 'VD: Đã hoàn tất bàn giao và nghiệm thu.'
+                    : 'Nhập lý do để lưu vào lịch sử thao tác.'
+                }
+              />
+            </label>
+
+            {error ? <p className="form-error">{error}</p> : null}
+
+            <div className="modal-actions">
+              <button type="button" className="ghost-button" onClick={closeModal} disabled={busy}>
+                Hủy
+              </button>
+              <button type="button" className="primary-button" onClick={() => void handleSubmit()} disabled={busy}>
+                {modalSubmit}
+              </button>
+            </div>
+          </div>
         </div>
-      )}
-    </section>
+      ) : null}
+    </>
   )
 }

@@ -56,12 +56,18 @@ async function main() {
   const pmAn = await login('pm.an@qlda.local')
 
   console.log('\n[2] PM pauses')
-  let snap = await api<Snap>(pmAn, `/projects/${proj.id}/pause`, { method: 'POST' })
+  let snap = await api<Snap>(pmAn, `/projects/${proj.id}/pause`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: 'e2e pause' }),
+  })
   if (snap.projects.find((p) => p.id === proj.id)?.status !== 'PAUSED') throw new Error('not PAUSED')
   console.log('  ✓ PAUSED')
 
   console.log('\n[3] PM resumes')
-  snap = await api<Snap>(pmAn, `/projects/${proj.id}/resume`, { method: 'POST' })
+  snap = await api<Snap>(pmAn, `/projects/${proj.id}/resume`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: 'e2e resume' }),
+  })
   if (snap.projects.find((p) => p.id === proj.id)?.status !== 'ACTIVE') throw new Error('not ACTIVE')
   console.log('  ✓ ACTIVE')
 

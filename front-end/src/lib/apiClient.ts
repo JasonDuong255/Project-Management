@@ -301,12 +301,18 @@ export async function resetDemoData(): Promise<AppSnapshot> {
 
 // ─── v3.2 Close workflow ───────────────────────────────────────────────────
 
-export async function pauseProject(projectId: string): Promise<AppSnapshot> {
-  return apiCall<AppSnapshot>(`/projects/${projectId}/pause`, { method: 'POST' })
+export async function pauseProject(projectId: string, reason: string): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${projectId}/pause`, {
+    method: 'POST',
+    body: { reason },
+  })
 }
 
-export async function resumeProject(projectId: string): Promise<AppSnapshot> {
-  return apiCall<AppSnapshot>(`/projects/${projectId}/resume`, { method: 'POST' })
+export async function resumeProject(projectId: string, reason: string): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${projectId}/resume`, {
+    method: 'POST',
+    body: { reason },
+  })
 }
 
 export async function requestProjectClose(

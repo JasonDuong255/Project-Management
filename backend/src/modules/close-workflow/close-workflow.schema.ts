@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+export const transitionReasonSchema = z.object({
+  reason: z.string().trim().min(1, 'Reason is required'),
+})
+export type TransitionReasonInput = z.infer<typeof transitionReasonSchema>
+
 export const requestCloseSchema = z.object({
   note: z.string().default(''),
 })

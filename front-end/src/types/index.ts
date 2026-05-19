@@ -24,6 +24,12 @@ export type HealthStatus = 'STABLE' | 'NEEDS_REVIEW' | 'AT_RISK'
 /** BRD III.1.2.2.1 — drives KTQT cap validation. */
 export type ProjectType = 'PRELIMINARY' | 'FEASIBILITY' | 'CONTRACT' | 'INTERNAL'
 
+export type BusinessCenterCode = 'BU1' | 'BU2' | 'BU3' | 'BU4' | 'BU5'
+export type CustomerGroupCode = 'VNA' | 'LDLK' | 'OT' | 'NB'
+export type MarketCode = 'HK' | 'CHK' | 'AN' | 'CP' | 'XD' | 'TC' | 'GD' | 'NL' | 'DN' | 'YT' | 'HH'
+export type DomainCode = 'PM' | 'HT' | 'DV'
+export type ProjectKindCode = 'NC' | 'KT' | 'HĐ' | 'HD' | 'NB'
+
 export type CloseRequestDecision = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export type PlanTaskStatus =
@@ -124,6 +130,11 @@ export interface ProjectBasisInfo {
   inputContracts: ProjectReferenceItem[]
   deploymentApprovals: ProjectReferenceItem[]
   projectTeamDecisions: ProjectReferenceItem[]
+  businessCenterCode?: BusinessCenterCode
+  customerGroupCode?: CustomerGroupCode
+  marketCode?: MarketCode
+  domainCode?: DomainCode
+  projectKindCode?: ProjectKindCode
   ttkMode: TtkMode
   deploymentMode: DeploymentMode
   durationDays: number
@@ -274,6 +285,7 @@ export type ActivityLogAction =
   | 'PERSONNEL_UPDATED'
   | 'DOCUMENT_ADDED'
   | 'DOCUMENT_DELETED'
+  | 'DOCUMENT_UPDATED'
   | 'TASK_CREATED'
   | 'SUBTASK_CREATED'
   | 'TASK_UPDATED'
@@ -285,6 +297,19 @@ export type ActivityLogAction =
   | 'WORKLOG_ADDED'
   | 'PROJECT_CLOSED'
   | 'PROJECT_REOPENED'
+  | 'PROJECT_PAUSED'
+  | 'PROJECT_REOPENED_FROM_PAUSE'
+  | 'CLOSE_REQUESTED'
+  | 'CLOSE_APPROVED_KSV'
+  | 'CLOSE_REJECTED_KSV'
+  | 'CLOSE_CONFIRMED_TCHC'
+  | 'CLOSE_REJECTED_TCHC'
+  | 'RISK_CREATED'
+  | 'RISK_UPDATED'
+  | 'RISK_DELETED'
+  | 'PERSONNEL_ADDED'
+  | 'PERSONNEL_REMOVED'
+  | 'ALLOCATION_UPDATED'
 
 export interface ActivityLogChange {
   field: string
@@ -342,16 +367,29 @@ export interface AppSnapshot extends MockDatabase {
 export interface CreateProjectTeamMemberInput {
   userId: string
   role: string
+  responsibility?: string
   totalPlannedHours: number
+}
+
+export interface DocumentAttachmentInput {
+  fileName: string
+  mimeType?: string
+  contentBase64?: string
 }
 
 export interface CreateProjectInput {
   code: string
   name: string
-  summary: string
+  summary?: string
   sponsor: string
   objective: string
   ttkDecisionNumber?: string
+  ttkDecisionAttachment?: DocumentAttachmentInput & { title?: string }
+  businessCenterCode: BusinessCenterCode
+  customerGroupCode: CustomerGroupCode
+  marketCode: MarketCode
+  domainCode: DomainCode
+  projectKindCode: ProjectKindCode
   createdById: string
   adminId: string
   startDate: string
@@ -393,8 +431,10 @@ export interface CreateDocumentInput {
   projectId: string
   title: string
   category: string
+  documentNumber?: string
   description: string
   url: string
+  attachment?: DocumentAttachmentInput
   uploadedBy: string
 }
 
@@ -406,6 +446,7 @@ export interface UpdateDocumentInput {
   documentNumber: string
   description: string
   url: string
+  attachment?: DocumentAttachmentInput
   updatedBy: string
 }
 

@@ -10,9 +10,14 @@ import type {
   KsvDecisionInput,
   RequestCloseInput,
   TchcDecisionInput,
+  TransitionReasonInput,
 } from './close-workflow.schema.js'
 
-export async function pauseProject(projectId: string, user: AuthUser) {
+export async function pauseProject(
+  projectId: string,
+  input: TransitionReasonInput,
+  user: AuthUser,
+) {
   return prisma.$transaction(async (tx) => {
     const project = await tx.project.findUnique({
       where: { id: projectId },
@@ -35,7 +40,10 @@ export async function pauseProject(projectId: string, user: AuthUser) {
       entityType: 'PROJECT',
       entityId: projectId,
       entityName: project.name,
-      changes: [{ field: 'status', oldValue: 'ACTIVE', newValue: 'PAUSED' }],
+      changes: [
+        { field: 'status', oldValue: 'ACTIVE', newValue: 'PAUSED' },
+        { field: 'reason', oldValue: null, newValue: input.reason },
+      ],
     })
     await pushNotification(tx, {
       userIds: project.members.map((m) => m.userId),
@@ -47,7 +55,11 @@ export async function pauseProject(projectId: string, user: AuthUser) {
   }, TX_OPTS)
 }
 
-export async function resumeProject(projectId: string, user: AuthUser) {
+export async function resumeProject(
+  projectId: string,
+  input: TransitionReasonInput,
+  user: AuthUser,
+) {
   return prisma.$transaction(async (tx) => {
     const project = await tx.project.findUnique({
       where: { id: projectId },
@@ -73,7 +85,10 @@ export async function resumeProject(projectId: string, user: AuthUser) {
       entityType: 'PROJECT',
       entityId: projectId,
       entityName: project.name,
-      changes: [{ field: 'status', oldValue: 'PAUSED', newValue: 'ACTIVE' }],
+      changes: [
+        { field: 'status', oldValue: 'PAUSED', newValue: 'ACTIVE' },
+        { field: 'reason', oldValue: null, newValue: input.reason },
+      ],
     })
   }, TX_OPTS)
 }

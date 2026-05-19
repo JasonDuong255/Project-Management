@@ -48,6 +48,9 @@ export async function savePlanItem(
         include: { assignees: true },
       })
       if (!before) throw new ApiError(404, 'Plan item not found')
+      if (before.status === 'DONE' || before.progress >= 100) {
+        throw new ApiError(409, 'Completed tasks cannot be edited')
+      }
 
       saved = await tx.planItem.update({
         where: { id: input.id },
@@ -64,14 +67,21 @@ export async function savePlanItem(
       const hourFieldsChanged =
         before.plannedHours !== input.plannedHours ||
         JSON.stringify(before.monthAllocations) !== JSON.stringify(input.monthAllocations)
+      const beforeComparable: {
+        name: string
+        status: SavePlanItemInput['status']
+        progress: number
+        ownerId: string
+        assigneeId: string
+      } = {
+        name: before.name,
+        status: before.status,
+        progress: before.progress,
+        ownerId: before.ownerId,
+        assigneeId: before.assigneeId,
+      }
       const otherChanges = diffFields(
-        {
-          name: before.name,
-          status: before.status,
-          progress: before.progress,
-          ownerId: before.ownerId,
-          assigneeId: before.assigneeId,
-        },
+        beforeComparable,
         input,
         ['name', 'status', 'progress', 'ownerId', 'assigneeId'],
       )

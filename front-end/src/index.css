@@ -788,6 +788,52 @@ td p,
 .section-actions {
   display: flex;
   gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.project-filter-panel {
+  padding: 0.7rem;
+}
+
+.segmented-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--panel-border);
+  background: #f8fafc;
+}
+
+.segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.45rem 0.75rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.segmented-control button span {
+  min-width: 1.5rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: var(--ink);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.segmented-control__item--active {
+  background: #ffffff !important;
+  color: var(--ink) !important;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ─── Grid layouts ─── */
@@ -1360,6 +1406,63 @@ td p,
   overflow-x: auto;
 }
 
+.project-table-wrapper {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.project-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1120px;
+}
+
+.project-table th,
+.project-table td {
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--panel-border);
+  text-align: left;
+  vertical-align: middle;
+  font-size: 0.875rem;
+}
+
+.project-table th {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #f9fafb;
+}
+
+.project-table tbody tr:hover {
+  background: var(--accent-soft);
+}
+
+.project-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.project-table__name {
+  min-width: 260px;
+}
+
+.project-table__name p {
+  margin: 0.25rem 0 0;
+  max-width: 360px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.project-table__progress {
+  min-width: 120px;
+}
+
+.project-table__progress .progress-shell {
+  margin-top: 0.35rem;
+}
+
 .task-row-selected {
   background: var(--accent-soft);
 }
@@ -1563,6 +1666,44 @@ td p,
   font-size: 0.88rem;
 }
 .close-flow__title span { color: var(--ink); }
+
+.close-flow-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.close-flow-modal {
+  max-width: 520px;
+}
+
+.toggle-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.toggle-control input {
+  width: auto;
+}
+
+.link-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-selected {
+  background: #f0fdfa;
+}
 
 .overview-section__header p,
 .overview-section__toolbar p,
@@ -2015,6 +2156,12 @@ td p,
   padding: 0.6rem 0.55rem;
 }
 
+.workload-planner-table tfoot td {
+  border-top: 1px solid var(--panel-border);
+  background: #f9fafb;
+  font-weight: 600;
+}
+
 .workload-member-cell {
   min-width: 220px;
 }
@@ -2049,11 +2196,100 @@ td p,
   border-radius: 8px;
 }
 
+.workload-month-cell__input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.workload-month-cell__input-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.workload-month-cell__detail-btn {
+  flex: 0 0 auto;
+  padding: 0.35rem;
+}
+
+/* Subtle warning when this user's project allocations exceed the a.Office
+   "Du an" quota for the month — keeps the icon discoverable without
+   shouting. Pairs with the red text in the popup. */
+.workload-month-cell__detail-btn--warn {
+  background: rgba(220, 177, 51, 0.18);
+  border-color: rgba(220, 177, 51, 0.55);
+  color: var(--warning);
+}
+
+.workload-month-cell__detail-btn--warn:hover {
+  background: rgba(220, 177, 51, 0.28);
+}
+
 .workload-month-cell__meta {
   display: grid;
   gap: 0.12rem;
   font-size: 0.7rem;
   color: var(--muted);
+}
+
+/* ─── Resource-management drill-down popup ─── */
+.workload-detail-card {
+  max-width: 560px;
+  width: min(560px, 92vw);
+  display: grid;
+  gap: 1rem;
+}
+
+.workload-detail-section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.workload-detail-section h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.workload-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.workload-detail-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.85rem;
+}
+
+.workload-detail-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.workload-detail-table__total td {
+  font-weight: 600;
+  border-bottom: none;
+  border-top: 1px solid var(--panel-border);
+  background: #f9fafb;
+}
+
+.workload-detail-summary {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.workload-detail-summary .detail-card {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.workload-detail-summary .detail-card small {
+  color: var(--muted);
+  font-size: 0.7rem;
 }
 
 .workload-footer-note {

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
+import type { PlanTaskStatus } from '@prisma/client'
 import { ApiError } from '../../middlewares/error.js'
 import { validateBody } from '../../middlewares/validate.js'
 import { prisma } from '../../db/prisma.js'
@@ -36,6 +37,9 @@ worklogsRouter.post(
         if (!task || task.projectId !== String(req.params.projectId)) {
           throw new ApiError(404, 'Task not found')
         }
+        if (task.status === 'DONE' || task.progress >= 100) {
+          throw new ApiError(409, 'Completed tasks cannot receive worklogs')
+        }
 
         await tx.worklog.create({
           data: {
@@ -50,7 +54,7 @@ worklogsRouter.post(
 
         // Auto-status: NOT_STARTED → IN_PROGRESS; progress ≥ 100 → DONE
         const nextProgress = req.body.progress
-        let nextStatus = task.status
+        let nextStatus: PlanTaskStatus = task.status
         if (task.status === 'NOT_STARTED' && nextProgress > 0) nextStatus = 'IN_PROGRESS'
         if (nextProgress >= 100) nextStatus = 'DONE'
 

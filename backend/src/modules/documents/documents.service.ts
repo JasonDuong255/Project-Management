@@ -2,6 +2,7 @@ import { prisma } from '../../db/prisma.js'
 import { ApiError } from '../../middlewares/error.js'
 import { canEditProjectInfo } from '../../lib/permissions.js'
 import { writeActivityLog } from '../../lib/activity-log.js'
+import { storeProjectFile } from '../../lib/file-storage.js'
 import type { AuthUser } from '../../types/domain.js'
 import type { CreateDocumentInput, UpdateDocumentInput } from './documents.schema.js'
 
@@ -15,13 +16,18 @@ export async function addDocument(
     if (!project) throw new ApiError(404, 'Project not found')
     if (!canEditProjectInfo(project, user)) throw new ApiError(403, 'Forbidden')
 
+    const documentUrl = input.attachment
+      ? await storeProjectFile(projectId, input.attachment)
+      : input.url
+
     const doc = await tx.projectDocument.create({
       data: {
         projectId,
         title: input.title,
         category: input.category,
+        documentNumber: input.documentNumber,
         description: input.description,
-        url: input.url,
+        url: documentUrl,
         uploadedBy: input.uploadedBy,
       },
     })
@@ -52,6 +58,10 @@ export async function updateDocument(
     const doc = await tx.projectDocument.findUnique({ where: { id: documentId } })
     if (!doc || doc.projectId !== projectId) throw new ApiError(404, 'Document not found')
 
+    const documentUrl = input.attachment
+      ? await storeProjectFile(projectId, input.attachment)
+      : input.url ?? doc.url
+
     const updated = await tx.projectDocument.update({
       where: { id: documentId },
       data: {
@@ -59,7 +69,7 @@ export async function updateDocument(
         category: input.category ?? doc.category,
         documentNumber: input.documentNumber ?? doc.documentNumber,
         description: input.description ?? doc.description,
-        url: input.url ?? doc.url,
+        url: documentUrl,
         updatedBy: input.updatedBy,
         updatedAt: new Date(),
       },

@@ -59,8 +59,8 @@ interface AppContextValue extends AppSnapshot {
   ) => Promise<void>
   resetDemoData: () => Promise<void>
   // v3.2 close workflow
-  pauseProject: (projectId: string) => Promise<void>
-  resumeProject: (projectId: string) => Promise<void>
+  pauseProject: (projectId: string, reason: string) => Promise<void>
+  resumeProject: (projectId: string, reason: string) => Promise<void>
   requestProjectClose: (projectId: string, note: string) => Promise<string>
   ksvDecideClose: (
     projectId: string,
@@ -267,13 +267,13 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
-  async function pauseProject(projectId: string) {
-    const snapshot = await apiClient.pauseProject(projectId)
+  async function pauseProject(projectId: string, reason: string) {
+    const snapshot = await apiClient.pauseProject(projectId, reason)
     setState(snapshot)
   }
 
-  async function resumeProject(projectId: string) {
-    const snapshot = await apiClient.resumeProject(projectId)
+  async function resumeProject(projectId: string, reason: string) {
+    const snapshot = await apiClient.resumeProject(projectId, reason)
     setState(snapshot)
   }
 

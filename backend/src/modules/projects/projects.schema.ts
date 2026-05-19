@@ -3,7 +3,15 @@ import { z } from 'zod'
 const teamMemberInput = z.object({
   userId: z.string().uuid(),
   role: z.string(),
+  responsibility: z.string().default(''),
   totalPlannedHours: z.number().nonnegative().default(0),
+})
+
+const ttkDecisionAttachmentInput = z.object({
+  fileName: z.string().min(1),
+  title: z.string().optional(),
+  contentBase64: z.string().optional(),
+  mimeType: z.string().optional(),
 })
 
 export const createProjectSchema = z.object({
@@ -13,6 +21,12 @@ export const createProjectSchema = z.object({
   sponsor: z.string().default(''),
   objective: z.string().default(''),
   ttkDecisionNumber: z.string().default(''),
+  ttkDecisionAttachment: ttkDecisionAttachmentInput.optional(),
+  businessCenterCode: z.enum(['BU1', 'BU2', 'BU3', 'BU4', 'BU5']),
+  customerGroupCode: z.enum(['VNA', 'LDLK', 'OT', 'NB']),
+  marketCode: z.enum(['HK', 'CHK', 'AN', 'CP', 'XD', 'TC', 'GD', 'NL', 'DN', 'YT', 'HH']),
+  domainCode: z.enum(['PM', 'HT', 'DV']),
+  projectKindCode: z.enum(['NC', 'KT', 'HĐ', 'HD', 'NB']),
   createdById: z.string().uuid(),
   adminId: z.string().uuid(),
   startDate: z.string(),

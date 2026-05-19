@@ -3,15 +3,14 @@ import {
   CirclePlus,
   Edit3,
   FileText,
-  RefreshCcw,
+  Info,
   Save,
-  Sparkles,
   Timer,
   Trash2,
   Workflow,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { CloseFlowPanel } from '../components/CloseFlowPanel'
@@ -28,22 +27,30 @@ import {
   getTaskAssigneeIds,
   getTaskPrimaryAssigneeId,
   getHealthTone,
+  isProjectCoordinator,
   normalizeUserRole,
   getProjectById,
   getProjectTasks,
   getStatusTone,
 } from '../lib/calculations'
+import { readDocumentAttachment } from '../lib/fileAttachment'
 import { formatDate, formatHours, formatMonthLabel, getCatalogLabel } from '../lib/formatters'
 import type {
   ActivityLogAction,
   DeploymentMode,
+  DocumentAttachmentInput,
   GanttItem,
+  BusinessCenterCode,
+  CustomerGroupCode,
+  DomainCode,
+  MarketCode,
   PlanItem,
   ProjectAitsPersonnel,
   ProjectDocument,
   ProjectExternalPersonnel,
   Project,
   ProjectFinancialInfo,
+  ProjectKindCode,
   ProjectPersonnelInfo,
   ProjectRisk,
   ProjectReferenceItem,
@@ -60,25 +67,46 @@ type ReferenceGroupKey =
 
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
-type ProjectDocumentCategory = 'CONTRACT' | 'PROJECT_DOCUMENT' | 'SUBMISSION' | 'MEETING_MINUTES'
+type ProjectDocumentCategory =
+  | 'TTK_DECISION'
+  | 'PURCHASE_CONTRACT'
+  | 'SALE_CONTRACT'
+  | 'CONTRACT'
+  | 'PROJECT_DOCUMENT'
+  | 'SUBMISSION'
+  | 'MEETING_MINUTES'
 type ProjectDetailTab = 'PROJECT_INIT' | 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN' | 'WORKLOAD'
 
 const ACTION_LABELS: Record<ActivityLogAction, string> = {
-  PROJECT_INFO_UPDATED: 'Cap nhat thong tin',
-  PERSONNEL_UPDATED: 'Cap nhat nhan su',
-  DOCUMENT_ADDED: 'Them tai lieu',
-  DOCUMENT_DELETED: 'Xoa tai lieu',
-  TASK_CREATED: 'Tao task',
-  SUBTASK_CREATED: 'Tao subtask',
-  TASK_UPDATED: 'Cap nhat task',
-  SUBTASK_UPDATED: 'Cap nhat subtask',
-  TASK_DELETED: 'Xoa task',
-  SUBTASK_DELETED: 'Xoa subtask',
-  TASK_HOURS_CHANGED: 'Doi gio task',
-  SUBTASK_HOURS_CHANGED: 'Doi gio subtask',
-  WORKLOG_ADDED: 'Khai bao tien do',
-  PROJECT_CLOSED: 'Dong du an',
-  PROJECT_REOPENED: 'Mo lai du an',
+  PROJECT_INFO_UPDATED: 'Cập nhật thông tin',
+  PERSONNEL_UPDATED: 'Cập nhật nhân sự',
+  DOCUMENT_ADDED: 'Thêm tài liệu',
+  DOCUMENT_DELETED: 'Xóa tài liệu',
+  DOCUMENT_UPDATED: 'Cập nhật tài liệu',
+  TASK_CREATED: 'Tạo task',
+  SUBTASK_CREATED: 'Tạo subtask',
+  TASK_UPDATED: 'Cập nhật task',
+  SUBTASK_UPDATED: 'Cập nhật subtask',
+  TASK_DELETED: 'Xóa task',
+  SUBTASK_DELETED: 'Xóa subtask',
+  TASK_HOURS_CHANGED: 'Đổi giờ task',
+  SUBTASK_HOURS_CHANGED: 'Đổi giờ subtask',
+  WORKLOG_ADDED: 'Khai báo tiến độ',
+  PROJECT_CLOSED: 'Đóng dự án',
+  PROJECT_REOPENED: 'Mở lại dự án',
+  PROJECT_PAUSED: 'Tạm đóng dự án',
+  PROJECT_REOPENED_FROM_PAUSE: 'Mở lại từ tạm đóng',
+  CLOSE_REQUESTED: 'Gửi yêu cầu đóng',
+  CLOSE_APPROVED_KSV: 'KSV phê duyệt đóng',
+  CLOSE_REJECTED_KSV: 'KSV từ chối đóng',
+  CLOSE_CONFIRMED_TCHC: 'TCHC xác nhận đóng',
+  CLOSE_REJECTED_TCHC: 'TCHC từ chối đóng',
+  RISK_CREATED: 'Thêm rủi ro',
+  RISK_UPDATED: 'Cập nhật rủi ro',
+  RISK_DELETED: 'Xóa rủi ro',
+  PERSONNEL_ADDED: 'Thêm nhân sự',
+  PERSONNEL_REMOVED: 'Xóa nhân sự',
+  ALLOCATION_UPDATED: 'Cập nhật nguồn lực',
 }
 
 const ACTION_TONES: Record<ActivityLogAction, 'info' | 'danger' | 'warning' | 'success' | 'neutral'> = {
@@ -86,6 +114,7 @@ const ACTION_TONES: Record<ActivityLogAction, 'info' | 'danger' | 'warning' | 's
   PERSONNEL_UPDATED: 'info',
   DOCUMENT_ADDED: 'success',
   DOCUMENT_DELETED: 'danger',
+  DOCUMENT_UPDATED: 'info',
   TASK_CREATED: 'success',
   SUBTASK_CREATED: 'success',
   TASK_UPDATED: 'info',
@@ -97,6 +126,19 @@ const ACTION_TONES: Record<ActivityLogAction, 'info' | 'danger' | 'warning' | 's
   WORKLOG_ADDED: 'info',
   PROJECT_CLOSED: 'success',
   PROJECT_REOPENED: 'info',
+  PROJECT_PAUSED: 'warning',
+  PROJECT_REOPENED_FROM_PAUSE: 'info',
+  CLOSE_REQUESTED: 'warning',
+  CLOSE_APPROVED_KSV: 'success',
+  CLOSE_REJECTED_KSV: 'danger',
+  CLOSE_CONFIRMED_TCHC: 'success',
+  CLOSE_REJECTED_TCHC: 'danger',
+  RISK_CREATED: 'success',
+  RISK_UPDATED: 'info',
+  RISK_DELETED: 'danger',
+  PERSONNEL_ADDED: 'success',
+  PERSONNEL_REMOVED: 'danger',
+  ALLOCATION_UPDATED: 'info',
 }
 type ProjectRiskStatus = ProjectRisk['status']
 
@@ -124,38 +166,65 @@ interface PlanRiskPromptState {
 }
 
 const ttkModeOptions: Array<{ value: TtkMode; label: string }> = [
-  { value: 'CHUYEN_TRACH', label: 'Chuyen trach' },
-  { value: 'KIEM_NHIEM', label: 'Kiem nhiem' },
+  { value: 'CHUYEN_TRACH', label: 'Chuyên trách' },
+  { value: 'KIEM_NHIEM', label: 'Kiêm nhiệm' },
 ]
 
 const deploymentModeOptions: Array<{ value: DeploymentMode; label: string }> = [
   { value: 'HD_PLHD', label: 'HD/PLHD' },
   { value: 'TK_THD', label: 'TK THD' },
-  { value: 'NOI_BO', label: 'Noi bo' },
+  { value: 'NOI_BO', label: 'Nội bộ' },
 ]
 
 const referenceGroupLabels: Record<ReferenceGroupKey, string> = {
-  outputContracts: 'Danh sach hop dong dau ra',
-  inputContracts: 'Danh sach hop dong dau vao',
-  deploymentApprovals: 'Phe duyet trien khai',
-  projectTeamDecisions: 'Quyet dinh thanh lap to du an',
+  outputContracts: 'Hợp đồng bán',
+  inputContracts: 'Hợp đồng mua',
+  deploymentApprovals: 'Phê duyệt triển khai',
+  projectTeamDecisions: 'Quyết định thành lập tổ dự án',
 }
 
 const projectDocumentCategories: Array<{ value: ProjectDocumentCategory; label: string }> = [
-  { value: 'CONTRACT', label: 'Hop dong' },
-  { value: 'PROJECT_DOCUMENT', label: 'Tai lieu du an' },
-  { value: 'SUBMISSION', label: 'To trinh' },
-  { value: 'MEETING_MINUTES', label: 'Bien ban hop' },
+  { value: 'TTK_DECISION', label: 'Quyết định thành lập TTK' },
+  { value: 'PURCHASE_CONTRACT', label: 'Hợp đồng mua' },
+  { value: 'SALE_CONTRACT', label: 'Hợp đồng bán' },
+  { value: 'CONTRACT', label: 'Hợp đồng' },
+  { value: 'PROJECT_DOCUMENT', label: 'Tài liệu dự án' },
+  { value: 'SUBMISSION', label: 'Tờ trình' },
+  { value: 'MEETING_MINUTES', label: 'Biên bản họp' },
 ]
 
 const riskStatusOptions: Array<{ value: ProjectRiskStatus; label: string }> = [
-  { value: 'OPEN', label: 'Dang mo' },
-  { value: 'WATCHING', label: 'Dang theo doi' },
-  { value: 'MITIGATED', label: 'Da giam nhe' },
+  { value: 'OPEN', label: 'Đang mở' },
+  { value: 'WATCHING', label: 'Đang theo dõi' },
+  { value: 'MITIGATED', label: 'Đã giảm nhẹ' },
 ]
 
 function normalizeProjectDocumentCategory(category: string): ProjectDocumentCategory {
   const normalizedCategory = category.trim().toLowerCase()
+
+  if (
+    normalizedCategory === 'ttk_decision' ||
+    normalizedCategory === 'quyet dinh thanh lap ttk' ||
+    normalizedCategory === 'quyết định thành lập ttk'
+  ) {
+    return 'TTK_DECISION'
+  }
+
+  if (
+    normalizedCategory === 'purchase_contract' ||
+    normalizedCategory === 'hop dong mua' ||
+    normalizedCategory === 'hợp đồng mua'
+  ) {
+    return 'PURCHASE_CONTRACT'
+  }
+
+  if (
+    normalizedCategory === 'sale_contract' ||
+    normalizedCategory === 'hop dong ban' ||
+    normalizedCategory === 'hợp đồng bán'
+  ) {
+    return 'SALE_CONTRACT'
+  }
 
   if (normalizedCategory === 'contract' || normalizedCategory === 'hop dong') {
     return 'CONTRACT'
@@ -318,6 +387,11 @@ function buildInitForm(project: Project) {
     sponsor: project.sponsor,
     objective: project.objective,
     ttkDecisionNumber: project.ttkDecisionNumber ?? '',
+    businessCenterCode: project.basisInfo.businessCenterCode ?? ('BU1' as BusinessCenterCode),
+    customerGroupCode: project.basisInfo.customerGroupCode ?? ('VNA' as CustomerGroupCode),
+    marketCode: project.basisInfo.marketCode ?? ('HK' as MarketCode),
+    domainCode: project.basisInfo.domainCode ?? ('PM' as DomainCode),
+    projectKindCode: project.basisInfo.projectKindCode ?? ('NC' as ProjectKindCode),
     adminId: project.adminId,
     startDate: project.startDate,
     endDate: project.endDate,
@@ -338,6 +412,11 @@ function buildOverviewForm(project: Project) {
       inputContracts: cloneReferenceItems(project.basisInfo.inputContracts),
       deploymentApprovals: cloneReferenceItems(project.basisInfo.deploymentApprovals),
       projectTeamDecisions: cloneReferenceItems(project.basisInfo.projectTeamDecisions),
+      businessCenterCode: project.basisInfo.businessCenterCode ?? ('BU1' as BusinessCenterCode),
+      customerGroupCode: project.basisInfo.customerGroupCode ?? ('VNA' as CustomerGroupCode),
+      marketCode: project.basisInfo.marketCode ?? ('HK' as MarketCode),
+      domainCode: project.basisInfo.domainCode ?? ('PM' as DomainCode),
+      projectKindCode: project.basisInfo.projectKindCode ?? ('NC' as ProjectKindCode),
       ttkMode: project.basisInfo.ttkMode,
       deploymentMode: project.basisInfo.deploymentMode,
       durationDays: project.basisInfo.durationDays,
@@ -364,6 +443,7 @@ function buildDocumentForm(doc?: import('../types').ProjectDocument | null) {
       documentNumber: doc.documentNumber ?? '',
       description: doc.description,
       fileName: doc.url,
+      attachment: null as DocumentAttachmentInput | null,
     }
   }
 
@@ -374,6 +454,7 @@ function buildDocumentForm(doc?: import('../types').ProjectDocument | null) {
     documentNumber: '',
     description: '',
     fileName: '',
+    attachment: null as DocumentAttachmentInput | null,
   }
 }
 
@@ -420,11 +501,11 @@ function buildRiskDraftFromPlan(
 ): PlanRiskPromptState {
   const dependencyNote = task.dependencyNote.trim()
   const deliverable = task.deliverable.trim()
-  const taskName = task.name.trim() || 'Task vua cap nhat'
+  const taskName = task.name.trim() || 'Task vừa cập nhật'
   const mitigationParts = [
-    `Danh gia lai anh huong cua thay doi ke hoach doi voi ${taskName}.`,
+    `Đánh giá lại ảnh hưởng của thay đổi kế hoạch đối với ${taskName}.`,
     deliverable ? `Deliverable lien quan: ${deliverable}.` : '',
-    dependencyNote ? `Phu thuoc can luu y: ${dependencyNote}.` : '',
+    dependencyNote ? `Phụ thuộc cần lưu ý: ${dependencyNote}.` : '',
   ].filter(Boolean)
 
   return {
@@ -433,7 +514,7 @@ function buildRiskDraftFromPlan(
     assignees: assigneeNames,
     draft: {
       id: '',
-      title: `Rui ro thay doi ke hoach - ${taskName}`,
+      title: `Rủi ro thay đổi kế hoạch - ${taskName}`,
       cause: '',
       description: '',
       level: 'MEDIUM',
@@ -476,7 +557,7 @@ function getRiskStatusTone(status: ProjectRiskStatus) {
 }
 
 function getDocumentCategoryLabel(category: ProjectDocumentCategory) {
-  return projectDocumentCategories.find((item) => item.value === category)?.label ?? 'Tai lieu'
+  return projectDocumentCategories.find((item) => item.value === category)?.label ?? 'Tài liệu'
 }
 
 function buildPlanForm(project: Project, task?: PlanItem | null) {
@@ -527,6 +608,10 @@ function buildExecutionForm(task: PlanItem, memberId: string) {
     progress: task.progress,
     progressNote: '',
   }
+}
+
+function isTaskLocked(task: PlanItem) {
+  return task.status === 'DONE' || task.progress >= 100
 }
 
 interface ScopedTaskItem {
@@ -580,7 +665,7 @@ function buildScopedGanttItems(
     return {
       id: task.id,
       label: task.name,
-      sublabel: `${getAssigneeNames(task)} | ${task.deliverable || 'Dang cap nhat deliverable'}`,
+      sublabel: `${getAssigneeNames(task)} | ${task.deliverable || 'Đang cập nhật deliverable'}`,
       startDate: task.startDate,
       endDate: task.endDate,
       progress: task.progress,
@@ -648,21 +733,59 @@ function buildFallbackAitsPersonnel(
   }
 }
 
-function distributeHoursEvenly(totalHours: number, months: string[]) {
-  if (!months.length) return {}
-  const safeTotal = Math.max(0, Math.round(totalHours))
-  const base = Math.floor(safeTotal / months.length)
-  const remainder = safeTotal % months.length
-  return months.reduce<Record<string, number>>((acc, month, i) => {
-    acc[month] = base + (i < remainder ? 1 : 0)
-    return acc
-  }, {})
-}
-
 function buildAllocationKey(memberId: string, month: string) {
   return `${memberId}:${month}`
 }
 
+/**
+ * Deterministic 32-bit hash so the mocked a.Office breakdown stays stable
+ * for a given (user, month) — re-rendering must NOT randomise the numbers.
+ */
+function hashString(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+interface AOfficeBreakdown {
+  /** Giờ công Đảm bảo hoạt động */
+  dbhd: number
+  /** Giờ công Change Request */
+  cr: number
+  /** Giờ công Dự án (quota dành cho project allocations) */
+  project: number
+  /** Giờ công Khác */
+  other: number
+  /** Tổng giờ công a.Office cho tháng (= dbhd + cr + project + other) */
+  total: number
+}
+
+/**
+ * Mock a.Office planned-hours breakdown for (user, month). Until the real
+ * a.Office integration lands, we synthesise 4 buckets that sum to the user's
+ * monthlyCapacity using a deterministic per-(user, month) hash so each row
+ * stays stable across re-renders.
+ *
+ * Real integration target: an HR API returning the same shape per user/month.
+ */
+function getAOfficeBreakdown(user: User, month: string): AOfficeBreakdown {
+  const total = Math.max(0, Math.round(user.monthlyCapacity || 0))
+  if (total === 0) return { dbhd: 0, cr: 0, project: 0, other: 0, total: 0 }
+  const seed = hashString(`${user.id}:${month}`)
+  // DBHD 20–25%, CR 8–12%, Other 5–8%, Project = remainder.
+  const dbhd = Math.round(total * (0.2 + (seed % 6) * 0.01))
+  const cr = Math.round(total * (0.08 + ((seed >> 3) % 5) * 0.01))
+  const other = Math.round(total * (0.05 + ((seed >> 6) % 4) * 0.01))
+  const project = Math.max(0, total - dbhd - cr - other)
+  return { dbhd, cr, project, other, total }
+}
+
+/**
+ * v3.11 (14/05/2026): Resource-management tab now drives totalPlannedHours
+ * from monthly entries rather than the other way around. The draft is built
+ * purely from saved monthly allocations — no more "force AITS target" override
+ * — and the empty default is zero across all months for every member.
+ */
 function buildProjectDraftAllocations(
   project: Project,
   members: ResolvedAitsMember[],
@@ -671,20 +794,13 @@ function buildProjectDraftAllocations(
   const nextDraft: Record<string, number> = {}
   const monthSet = new Set(months)
   members.forEach((member) => {
-    const savedAllocations = project.monthlyAllocations.filter(
-      (a) => a.memberId === member.memberId && monthSet.has(a.month),
+    const savedByMonth = new Map(
+      project.monthlyAllocations
+        .filter((a) => a.memberId === member.memberId && monthSet.has(a.month))
+        .map((a) => [a.month, a.hours] as const),
     )
-    const savedTotal = savedAllocations.reduce((sum, a) => sum + a.hours, 0)
-    const targetTotal = Math.max(0, Math.round(member.personnel.totalPlannedHours))
-    const hoursByMonth =
-      savedAllocations.length > 0 && savedTotal === targetTotal
-        ? months.reduce<Record<string, number>>((acc, month) => {
-            acc[month] = savedAllocations.find((a) => a.month === month)?.hours ?? 0
-            return acc
-          }, {})
-        : distributeHoursEvenly(targetTotal, months)
     months.forEach((month) => {
-      nextDraft[buildAllocationKey(member.memberId, month)] = hoursByMonth[month] ?? 0
+      nextDraft[buildAllocationKey(member.memberId, month)] = savedByMonth.get(month) ?? 0
     })
   })
   return nextDraft
@@ -731,7 +847,7 @@ export function ProjectDetailPage() {
   )
   const personnelLogs = projectActivityLogs.filter((l) => l.action === 'PERSONNEL_UPDATED')
   const documentLogs = projectActivityLogs.filter((l) =>
-    (['DOCUMENT_ADDED', 'DOCUMENT_DELETED'] as string[]).includes(l.action),
+    (['DOCUMENT_ADDED', 'DOCUMENT_UPDATED', 'DOCUMENT_DELETED'] as string[]).includes(l.action),
   )
   const planLogs = projectActivityLogs.filter((l) =>
     ([
@@ -741,7 +857,7 @@ export function ProjectDetailPage() {
     ] as string[]).includes(l.action),
   )
 
-  const [message, setMessage] = useState('')
+  const message = ''
   const [initForm, setInitForm] = useState<ReturnType<typeof buildInitForm> | null>(null)
   const [overviewForm, setOverviewForm] = useState<ReturnType<typeof buildOverviewForm> | null>(null)
   const [personnelForm, setPersonnelForm] = useState<ReturnType<typeof buildPersonnelForm> | null>(null)
@@ -772,7 +888,7 @@ export function ProjectDetailPage() {
   const overviewGanttItems = buildScopedGanttItems(
     overviewTasks.map((task) => ({ task, depth: 0 })),
     projectTasks,
-    (task) => getTaskAssigneeNames(task) || 'Chua phan cong',
+    (task) => getTaskAssigneeNames(task) || 'Chưa phân công',
   )
   const focusedSubtaskItems = focusedOverviewTask
     ? getDescendantTasks(projectTasks, focusedOverviewTask.id)
@@ -780,7 +896,7 @@ export function ProjectDetailPage() {
   const focusedSubtaskGanttItems = buildScopedGanttItems(
     focusedSubtaskItems,
     projectTasks,
-    (task) => getTaskAssigneeNames(task) || 'Chua phan cong',
+    (task) => getTaskAssigneeNames(task) || 'Chưa phân công',
   )
   const groupedProjectDocuments = projectDocumentCategories.map((category) => ({
     ...category,
@@ -790,6 +906,12 @@ export function ProjectDetailPage() {
           .sort((left, right) => right.uploadedAt.localeCompare(left.uploadedAt))
       : [],
   }))
+  const documentCategoryOptions = [
+    ...projectDocumentCategories,
+    ...catalogs.documentCategories.filter(
+      (item) => !projectDocumentCategories.some((fallback) => fallback.value === item.value),
+    ),
+  ]
 
   useEffect(() => {
     if (!project) {
@@ -843,8 +965,8 @@ export function ProjectDetailPage() {
     return (
       <div className="page-grid">
         <section className="panel empty-panel">
-          <h3>Khong tim thay du an</h3>
-          <p>Du an khong ton tai.</p>
+          <h3>Không tìm thấy dự án</h3>
+          <p>Dự án không tồn tại.</p>
           <Link to="/projects" className="secondary-button">
             Quay lai
           </Link>
@@ -854,14 +976,19 @@ export function ProjectDetailPage() {
   }
 
   const normalizedRole = normalizeUserRole(currentUser.role)
-  const canManageProject = normalizedRole === 'PMO' || currentUser.id === project.adminId
+  const canEditProjectInfo =
+    project.status !== 'CLOSED' &&
+    (normalizedRole === 'PMO' ||
+      normalizedRole === 'ADMIN_HC' ||
+      currentUser.id === project.adminId ||
+      isProjectCoordinator(project, currentUser.id))
   const canManagePlan = canManageProjectPlan(project, currentUser)
   // Whether the read-only tab has been switched into edit mode — drives both
   // the disabled cascade on inputs AND the visibility of row-level "Thêm" /
   // "Xoá" action buttons (user feedback 13/05/2026: action buttons must be
   // hidden, not just disabled, while reading).
-  const overviewEditable = canManageProject && overviewEdit.isEditing
-  const personnelEditable = canManageProject && personnelEdit.isEditing
+  const overviewEditable = canEditProjectInfo && overviewEdit.isEditing
+  const personnelEditable = canEditProjectInfo && personnelEdit.isEditing
 
   /**
    * Removing a personnel row only mutates draft state (the actual write
@@ -912,8 +1039,13 @@ export function ProjectDetailPage() {
   }
   const canUpdateSelectedTask =
     !!selectedTask &&
+    !isTaskLocked(selectedTask) &&
     (canManagePlan || getTaskAssigneeIds(selectedTask).includes(currentUser.id))
-  const canCreateChildForSelectedTask = !!selectedTask && canManagePlan
+  const canCreateChildForSelectedTask = !!selectedTask && canManagePlan && !isTaskLocked(selectedTask)
+  const planActionRows = overviewTasks.flatMap((task) => [
+    { task, depth: 0 },
+    ...getDescendantTasks(projectTasks, task.id, 1),
+  ])
   const isCreatingChildTask = !!planForm.parentId && !planForm.id
   const canOpenPlanModal =
     canManagePlan || (isCreatingChildTask && canCreateChildForSelectedTask)
@@ -952,43 +1084,43 @@ export function ProjectDetailPage() {
   const detailTabs: Array<{ id: ProjectDetailTab; label: string; note: string }> = [
     {
       id: 'PROJECT_INIT',
-      label: 'Thong tin khoi tao',
+      label: 'Khởi tạo',
       note: `${project.code} | ${getUser(project.createdById)?.name ?? 'N/A'}`,
     },
     {
       id: 'OVERVIEW',
-      label: 'Overview',
-      note: `${getUser(overviewForm.adminId)?.name ?? 'Chua phan cong'} | ${formatDate(overviewForm.startDate)}`,
+      label: 'Thông tin chung',
+      note: `${getUser(overviewForm.adminId)?.name ?? 'Chưa phân công'} | ${formatDate(overviewForm.startDate)}`,
     },
     {
       id: 'PERSONNEL',
-      label: 'Nhan su',
-      note: `${personnelForm.aitsMembers.length} AITS | ${personnelForm.customerMembers.length} KH | ${personnelForm.partners.length} doi tac`,
-    },
-    {
-      id: 'DOCUMENTS',
-      label: 'Tai lieu',
-      note: `${totalDocumentCount} tep | ${groupedProjectDocuments[0]?.items.length ?? 0} hop dong`,
-    },
-    {
-      id: 'RISKS',
-      label: 'Quan ly rui ro',
-      note: `${openRiskCount} dang mo | ${highRiskCount} muc cao`,
+      label: 'Nhân sự',
+      note: `${personnelForm.aitsMembers.length} AITS | ${personnelForm.customerMembers.length} KH | ${personnelForm.partners.length} đối tác`,
     },
     {
       id: 'PLAN',
-      label: 'Ke hoach',
-      note: `${projectTasks.length} task | ${selectedTask ? `Focus: ${selectedTask.name}` : 'Chua co task'}`,
+      label: 'Kế hoạch',
+      note: `${projectTasks.length} task | ${selectedTask ? `Focus: ${selectedTask.name}` : 'Chưa có task'}`,
     },
-    ...(canManageProject
+    ...(canManagePlan
       ? [
           {
             id: 'WORKLOAD' as ProjectDetailTab,
-            label: 'Phan bo gio cong',
-            note: `${project.monthlyAllocations.length} phan bo`,
+            label: 'Nguồn lực',
+            note: `${project.monthlyAllocations.length} phân bổ`,
           },
         ]
       : []),
+    {
+      id: 'RISKS',
+      label: 'Rủi ro',
+      note: `${openRiskCount} đang mở | ${highRiskCount} mức cao`,
+    },
+    {
+      id: 'DOCUMENTS',
+      label: 'Tài liệu',
+      note: `${totalDocumentCount} tep | ${groupedProjectDocuments[0]?.items.length ?? 0} hop dong`,
+    },
   ]
 
   function updateAitsPersonnelItem(
@@ -1174,7 +1306,7 @@ export function ProjectDetailPage() {
         <div className="overview-section__toolbar">
           <div>
             <strong>{referenceGroupLabels[group]}</strong>
-            <p>Tai lieu va ghi chu</p>
+            <p>Tài liệu và ghi chú</p>
           </div>
           {overviewEditable ? (
             <button
@@ -1183,7 +1315,7 @@ export function ProjectDetailPage() {
               onClick={() => addReferenceItemToGroup(group)}
             >
               <CirclePlus size={15} />
-              Them muc
+              Thêm mục
             </button>
           ) : null}
         </div>
@@ -1193,23 +1325,23 @@ export function ProjectDetailPage() {
             {items.map((item, index) => (
               <div key={`${group}-${index}`} className="overview-reference-item">
                 <label>
-                  <span>Ten tai lieu</span>
+                  <span>Tên tài liệu</span>
                   <input
                     value={item.name}
                     onChange={(event) =>
                       updateReferenceItemField(group, index, 'name', event.target.value)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
                 <label className="span-2">
-                  <span>Ghi chu</span>
+                  <span>Ghi chú</span>
                   <input
                     value={item.note}
                     onChange={(event) =>
                       updateReferenceItemField(group, index, 'note', event.target.value)
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
                 {overviewEditable ? (
@@ -1218,7 +1350,7 @@ export function ProjectDetailPage() {
                     className="ghost-button ghost-button--compact overview-reference-item__remove"
                     onClick={() => void confirmRemoveReferenceItem(group, index)}
                   >
-                    <Trash2 size={14} /> Xoa
+                    <Trash2 size={14} /> Xóa
                   </button>
                 ) : null}
               </div>
@@ -1226,7 +1358,7 @@ export function ProjectDetailPage() {
           </div>
         ) : (
           <div className="overview-empty-note">
-            <p>Chua co du lieu.</p>
+            <p>Chưa có dữ liệu.</p>
           </div>
         )}
       </div>
@@ -1281,7 +1413,6 @@ export function ProjectDetailPage() {
           updateProject({
             projectId: project.id,
             patch: {
-              summary: initForm.summary.trim(),
               sponsor: initForm.sponsor,
               objective: initForm.objective.trim(),
               ttkDecisionNumber: initForm.ttkDecisionNumber.trim(),
@@ -1362,7 +1493,7 @@ export function ProjectDetailPage() {
   async function handleDocumentSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!project || !currentUser || !documentForm) return
-    if (!canManageProject) {
+    if (!canEditProjectInfo) {
       toast.error('Không có quyền', 'Bạn không có quyền cập nhật tài liệu của dự án này.')
       return
     }
@@ -1391,6 +1522,7 @@ export function ProjectDetailPage() {
             documentNumber: documentForm.documentNumber.trim(),
             description: documentForm.description.trim(),
             url: documentForm.fileName,
+            attachment: documentForm.attachment ?? undefined,
             updatedBy: currentUser.id,
           }),
         )
@@ -1401,8 +1533,10 @@ export function ProjectDetailPage() {
             projectId: project.id,
             title: documentForm.title.trim() || documentForm.fileName,
             category: documentForm.category,
+            documentNumber: documentForm.documentNumber.trim(),
             description: documentForm.description.trim(),
             url: documentForm.fileName,
+            attachment: documentForm.attachment ?? undefined,
             uploadedBy: currentUser.id,
           }),
         )
@@ -1418,7 +1552,7 @@ export function ProjectDetailPage() {
 
   async function handleDeleteDocument(document: ProjectDocument) {
     if (!project) return
-    if (!canManageProject) {
+    if (!canEditProjectInfo) {
       toast.error('Không có quyền', 'Bạn không có quyền xóa tài liệu của dự án này.')
       return
     }
@@ -1560,6 +1694,11 @@ export function ProjectDetailPage() {
       toast.error('Không có quyền', 'Bạn không có quyền tạo hoặc cập nhật task này.')
       return
     }
+    const existingTask = planForm.id ? projectTasks.find((task) => task.id === planForm.id) : null
+    if (existingTask && isTaskLocked(existingTask)) {
+      toast.warning('Công việc đã hoàn thành', 'Không thể sửa task đã hoàn thành.')
+      return
+    }
     if (!planForm.assigneeIds.length) {
       toast.warning('Thiếu nhân sự', 'Hãy chọn ít nhất một nhân sự tham gia task.')
       return
@@ -1617,6 +1756,10 @@ export function ProjectDetailPage() {
   async function handleExecutionSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedTask || !executionForm) return
+    if (isTaskLocked(selectedTask)) {
+      toast.warning('Công việc đã hoàn thành', 'Không thể khai báo giờ công cho task đã hoàn thành.')
+      return
+    }
     const ok = await confirm({
       title: 'Lưu khai báo tiến độ?',
       description: 'Hệ thống sẽ cộng dồn giờ công, tự động cập nhật trạng thái task và đồng bộ tới a.Office.',
@@ -1662,6 +1805,88 @@ export function ProjectDetailPage() {
     setIsDocumentModalOpen(true)
   }
 
+  function renderDocumentCategoryTable(category: ProjectDocumentCategory, title: string) {
+    const docs = project!.documents
+      .filter((doc) => normalizeProjectDocumentCategory(doc.category) === category)
+      .sort((left, right) => right.uploadedAt.localeCompare(left.uploadedAt))
+
+    return (
+      <div className="overview-reference-card">
+        <div className="overview-section__toolbar">
+          <div>
+            <strong>{title}</strong>
+            <p>Tài liệu thuộc loại {title}</p>
+          </div>
+          {canEditProjectInfo ? (
+            <button
+              type="button"
+              className="ghost-button ghost-button--compact"
+              onClick={() => openDocumentModal(category)}
+            >
+              <CirclePlus size={15} />
+              Thêm tài liệu
+            </button>
+          ) : null}
+        </div>
+
+        <div className="table-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Tên tài liệu</th>
+                <th>Số văn bản</th>
+                <th>File</th>
+                <th>Ngày thêm</th>
+                {canEditProjectInfo ? <th>Thao tác</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {docs.length ? (
+                docs.map((doc) => (
+                  <tr key={doc.id}>
+                    <td><strong>{doc.title}</strong></td>
+                    <td>{doc.documentNumber || '-'}</td>
+                    <td>{doc.url || '-'}</td>
+                    <td>{formatDate(doc.uploadedAt)}</td>
+                    {canEditProjectInfo ? (
+                      <td>
+                        <div className="inline-actions">
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--compact"
+                            onClick={() => openDocumentModal(doc)}
+                          >
+                            <Edit3 size={14} />
+                            Sửa
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--compact"
+                            style={{ color: 'var(--danger, #dc2626)' }}
+                            onClick={() => void handleDeleteDocument(doc)}
+                          >
+                            <Trash2 size={14} />
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={canEditProjectInfo ? 5 : 4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    Chưa có tài liệu.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   function closeDocumentModal() {
     setDocumentForm(buildDocumentForm())
     setDocumentInputKey((current) => current + 1)
@@ -1702,6 +1927,10 @@ export function ProjectDetailPage() {
   }
 
   function openExecutionModal(task: PlanItem) {
+    if (isTaskLocked(task)) {
+      toast.warning('Công việc đã hoàn thành', 'Không thể khai báo giờ công cho task đã hoàn thành.')
+      return
+    }
     const defaultMemberId =
       currentUser && getTaskAssigneeIds(task).includes(currentUser.id)
         ? currentUser.id
@@ -1713,12 +1942,20 @@ export function ProjectDetailPage() {
   }
 
   function handleEditTask(task: PlanItem) {
+    if (isTaskLocked(task)) {
+      toast.warning('Công việc đã hoàn thành', 'Không thể sửa task đã hoàn thành.')
+      return
+    }
     setPlanForm(buildPlanForm(project!, task))
     setSelectedTaskId(task.id)
     setIsPlanModalOpen(true)
   }
 
   function handleCreateChildTask(parentTask: PlanItem) {
+    if (isTaskLocked(parentTask)) {
+      toast.warning('Công việc đã hoàn thành', 'Không thể thêm subtask cho task đã hoàn thành.')
+      return
+    }
     const nextForm = buildPlanForm(project!)
     nextForm.parentId = parentTask.id
     nextForm.workType = 'SUBTASK'
@@ -1792,15 +2029,16 @@ export function ProjectDetailPage() {
         title={project.code}
         description={project.name}
         actions={
-          <Link to="/projects" className="secondary-button">
-            Quay lai
-          </Link>
+          <div className="inline-actions">
+            <CloseFlowPanel project={project} />
+            <Link to="/projects" className="secondary-button">
+              Quay lai
+            </Link>
+          </div>
         }
       />
 
       {message ? <p className="form-success">{message}</p> : null}
-
-      <CloseFlowPanel project={project} />
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">
@@ -1808,7 +2046,7 @@ export function ProjectDetailPage() {
           <strong>{getUser(project.adminId)?.name}</strong>
         </div>
         <div className="detail-card">
-          <span>Trang thai</span>
+          <span>Trạng thái</span>
           <StatusPill
             label={getCatalogLabel(catalogs.projectStatuses, project.status)}
             tone={getStatusTone(project.status)}
@@ -1822,12 +2060,12 @@ export function ProjectDetailPage() {
           />
         </div>
         <div className="detail-card">
-          <span>Tien do</span>
+          <span>Tiến độ</span>
           <strong>{project.progress}%</strong>
         </div>
       </section>
 
-      <nav className="detail-tabs" aria-label="Tabs du an">
+      <nav className="detail-tabs" aria-label="Tabs dự án">
         {detailTabs.map((tab) => (
           <button
             key={tab.id}
@@ -1836,7 +2074,6 @@ export function ProjectDetailPage() {
             onClick={() => setActiveDetailTab(tab.id)}
           >
             <span className="detail-tabs__label">{tab.label}</span>
-            <small>{tab.note}</small>
           </button>
         ))}
       </nav>
@@ -1845,7 +2082,7 @@ export function ProjectDetailPage() {
         <section className="panel panel--compact detail-tab-panel">
           <EditModeBar
             isEditing={initEdit.isEditing}
-            canEdit={canManageProject}
+            canEdit={canEditProjectInfo}
             saving={initEdit.saving}
             onStartEdit={initEdit.start}
             onSave={() =>
@@ -1871,30 +2108,39 @@ export function ProjectDetailPage() {
                   <span>Tên dự án</span>
                   <input value={initForm.name} disabled />
                 </label>
-                <label className="span-2">
-                  <span>Tom tat</span>
-                  <textarea
-                    rows={3}
-                    value={initForm.summary}
-                    onChange={(event) =>
-                      setInitForm((current) => current ? { ...current, summary: event.target.value } : current)
-                    }
-                    disabled={!canManageProject || !initEdit.isEditing}
-                  />
+                <label>
+                  <span>Mã trung tâm kinh doanh</span>
+                  <input value={initForm.businessCenterCode} disabled />
                 </label>
                 <label>
-                  <span>Nhiem vu</span>
+                  <span>Mã nhóm khách hàng</span>
+                  <input value={initForm.customerGroupCode} disabled />
+                </label>
+                <label>
+                  <span>Mã thị trường</span>
+                  <input value={initForm.marketCode} disabled />
+                </label>
+                <label>
+                  <span>Mã lĩnh vực</span>
+                  <input value={initForm.domainCode} disabled />
+                </label>
+                <label>
+                  <span>Mã loại dự án</span>
+                  <input value={initForm.projectKindCode} disabled />
+                </label>
+                <label>
+                  <span>Nhiệm vụ</span>
                   <textarea
                     rows={2}
                     value={initForm.objective}
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, objective: event.target.value } : current)
                     }
-                    disabled={!canManageProject || !initEdit.isEditing}
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
                   />
                 </label>
                 <label>
-                  <span>Don vi</span>
+                  <span>Đơn vị</span>
                   <input value={initForm.department} disabled />
                 </label>
               </div>
@@ -1911,13 +2157,21 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, ttkDecisionNumber: event.target.value } : current)
                     }
-                    disabled={!canManageProject || !initEdit.isEditing}
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
                   />
                 </label>
                 <label>
-                  <span>Nguoi tao</span>
+                  <span>Người tạo</span>
                   <input value={getUser(project.createdById)?.name ?? project.createdById} disabled />
                 </label>
+              </div>
+            </div>
+
+            <div className="overview-section span-2">
+              <h4 className="overview-section__title">Căn cứ</h4>
+              <div className="overview-reference-grid">
+                {renderDocumentCategoryTable('PURCHASE_CONTRACT', 'Hợp đồng mua')}
+                {renderDocumentCategoryTable('SALE_CONTRACT', 'Hợp đồng bán')}
               </div>
             </div>
 
@@ -1931,7 +2185,7 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, sponsor: event.target.value } : current)
                     }
-                    disabled={!canManageProject || !initEdit.isEditing}
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
                   >
                     {users.filter((u) => normalizeUserRole(u.role) !== 'DELIVERY_MEMBER').map((u) => (
                       <option key={u.id} value={u.id}>{u.name} - {u.title}</option>
@@ -1939,13 +2193,13 @@ export function ProjectDetailPage() {
                   </select>
                 </label>
                 <label>
-                  <span>PM phu trach</span>
+                  <span>PM phụ trách</span>
                   <select
                     value={initForm.adminId}
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, adminId: event.target.value } : current)
                     }
-                    disabled={!canManageProject || !initEdit.isEditing}
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
                   >
                     {users.filter((u) => normalizeUserRole(u.role) === 'PM').map((u) => (
                       <option key={u.id} value={u.id}>{u.name} - {u.employeeCode}</option>
@@ -1953,25 +2207,25 @@ export function ProjectDetailPage() {
                   </select>
                 </label>
                 <label>
-                  <span>Ngay bat dau</span>
+                  <span>Ngày bắt đầu</span>
                   <input
                     type="date"
                     value={initForm.startDate}
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, startDate: event.target.value } : current)
                     }
-                    disabled={!canManageProject || !initEdit.isEditing}
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
                   />
                 </label>
                 <label>
-                  <span>Ngay ket thuc</span>
+                  <span>Ngày kết thúc</span>
                   <input
                     type="date"
                     value={initForm.endDate}
                     onChange={(event) =>
                       setInitForm((current) => current ? { ...current, endDate: event.target.value } : current)
                     }
-                    disabled={!canManageProject || !initEdit.isEditing}
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
                   />
                 </label>
               </div>
@@ -1987,7 +2241,7 @@ export function ProjectDetailPage() {
       <section className="panel panel--compact detail-tab-panel">
         <EditModeBar
           isEditing={overviewEdit.isEditing}
-          canEdit={canManageProject}
+          canEdit={canEditProjectInfo}
           saving={overviewEdit.saving}
           onStartEdit={overviewEdit.start}
           onSave={() =>
@@ -2007,7 +2261,7 @@ export function ProjectDetailPage() {
               input's disabled prop. The display:contents removes it from
               layout while preserving the disabled cascade. */}
           <fieldset
-            disabled={!overviewEdit.isEditing || !canManageProject}
+            disabled={!overviewEdit.isEditing || !canEditProjectInfo}
             className="edit-mode-fieldset"
           >
             <div className="overview-section span-2">
@@ -2024,12 +2278,12 @@ export function ProjectDetailPage() {
                         current ? { ...current, summary: event.target.value } : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
 
                 <label>
-                  <span>Ngay bat dau</span>
+                  <span>Ngày bắt đầu</span>
                   <input
                     type="date"
                     value={overviewForm.startDate}
@@ -2038,12 +2292,12 @@ export function ProjectDetailPage() {
                         current ? { ...current, startDate: event.target.value } : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
 
                 <label>
-                  <span>Trang thai</span>
+                  <span>Trạng thái</span>
                   <select
                     value={overviewForm.status}
                     onChange={(event) =>
@@ -2053,11 +2307,30 @@ export function ProjectDetailPage() {
                           : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   >
                     {catalogs.projectStatuses.map((item) => (
                       <option key={item.value} value={item.value}>
                         {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="span-2">
+                  <span>PS (Sponsor)</span>
+                  <select
+                    value={overviewForm.sponsor}
+                    onChange={(event) =>
+                      setOverviewForm((current) =>
+                        current ? { ...current, sponsor: event.target.value } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo}
+                  >
+                    {sponsorUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} - {user.title}
                       </option>
                     ))}
                   </select>
@@ -2072,7 +2345,7 @@ export function ProjectDetailPage() {
                         current ? { ...current, adminId: event.target.value } : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   >
                     {projectManagers.map((user) => (
                       <option key={user.id} value={user.id}>
@@ -2083,26 +2356,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label className="span-2">
-                  <span>Sponsor</span>
-                  <select
-                    value={overviewForm.sponsor}
-                    onChange={(event) =>
-                      setOverviewForm((current) =>
-                        current ? { ...current, sponsor: event.target.value } : current,
-                      )
-                    }
-                    disabled={!canManageProject}
-                  >
-                    {sponsorUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} - {user.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="span-2">
-                  <span>Nhiem vu</span>
+                  <span>Nhiệm vụ</span>
                   <textarea
                     rows={2}
                     value={overviewForm.objective}
@@ -2111,25 +2365,23 @@ export function ProjectDetailPage() {
                         current ? { ...current, objective: event.target.value } : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
               </div>
             </div>
 
             <div className="overview-section span-2">
-              <h4 className="overview-section__title">Căn cứ</h4>
+              <h4 className="overview-section__title">Thông tin triển khai</h4>
 
               <div className="overview-reference-grid">
                 {renderReferenceEditor('outputContracts')}
                 {renderReferenceEditor('inputContracts')}
-                {renderReferenceEditor('deploymentApprovals')}
-                {renderReferenceEditor('projectTeamDecisions')}
               </div>
 
               <div className="overview-section__grid overview-section__grid--tight">
                 <label>
-                  <span>Hinh thuc TTK</span>
+                  <span>Hình thức TTK</span>
                   <select
                     value={overviewForm.basisInfo.ttkMode}
                     onChange={(event) =>
@@ -2145,7 +2397,7 @@ export function ProjectDetailPage() {
                           : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   >
                     {ttkModeOptions.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -2172,7 +2424,7 @@ export function ProjectDetailPage() {
                           : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   >
                     {deploymentModeOptions.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -2183,7 +2435,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label>
-                  <span>Thoi gian trien khai (so ngay)</span>
+                  <span>Thời gian triển khai (số ngày)</span>
                   <input
                     type="number"
                     min={0}
@@ -2201,12 +2453,12 @@ export function ProjectDetailPage() {
                           : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
 
                 <label>
-                  <span>Thoi gian trien khai (so gio)</span>
+                  <span>Thời gian trien khai (so gio)</span>
                   <input
                     type="number"
                     min={0}
@@ -2224,7 +2476,7 @@ export function ProjectDetailPage() {
                           : current,
                       )
                     }
-                    disabled={!canManageProject}
+                    disabled={!canEditProjectInfo}
                   />
                 </label>
               </div>
@@ -2248,7 +2500,7 @@ export function ProjectDetailPage() {
                       onChange={(event) =>
                         updateFinancialField('revenue', 'amount', Number(event.target.value))
                       }
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                   <label>
@@ -2256,7 +2508,7 @@ export function ProjectDetailPage() {
                     <input
                       value={overviewForm.financialInfo.revenue.note}
                       onChange={(event) => updateFinancialField('revenue', 'note', event.target.value)}
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                 </div>
@@ -2275,7 +2527,7 @@ export function ProjectDetailPage() {
                       onChange={(event) =>
                         updateFinancialField('internalCost', 'amount', Number(event.target.value))
                       }
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                   <label>
@@ -2285,7 +2537,7 @@ export function ProjectDetailPage() {
                       onChange={(event) =>
                         updateFinancialField('internalCost', 'note', event.target.value)
                       }
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                 </div>
@@ -2304,7 +2556,7 @@ export function ProjectDetailPage() {
                       onChange={(event) =>
                         updateFinancialField('externalCost', 'amount', Number(event.target.value))
                       }
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                   <label>
@@ -2314,7 +2566,7 @@ export function ProjectDetailPage() {
                       onChange={(event) =>
                         updateFinancialField('externalCost', 'note', event.target.value)
                       }
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                 </div>
@@ -2333,7 +2585,7 @@ export function ProjectDetailPage() {
                       onChange={(event) =>
                         updateFinancialField('profit', 'amount', Number(event.target.value))
                       }
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                   <label>
@@ -2341,7 +2593,7 @@ export function ProjectDetailPage() {
                     <input
                       value={overviewForm.financialInfo.profit.note}
                       onChange={(event) => updateFinancialField('profit', 'note', event.target.value)}
-                      disabled={!canManageProject}
+                      disabled={!canEditProjectInfo}
                     />
                   </label>
                 </div>
@@ -2365,7 +2617,7 @@ export function ProjectDetailPage() {
                         : current,
                     )
                   }
-                  disabled={!canManageProject}
+                  disabled={!canEditProjectInfo}
                 />
               </label>
             </div>
@@ -2380,7 +2632,7 @@ export function ProjectDetailPage() {
       <section className="panel panel--compact detail-tab-panel">
         <EditModeBar
           isEditing={personnelEdit.isEditing}
-          canEdit={canManageProject}
+          canEdit={canEditProjectInfo}
           saving={personnelEdit.saving}
           onStartEdit={personnelEdit.start}
           onSave={() =>
@@ -2396,7 +2648,7 @@ export function ProjectDetailPage() {
 
         <form className="personnel-form" onSubmit={handlePersonnelSubmit}>
           <fieldset
-            disabled={!personnelEdit.isEditing || !canManageProject}
+            disabled={!personnelEdit.isEditing || !canEditProjectInfo}
             className="edit-mode-fieldset"
           >
             <div className="personnel-group">
@@ -2420,10 +2672,10 @@ export function ProjectDetailPage() {
                     <tr>
                       <th>STT</th>
                       <th>Nhan vien AITS</th>
-                      <th>Chuc danh / Don vi</th>
-                      <th>Vai tro</th>
-                      <th>Nhiem vu</th>
-                      <th>Tong gio cong TK</th>
+                      <th>Chức danh / Đơn vị</th>
+                      <th>Vai trò</th>
+                      <th>Nhiệm vụ</th>
+                      <th>Tổng giờ công TK</th>
                       <th>Email / SDT</th>
                       {personnelEditable ? <th>Tac vu</th> : null}
                     </tr>
@@ -2450,9 +2702,9 @@ export function ProjectDetailPage() {
                               <select
                                 value={member.userId}
                                 onChange={(event) => bindAitsPersonnelUser(index, event.target.value)}
-                                disabled={!canManageProject}
+                                disabled={!canEditProjectInfo}
                               >
-                                <option value="">— Chon nhan vien —</option>
+                                <option value="">— Chọn nhân viên —</option>
                                 {aitsPool.map((u) => (
                                   <option key={u.id} value={u.id}>
                                     {u.name} ({u.employeeCode})
@@ -2473,7 +2725,7 @@ export function ProjectDetailPage() {
                                 onChange={(event) =>
                                   updateAitsPersonnelItem(index, 'role', event.target.value)
                                 }
-                                disabled={!canManageProject}
+                                disabled={!canEditProjectInfo}
                               />
                             </td>
                             <td>
@@ -2482,7 +2734,7 @@ export function ProjectDetailPage() {
                                 onChange={(event) =>
                                   updateAitsPersonnelItem(index, 'responsibility', event.target.value)
                                 }
-                                disabled={!canManageProject}
+                                disabled={!canEditProjectInfo}
                               />
                             </td>
                             <td>
@@ -2497,7 +2749,7 @@ export function ProjectDetailPage() {
                                     Number(event.target.value),
                                   )
                                 }
-                                disabled={!canManageProject}
+                                disabled={!canEditProjectInfo}
                               />
                             </td>
                             <td>
@@ -2511,7 +2763,7 @@ export function ProjectDetailPage() {
                                   className="ghost-button ghost-button--compact"
                                   onClick={() => void confirmRemoveAitsRow(index)}
                                 >
-                                  <Trash2 size={14} /> Xoa
+                                  <Trash2 size={14} /> Xóa
                                 </button>
                               </td>
                             ) : null}
@@ -2521,7 +2773,7 @@ export function ProjectDetailPage() {
                     ) : (
                       <tr>
                         <td colSpan={personnelEditable ? 8 : 7} className="personnel-table__empty">
-                          Chua co nhan su AITS.
+                          Chưa có nhân sự AITS.
                         </td>
                       </tr>
                     )}
@@ -2550,10 +2802,10 @@ export function ProjectDetailPage() {
                   <thead>
                     <tr>
                       <th>STT</th>
-                      <th>Ho va ten</th>
-                      <th>Chuc danh</th>
-                      <th>Don vi</th>
-                      <th>Nhiem vu</th>
+                      <th>Họ và tên</th>
+                      <th>Chức danh</th>
+                      <th>Đơn vị</th>
+                      <th>Nhiệm vụ</th>
                       <th>Email</th>
                       <th>SDT</th>
                       {personnelEditable ? <th>Tac vu</th> : null}
@@ -2575,7 +2827,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2589,7 +2841,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2603,7 +2855,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2617,7 +2869,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2632,7 +2884,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2647,7 +2899,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           {personnelEditable ? (
@@ -2657,7 +2909,7 @@ export function ProjectDetailPage() {
                                 className="ghost-button ghost-button--compact"
                                 onClick={() => void confirmRemoveExternalRow('customerMembers', index)}
                               >
-                                <Trash2 size={14} /> Xoa
+                                <Trash2 size={14} /> Xóa
                               </button>
                             </td>
                           ) : null}
@@ -2666,7 +2918,7 @@ export function ProjectDetailPage() {
                     ) : (
                       <tr>
                         <td colSpan={personnelEditable ? 8 : 7} className="personnel-table__empty">
-                          Chua co dau moi khach hang.
+                          Chưa có đầu mối khách hàng.
                         </td>
                       </tr>
                     )}
@@ -2695,11 +2947,11 @@ export function ProjectDetailPage() {
                   <thead>
                     <tr>
                       <th>STT</th>
-                      <th>Ho va ten</th>
-                      <th>Chuc danh</th>
-                      <th>Don vi</th>
-                      <th>Vai tro</th>
-                      <th>Nhiem vu</th>
+                      <th>Họ và tên</th>
+                      <th>Chức danh</th>
+                      <th>Đơn vị</th>
+                      <th>Vai trò</th>
+                      <th>Nhiệm vụ</th>
                       <th>Email</th>
                       <th>SDT</th>
                       {personnelEditable ? <th>Tac vu</th> : null}
@@ -2721,7 +2973,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2735,7 +2987,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2749,7 +3001,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2763,7 +3015,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2777,7 +3029,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2792,7 +3044,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           <td>
@@ -2807,7 +3059,7 @@ export function ProjectDetailPage() {
                                   event.target.value,
                                 )
                               }
-                              disabled={!canManageProject}
+                              disabled={!canEditProjectInfo}
                             />
                           </td>
                           {personnelEditable ? (
@@ -2817,7 +3069,7 @@ export function ProjectDetailPage() {
                                 className="ghost-button ghost-button--compact"
                                 onClick={() => void confirmRemoveExternalRow('partners', index)}
                               >
-                                <Trash2 size={14} /> Xoa
+                                <Trash2 size={14} /> Xóa
                               </button>
                             </td>
                           ) : null}
@@ -2826,7 +3078,7 @@ export function ProjectDetailPage() {
                     ) : (
                       <tr>
                         <td colSpan={personnelEditable ? 9 : 8} className="personnel-table__empty">
-                          Chua co doi tac tham gia du an.
+                          Chưa có đối tác tham gia dự án.
                         </td>
                       </tr>
                     )}
@@ -2845,7 +3097,7 @@ export function ProjectDetailPage() {
         <section className="panel panel--compact detail-tab-panel">
           <div className="panel-heading panel-heading--compact">
             <StatusPill label={`${totalDocumentCount} tài liệu`} tone={totalDocumentCount ? 'info' : 'neutral'} />
-            {canManageProject ? (
+            {canEditProjectInfo ? (
               <button
                 type="button"
                 className="primary-button primary-button--compact"
@@ -2862,15 +3114,15 @@ export function ProjectDetailPage() {
               <thead>
                 <tr>
                   <th>STT</th>
-                  <th>Ten tai lieu</th>
+                  <th>Tên tài liệu</th>
                   <th>File</th>
-                  <th>Loai tai lieu</th>
-                  <th>So van ban</th>
-                  <th>Nguoi them</th>
-                  <th>Ngay them</th>
-                  <th>Nguoi cap nhat</th>
-                  <th>Ngay cap nhat</th>
-                  {canManageProject ? <th>Thao tac</th> : null}
+                  <th>Loại tài liệu</th>
+                  <th>Số văn bản</th>
+                  <th>Người thêm</th>
+                  <th>Ngày thêm</th>
+                  <th>Người cập nhật</th>
+                  <th>Ngày cập nhật</th>
+                  {canEditProjectInfo ? <th>Thao tác</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -2891,7 +3143,7 @@ export function ProjectDetailPage() {
                       <td style={{ whiteSpace: 'nowrap' }}>{formatDate(doc.uploadedAt)}</td>
                       <td>{doc.updatedBy ? (getUser(doc.updatedBy)?.name ?? doc.updatedBy) : '-'}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{doc.updatedAt ? formatDate(doc.updatedAt) : '-'}</td>
-                      {canManageProject ? (
+                      {canEditProjectInfo ? (
                         <td>
                           <div className="inline-actions">
                             <button
@@ -2909,7 +3161,7 @@ export function ProjectDetailPage() {
                               onClick={() => void handleDeleteDocument(doc)}
                             >
                               <Trash2 size={14} />
-                              Xoa
+                              Xóa
                             </button>
                           </div>
                         </td>
@@ -2918,8 +3170,8 @@ export function ProjectDetailPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={canManageProject ? 10 : 9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                      Chua co tai lieu.
+                    <td colSpan={canEditProjectInfo ? 10 : 9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                      Chưa có tài liệu.
                     </td>
                   </tr>
                 )}
@@ -2953,30 +3205,30 @@ export function ProjectDetailPage() {
             <form className="overview-section risk-summary-form" onSubmit={handleRiskSummarySubmit}>
               <div className="risk-summary-strip">
                 <article className="risk-summary-card">
-                  <span>Dang mo</span>
+                  <span>Đang mở</span>
                   <strong>{openRiskCount}</strong>
-                  <small>Can theo doi</small>
+                  <small>Cần theo dõi</small>
                 </article>
                 <article className="risk-summary-card">
-                  <span>Muc cao</span>
+                  <span>Mức cao</span>
                   <strong>{highRiskCount}</strong>
-                  <small>Uu tien xu ly</small>
+                  <small>Ưu tiên xử lý</small>
                 </article>
                 <article className="risk-summary-card">
-                  <span>Da giam nhe</span>
+                  <span>Đã giảm nhẹ</span>
                   <strong>{mitigatedRiskCount}</strong>
-                  <small>Da co bien phap</small>
+                  <small>Đã có biện pháp</small>
                 </article>
               </div>
 
               <label className="span-2">
-                <span>Tom tat</span>
+                <span>Tóm tắt</span>
                 <textarea
                   rows={4}
                   value={riskSummaryDraft}
                   onChange={(event) => setRiskSummaryDraft(event.target.value)}
                   disabled={!canManagePlan}
-                  placeholder="Tom tat rui ro va huong xu ly"
+                  placeholder="Tóm tắt rủi ro và hướng xử lý"
                 />
               </label>
 
@@ -2984,7 +3236,7 @@ export function ProjectDetailPage() {
                 <div className="inline-actions span-2">
                   <button type="submit" className="primary-button primary-button--compact">
                     <Save size={16} />
-                    Luu tom tat
+                    Lưu tóm tắt
                   </button>
                 </div>
               ) : null}
@@ -2996,7 +3248,7 @@ export function ProjectDetailPage() {
                   <article key={risk.id} className="risk-card">
                     <div className="risk-card__header">
                       <div>
-                        <span className="eyebrow">Muc rui ro</span>
+                        <span className="eyebrow">Mức rủi ro</span>
                         <h4>{risk.title}</h4>
                       </div>
                       <div className="inline-actions">
@@ -3015,24 +3267,24 @@ export function ProjectDetailPage() {
                             onClick={() => openRiskModal(risk)}
                           >
                             <Edit3 size={15} />
-                            Cap nhat
+                            Cập nhật
                           </button>
                         ) : null}
                       </div>
                     </div>
 
                     <div className="risk-card__meta">
-                      <span>Chu tri: {getUser(risk.ownerId)?.name ?? risk.ownerId}</span>
-                      <span>Cap nhat: {formatDate(risk.lastUpdated)}</span>
+                      <span>Chủ trì: {getUser(risk.ownerId)?.name ?? risk.ownerId}</span>
+                      <span>Cập nhật: {formatDate(risk.lastUpdated)}</span>
                     </div>
 
-                    <p>{risk.mitigation || 'Chua co bien phap.'}</p>
+                    <p>{risk.mitigation || 'Chưa có biện pháp.'}</p>
                   </article>
                 ))
               ) : (
                 <div className="risk-empty-state">
-                  <strong>Chua co rui ro</strong>
-                  <p>Them muc rui ro de luu tac dong va bien phap.</p>
+                  <strong>Chưa có rủi ro</strong>
+                  <p>Thêm mục rủi ro để lưu tác động và biện pháp.</p>
                 </div>
               )}
             </div>
@@ -3062,7 +3314,7 @@ export function ProjectDetailPage() {
               <div className="stack-list">
                 <div className="list-row list-row--compact">
                   <div>
-                    <strong>Dang chon: {selectedTask.name}</strong>
+                    <strong>Đang chọn: {selectedTask.name}</strong>
                     <p>
                       {getTaskAssigneeNames(selectedTask)} | {selectedTask.progress}% |{' '}
                       {formatHours(selectedTask.actualHours)} ghi nhan
@@ -3080,7 +3332,7 @@ export function ProjectDetailPage() {
                         onClick={() => openExecutionModal(selectedTask)}
                       >
                         <Timer size={15} />
-                        Mo cap nhat
+                        Mở cập nhật
                       </button>
                     ) : null}
                     {canManagePlan ? (
@@ -3100,7 +3352,7 @@ export function ProjectDetailPage() {
                         onClick={() => handleCreateChildTask(selectedTask)}
                       >
                         <Workflow size={15} />
-                        Them subtask
+                        Thêm subtask
                       </button>
                     ) : null}
                     {canManagePlan ? (
@@ -3111,7 +3363,7 @@ export function ProjectDetailPage() {
                         onClick={() => void handleDeletePlanItem(selectedTask)}
                       >
                         <Trash2 size={15} />
-                        Xoa
+                        Xóa
                       </button>
                     ) : null}
                   </div>
@@ -3125,7 +3377,7 @@ export function ProjectDetailPage() {
                   <div>
                     <span className="eyebrow">Gantt overview</span>
                     <h4>Task tong quan</h4>
-                    <p>Chon task de xem subtask ben duoi</p>
+                    <p>Chọn task để xem subtask bên dưới</p>
                   </div>
                   <StatusPill label={`${overviewTasks.length} task`} tone="neutral" />
                 </div>
@@ -3146,8 +3398,8 @@ export function ProjectDetailPage() {
                       <h4>{focusedOverviewTask.name}</h4>
                       <p>
                         {focusedSubtaskGanttItems.length
-                          ? 'Timeline subtask cua task dang chon'
-                          : 'Chua co subtask'}
+                          ? 'Timeline subtask của task đang chọn'
+                          : 'Chưa có subtask'}
                       </p>
                     </div>
                     <StatusPill
@@ -3166,12 +3418,102 @@ export function ProjectDetailPage() {
                   ) : (
                     <div className="plan-gantt-empty">
                       <p>
-                        Them subtask cho <strong>{focusedOverviewTask.name}</strong> de xem timeline.
+                        Thêm subtask cho <strong>{focusedOverviewTask.name}</strong> để xem timeline.
                       </p>
                     </div>
                   )}
                 </section>
               ) : null}
+            </div>
+
+            <div className="panel-heading panel-heading--compact sub-heading">
+              <div>
+                <span className="eyebrow">Task actions</span>
+                <h4>Thao tác theo từng công việc</h4>
+              </div>
+              <StatusPill label={`${planActionRows.length} dòng`} tone="neutral" />
+            </div>
+
+            <div className="table-wrapper">
+              <table className="data-table plan-action-table">
+                <thead>
+                  <tr>
+                    <th>Công việc</th>
+                    <th>Phụ trách</th>
+                    <th>Trạng thái</th>
+                    <th>Tiến độ</th>
+                    <th>Giờ công</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {planActionRows.map(({ task, depth }) => {
+                    const locked = isTaskLocked(task)
+                    const canLogTask =
+                      !locked && (canManagePlan || getTaskAssigneeIds(task).includes(currentUser.id))
+                    return (
+                      <tr key={task.id} className={selectedTask?.id === task.id ? 'row-selected' : ''}>
+                        <td style={{ paddingLeft: `${0.75 + depth * 1.25}rem` }}>
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => setSelectedTaskId(task.id)}
+                          >
+                            {task.parentId ? '↳ ' : ''}
+                            {task.name}
+                          </button>
+                          {locked ? <p className="workload-cell-note">Đã hoàn thành, khóa cập nhật</p> : null}
+                        </td>
+                        <td>{getTaskAssigneeNames(task) || 'Chưa phân công'}</td>
+                        <td>
+                          <StatusPill
+                            label={getCatalogLabel(catalogs.taskStatuses, task.status)}
+                            tone={getStatusTone(task.status)}
+                          />
+                        </td>
+                        <td>{task.progress}%</td>
+                        <td>
+                          {formatHours(task.actualHours)} / {formatHours(task.plannedHours)}
+                        </td>
+                        <td>
+                          <div className="inline-actions">
+                            {canLogTask ? (
+                              <button
+                                type="button"
+                                className="ghost-button ghost-button--compact"
+                                onClick={() => openExecutionModal(task)}
+                              >
+                                <Timer size={15} />
+                                Khai báo tiến độ
+                              </button>
+                            ) : null}
+                            {canManagePlan && !locked ? (
+                              <button
+                                type="button"
+                                className="ghost-button ghost-button--compact"
+                                onClick={() => handleEditTask(task)}
+                              >
+                                <Edit3 size={15} />
+                                Sửa task
+                              </button>
+                            ) : null}
+                            {canManagePlan && !locked ? (
+                              <button
+                                type="button"
+                                className="ghost-button ghost-button--compact"
+                                onClick={() => handleCreateChildTask(task)}
+                              >
+                                <Workflow size={15} />
+                                Thêm subtask
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </>
         </article>
@@ -3179,7 +3521,7 @@ export function ProjectDetailPage() {
       </section>
       ) : null}
 
-      {canManageProject && documentForm && isDocumentModalOpen ? (
+      {canEditProjectInfo && documentForm && isDocumentModalOpen ? (
         <div className="modal-backdrop" onClick={closeDocumentModal}>
           <div
             className="modal-card document-modal-card"
@@ -3187,14 +3529,14 @@ export function ProjectDetailPage() {
           >
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Tai lieu</span>
-                <h3>{documentForm.id ? 'Cap nhat tai lieu' : 'Them tai lieu'}</h3>
+                <span className="eyebrow">Tài liệu</span>
+                <h3>{documentForm.id ? 'Cập nhật tài liệu' : 'Thêm tài liệu'}</h3>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closeDocumentModal}
-                aria-label="Dong"
+                aria-label="Đóng"
               >
                 <X size={16} />
               </button>
@@ -3202,10 +3544,10 @@ export function ProjectDetailPage() {
 
             <form className="form-grid" onSubmit={handleDocumentSubmit}>
               <label>
-                <span>Ten tai lieu</span>
+                <span>Tên tài liệu</span>
                 <input
                   value={documentForm.title}
-                  placeholder="Mac dinh theo ten file"
+                  placeholder="Mặc định theo tên file"
                   onChange={(event) =>
                     setDocumentForm((current) =>
                       current ? { ...current, title: event.target.value } : current,
@@ -3215,7 +3557,7 @@ export function ProjectDetailPage() {
               </label>
 
               <label>
-                <span>Loai tai lieu</span>
+                <span>Loại tài liệu</span>
                 <select
                   value={documentForm.category}
                   onChange={(event) =>
@@ -3226,22 +3568,16 @@ export function ProjectDetailPage() {
                     )
                   }
                 >
-                  {catalogs.documentCategories.length
-                    ? catalogs.documentCategories.map((cat) => (
-                        <option key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </option>
-                      ))
-                    : projectDocumentCategories.map((cat) => (
-                        <option key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </option>
-                      ))}
+                  {documentCategoryOptions.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
                 </select>
               </label>
 
               <label>
-                <span>So van ban</span>
+                <span>Số văn bản</span>
                 <input
                   value={documentForm.documentNumber}
                   placeholder="VD: CV-2026/001"
@@ -3254,30 +3590,50 @@ export function ProjectDetailPage() {
               </label>
 
               <label>
-                <span>File tai lieu</span>
+                <span>File tài liệu</span>
                 <div className="document-upload-field">
                   <input
                     key={documentInputKey}
                     className="document-file-input"
                     type="file"
                     accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,image/*"
-                    onChange={(event) =>
-                      setDocumentForm((current) =>
-                        current
-                          ? { ...current, fileName: event.target.files?.[0]?.name ?? '' }
-                          : current,
-                      )
-                    }
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) {
+                        setDocumentForm((current) =>
+                          current ? { ...current, fileName: '', attachment: null } : current,
+                        )
+                        return
+                      }
+
+                      try {
+                        const attachment = await readDocumentAttachment(file)
+                        setDocumentForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                fileName: attachment.fileName,
+                                attachment,
+                              }
+                            : current,
+                        )
+                      } catch (err) {
+                        toast.error('Không đọc được file', err instanceof Error ? err.message : '')
+                        setDocumentForm((current) =>
+                          current ? { ...current, fileName: '', attachment: null } : current,
+                        )
+                      }
+                    }}
                   />
                   <div className="document-upload-meta">
                     <FileText size={15} />
-                    <span>{documentForm.fileName || 'Chua chon file'}</span>
+                    <span>{documentForm.fileName || 'Chưa chọn file'}</span>
                   </div>
                 </div>
               </label>
 
               <label className="span-2">
-                <span>Ghi chu</span>
+                <span>Ghi chú</span>
                 <textarea
                   rows={2}
                   value={documentForm.description}
@@ -3291,11 +3647,11 @@ export function ProjectDetailPage() {
 
               <div className="modal-actions span-2">
                 <button type="button" className="ghost-button" onClick={closeDocumentModal}>
-                  Huy
+                  Hủy
                 </button>
                 <button type="submit" className="primary-button">
                   <Save size={16} />
-                  {documentForm.id ? 'Luu thay doi' : 'Them tai lieu'}
+                  {documentForm.id ? 'Lưu thay đổi' : 'Thêm tài liệu'}
                 </button>
               </div>
             </form>
@@ -3308,15 +3664,15 @@ export function ProjectDetailPage() {
           <div className="modal-card document-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Rui ro</span>
-                <h3>{riskForm.id ? 'Cap nhat rui ro' : 'Them rui ro'}</h3>
-                <p>Tac dong, nguoi theo doi va bien phap</p>
+                <span className="eyebrow">Rủi ro</span>
+                <h3>{riskForm.id ? 'Cập nhật rủi ro' : 'Thêm rủi ro'}</h3>
+                <p>Tác động, người theo dõi và biện pháp</p>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closeRiskModal}
-                aria-label="Dong"
+                aria-label="Đóng"
               >
                 <X size={16} />
               </button>
@@ -3324,7 +3680,7 @@ export function ProjectDetailPage() {
 
             <form className="form-grid" onSubmit={handleRiskSubmit}>
               <label className="span-2">
-                <span>Tieu de rui ro</span>
+                <span>Tiêu đề rủi ro</span>
                 <input
                   value={riskForm.title}
                   onChange={(event) =>
@@ -3360,7 +3716,7 @@ export function ProjectDetailPage() {
               </label>
 
               <label>
-                <span>Trang thai</span>
+                <span>Trạng thái</span>
                 <select
                   value={riskForm.status}
                   onChange={(event) =>
@@ -3531,11 +3887,11 @@ export function ProjectDetailPage() {
                 )}
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button type="button" className="ghost-button" onClick={closeRiskModal}>
-                    Huy
+                    Hủy
                   </button>
                   <button type="submit" className="primary-button">
                     <Save size={16} />
-                    {riskForm.id ? 'Luu thay doi' : 'Them rui ro'}
+                    {riskForm.id ? 'Lưu thay đổi' : 'Thêm rủi ro'}
                   </button>
                 </div>
               </div>
@@ -3550,16 +3906,16 @@ export function ProjectDetailPage() {
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">Ke hoach da thay doi</span>
-                <h3>Cap nhat rui ro?</h3>
+                <h3>Cập nhật rủi ro?</h3>
                 <p>
-                  Da luu thay doi cho task <strong>{planRiskPrompt.taskName}</strong>.
+                  Đã lưu thay đổi cho task <strong>{planRiskPrompt.taskName}</strong>.
                 </p>
               </div>
               <button
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closePlanRiskPrompt}
-                aria-label="Dong"
+                aria-label="Đóng"
               >
                 <X size={16} />
               </button>
@@ -3572,7 +3928,7 @@ export function ProjectDetailPage() {
 
             <div className="risk-prompt-body">
               <p>
-                Neu anh huong deadline hoac nguon luc, hay cap nhat tab <strong>Rui ro</strong>.
+                Nếu ảnh hưởng deadline hoặc nguồn lực, hãy cập nhật tab <strong>Rủi ro</strong>.
               </p>
               <div className="risk-prompt-draft">
                 <strong>De xuat:</strong>
@@ -3586,7 +3942,7 @@ export function ProjectDetailPage() {
               </button>
               <button type="button" className="primary-button" onClick={handleUpdateRiskNow}>
                 <Workflow size={16} />
-                Cap nhat ngay
+                Cập nhật ngay
               </button>
             </div>
           </div>
@@ -3603,12 +3959,12 @@ export function ProjectDetailPage() {
                   {planForm.id
                     ? 'Sua task'
                     : planForm.parentId
-                      ? 'Them subtask'
-                      : 'Them task'}
+                      ? 'Thêm subtask'
+                      : 'Thêm task'}
                 </h3>
                 <p>
                   {planForm.id
-                    ? 'Cap nhat phan cong va ke hoach'
+                    ? 'Cập nhật phân công và kế hoạch'
                     : planForm.parentId
                       ? 'Subtask se gan vao task cha'
                       : 'Khai bao task tong quan'}
@@ -3618,7 +3974,7 @@ export function ProjectDetailPage() {
                 type="button"
                 className="ghost-button icon-button"
                 onClick={closePlanModal}
-                aria-label="Dong"
+                aria-label="Đóng"
               >
                 <X size={16} />
               </button>
@@ -3648,7 +4004,7 @@ export function ProjectDetailPage() {
                   }
                   disabled={!canManagePlan && isCreatingChildTask}
                 >
-                  <option value="">Khong co</option>
+                  <option value="">Không có</option>
                   {projectTasks
                     .filter((task) => task.id !== planForm.id)
                     .map((task) => (
@@ -3681,7 +4037,7 @@ export function ProjectDetailPage() {
                 </div>
               </label>
               <label>
-                <span>Trang thai</span>
+                <span>Trạng thái</span>
                 <select
                   value={planForm.status}
                   onChange={(event) =>
@@ -3703,7 +4059,7 @@ export function ProjectDetailPage() {
                 </select>
               </label>
               <label>
-                <span>Ke hoach bat dau</span>
+                <span>Kế hoạch bắt đầu</span>
                 <input
                   type="date"
                   value={planForm.startDate}
@@ -3715,7 +4071,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label>
-                <span>Ke hoach ket thuc</span>
+                <span>Kế hoạch kết thúc</span>
                 <input
                   type="date"
                   value={planForm.endDate}
@@ -3727,7 +4083,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label>
-                <span>Tien do ban dau (%)</span>
+                <span>Tiến độ ban dau (%)</span>
                 <input
                   type="number"
                   min={0}
@@ -3759,14 +4115,14 @@ export function ProjectDetailPage() {
               </label>
               <div className="modal-actions span-2">
                 <button type="button" className="ghost-button" onClick={closePlanModal}>
-                  Huy
+                  Hủy
                 </button>
                 <button type="button" className="ghost-button" onClick={resetPlanForm}>
-                  Tao form moi
+                  Tạo form mới
                 </button>
                 <button type="submit" className="primary-button" disabled={!canSubmitPlanForm}>
                   <Save size={16} />
-                  {planForm.id ? 'Luu task hien tai' : 'Them task / subtask'}
+                  {planForm.id ? 'Lưu task hiện tại' : 'Thêm task / subtask'}
                 </button>
               </div>
             </form>
@@ -3780,7 +4136,7 @@ export function ProjectDetailPage() {
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">Execution update</span>
-                <h3>Cap nhat tien do</h3>
+                <h3>Cập nhật tiến độ</h3>
                 <p>{selectedTask.name}</p>
               </div>
               <div className="panel-actions">
@@ -3792,7 +4148,7 @@ export function ProjectDetailPage() {
                   type="button"
                   className="ghost-button icon-button"
                   onClick={closeExecutionModal}
-                  aria-label="Dong"
+                  aria-label="Đóng"
                 >
                   <X size={16} />
                 </button>
@@ -3831,7 +4187,7 @@ export function ProjectDetailPage() {
                       current ? { ...current, memberId: event.target.value } : current,
                     )
                   }
-                  disabled={!canManageProject}
+                  disabled={!canEditProjectInfo}
                 >
                   {selectedTaskAssigneeIds.map((memberId) => (
                     <option key={memberId} value={memberId}>
@@ -3841,7 +4197,7 @@ export function ProjectDetailPage() {
                 </select>
               </label>
               <label>
-                <span>Ngay</span>
+                <span>Ngày</span>
                 <input
                   type="date"
                   value={executionForm.date}
@@ -3853,7 +4209,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label>
-                <span>Gio cong</span>
+                <span>Giờ công</span>
                 <input
                   type="number"
                   min={0}
@@ -3868,7 +4224,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label>
-                <span>Tien do (%)</span>
+                <span>Tiến độ (%)</span>
                 <input
                   type="number"
                   min={0}
@@ -3884,7 +4240,7 @@ export function ProjectDetailPage() {
                 />
               </label>
               <label className="span-2">
-                <span>Ghi chu</span>
+                <span>Ghi chú</span>
                 <textarea
                   rows={3}
                   value={executionForm.progressNote}
@@ -3895,12 +4251,12 @@ export function ProjectDetailPage() {
                         : current,
                     )
                   }
-                  placeholder="Cong viec da xong hoac vuong mac"
+                  placeholder="Công việc đã xong hoặc vướng mắc"
                 />
               </label>
               <div className="modal-actions span-2">
                 <button type="button" className="ghost-button" onClick={closeExecutionModal}>
-                  Huy
+                  Hủy
                 </button>
                 <button
                   type="submit"
@@ -3908,7 +4264,7 @@ export function ProjectDetailPage() {
                   disabled={!canUpdateSelectedTask}
                 >
                   <Timer size={16} />
-                  Luu cap nhat
+                  Lưu cập nhật
                 </button>
               </div>
             </form>
@@ -3916,7 +4272,7 @@ export function ProjectDetailPage() {
             <div className="panel-heading sub-heading">
               <div>
                 <span className="eyebrow">Worklog history</span>
-                <h3>Lich su cap nhat</h3>
+                <h3>Lịch sử cập nhật</h3>
               </div>
               <StatusPill label={`${selectedTaskWorklogs.length} dong`} tone="neutral" />
             </div>
@@ -3925,9 +4281,9 @@ export function ProjectDetailPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Ngay</th>
+                    <th>Ngày</th>
                     <th>Thanh vien</th>
-                    <th>Gio cong</th>
+                    <th>Giờ công</th>
                     <th>Noi dung</th>
                   </tr>
                 </thead>
@@ -3947,11 +4303,11 @@ export function ProjectDetailPage() {
             <div className="stack-list">
               <div className="list-row">
                 <div>
-                  <strong>Cap nhat gan nhat</strong>
+                  <strong>Cập nhật gần nhất</strong>
                   <p>
                     {selectedTaskWorklogs[0]
                       ? formatDate(selectedTaskWorklogs[0].date)
-                      : 'Chua co worklog'}
+                      : 'Chưa có worklog'}
                   </p>
                 </div>
                 <StatusPill
@@ -3969,6 +4325,7 @@ export function ProjectDetailPage() {
           project={project}
           users={users}
           projects={projects}
+          worklogs={worklogs}
           updateProject={updateProject}
           workloadLogs={projectActivityLogs.filter((l) => l.action === 'ALLOCATION_UPDATED')}
           getUserById={getUser}
@@ -4003,8 +4360,8 @@ function InlineActivityLog({
         <table className="data-table">
           <thead>
             <tr>
-              <th>Thoi gian</th>
-              <th>Nguoi thuc hien</th>
+              <th>Thời gian</th>
+              <th>Người thực hiện</th>
               <th>Hanh dong</th>
               <th>Doi tuong</th>
               <th>Chi tiet</th>
@@ -4044,6 +4401,7 @@ function WorkloadTabPanel({
   project,
   users,
   projects,
+  worklogs,
   updateProject,
   workloadLogs,
   getUserById,
@@ -4051,6 +4409,7 @@ function WorkloadTabPanel({
   project: Project
   users: User[]
   projects: Project[]
+  worklogs: import('../types').Worklog[]
   updateProject: (input: { projectId: string; patch: Partial<Project> }) => Promise<void>
   workloadLogs: import('../types').ActivityLog[]
   getUserById: (id?: string) => User | null
@@ -4058,10 +4417,10 @@ function WorkloadTabPanel({
   const toast = useToast()
   const { confirm } = useConfirm()
   const loading = useLoading()
-  const projectMonths = getProjectAllocationMonths(project)
-  const estimatedEndDate = getEstimatedProjectEndDate(project)
+  const projectMonths = useMemo(() => getProjectAllocationMonths(project), [project])
+  const estimatedEndDate = useMemo(() => getEstimatedProjectEndDate(project), [project])
 
-  const resolvedMembers = (() => {
+  const resolvedMembers = useMemo(() => {
     const mappedMembers = project.personnelInfo.aitsMembers
       .map((personnel) => {
         const user = resolveAitsUser(personnel, users)
@@ -4086,20 +4445,29 @@ function WorkloadTabPanel({
       })
       .filter((item): item is ResolvedAitsMember => item !== null)
     return [...mappedMembers, ...fallbackMembers]
-  })()
+  }, [project, users])
 
-  // Since 12/05/2026 every aitsMember has a userId, so the "Nhan su chua lien
+  const draftAllocationBaseline = useMemo(
+    () => buildProjectDraftAllocations(project, resolvedMembers, projectMonths),
+    [project, projectMonths, resolvedMembers],
+  )
+
+  // Since 12/05/2026 every aitsMember has a userId, so the "Nhân sự chưa liên
   // ket" panel that surfaced free-text orphans has been retired.
 
-  const [draftAllocations, setDraftAllocations] = useState<Record<string, number>>(() =>
-    buildProjectDraftAllocations(project, resolvedMembers, projectMonths),
+  const [draftAllocations, setDraftAllocations] = useState<Record<string, number>>(
+    () => draftAllocationBaseline,
   )
   const [message, setMessage] = useState('')
+  const [detailModal, setDetailModal] = useState<{ memberId: string; month: string } | null>(null)
+  const [showMonthlyAllocations, setShowMonthlyAllocations] = useState(true)
 
   useEffect(() => {
-    setDraftAllocations(buildProjectDraftAllocations(project, resolvedMembers, projectMonths))
-    setMessage('')
-  }, [project.id, projectMonths.length, projects])
+    queueMicrotask(() => {
+      setDraftAllocations(draftAllocationBaseline)
+      setMessage('')
+    })
+  }, [draftAllocationBaseline])
 
   function getDraftHours(memberId: string, month: string) {
     return draftAllocations[buildAllocationKey(memberId, month)] ?? 0
@@ -4112,25 +4480,17 @@ function WorkloadTabPanel({
     }))
   }
 
-  function autoDistributeMember(member: ResolvedAitsMember) {
-    const even = distributeHoursEvenly(member.personnel.totalPlannedHours, projectMonths)
-    setDraftAllocations((current) => {
-      const next = { ...current }
-      projectMonths.forEach((month) => {
-        next[buildAllocationKey(member.memberId, month)] = even[month] ?? 0
-      })
-      return next
-    })
-  }
-
-  function autoDistributeAll() {
-    setDraftAllocations(buildProjectDraftAllocations(project, resolvedMembers, projectMonths))
-  }
-
   const rowSummaries = resolvedMembers.map((member) => {
-    const targetHours = Math.max(0, Math.round(member.personnel.totalPlannedHours))
     const monthDetails = projectMonths.map((month) => {
       const currentHours = getDraftHours(member.memberId, month)
+      const actualHours = worklogs
+        .filter(
+          (worklog) =>
+            worklog.projectId === project.id &&
+            worklog.memberId === member.memberId &&
+            dayjs(worklog.date).format('YYYY-MM') === month,
+        )
+        .reduce((sum, worklog) => sum + worklog.hours, 0)
       const otherHours = projects
         .filter((p) => p.id !== project.id)
         .reduce((sum, p) => {
@@ -4141,38 +4501,58 @@ function WorkloadTabPanel({
               .reduce((s, a) => s + a.hours, 0)
           )
         }, 0)
+      // Project-quota remainder: cell flags red on the detail icon when the
+      // sum of THIS user's allocations across all projects for the month
+      // exceeds the a.Office "Dự án" quota.
+      const aOffice = getAOfficeBreakdown(member.user, month)
+      const totalProjectHours = currentHours + otherHours
       return {
         month,
         currentProjectHours: currentHours,
+        actualHours,
         otherProjectsHours: otherHours,
-        totalMonthHours: currentHours + otherHours,
-        remainingHours: member.user.monthlyCapacity - (currentHours + otherHours),
+        totalMonthHours: totalProjectHours,
+        remainingHours: member.user.monthlyCapacity - totalProjectHours,
         capacity: member.user.monthlyCapacity,
+        projectQuota: aOffice.project,
+        projectRemaining: aOffice.project - totalProjectHours,
       }
     })
     const allocatedHours = monthDetails.reduce((sum, d) => sum + d.currentProjectHours, 0)
+    const actualHours = monthDetails.reduce((sum, d) => sum + d.actualHours, 0)
     return {
       member,
-      targetHours,
       allocatedHours,
-      deltaHours: targetHours - allocatedHours,
+      actualHours,
       monthDetails,
       overloadedMonths: monthDetails.filter((d) => d.remainingHours < 0).length,
     }
   })
 
-  const totalTargetHours = rowSummaries.reduce((sum, r) => sum + r.targetHours, 0)
   const totalDraftHours = rowSummaries.reduce((sum, r) => sum + r.allocatedHours, 0)
-  const invalidRows = rowSummaries.filter((r) => r.deltaHours !== 0).length
+  const totalBusinessHours = Number(project.basisInfo.durationHours) || 0
+  const totalActualHours = rowSummaries.reduce((sum, r) => sum + r.actualHours, 0)
   const overloadedCells = rowSummaries.reduce((sum, r) => sum + r.overloadedMonths, 0)
-  const canSave = invalidRows === 0
+  const monthlyTotals = projectMonths.map((month) => ({
+    month,
+    planned: rowSummaries.reduce(
+      (sum, row) =>
+        sum + (row.monthDetails.find((detail) => detail.month === month)?.currentProjectHours ?? 0),
+      0,
+    ),
+    actual: rowSummaries.reduce(
+      (sum, row) => sum + (row.monthDetails.find((detail) => detail.month === month)?.actualHours ?? 0),
+      0,
+    ),
+  }))
 
   async function handleSave() {
     const ok = await confirm({
-      title: 'Lưu phân bổ giờ công?',
-      description: 'Hệ thống sẽ cập nhật phân bổ theo tháng cho từng thành viên TTK.',
+      title: 'Lưu nguồn lực dự án?',
+      description:
+        'Hệ thống sẽ cập nhật phân bổ theo tháng và đồng bộ tổng giờ công của từng nhân sự AITS.',
       tone: 'primary',
-      confirmLabel: 'Lưu phân bổ',
+      confirmLabel: 'Lưu nguồn lực',
     })
     if (!ok) return
 
@@ -4182,28 +4562,46 @@ function WorkloadTabPanel({
       (a) => !(editableIds.has(a.memberId) && editableMonths.has(a.month)),
     )
     const next = [...preserved]
+    // v3.11 (14/05/2026): total per member is the SUM of monthly inputs.
+    const totalsByMember = new Map<string, number>()
     rowSummaries.forEach((row) => {
+      let memberTotal = 0
       row.monthDetails.forEach((d) => {
         if (d.currentProjectHours > 0) {
           next.push({ memberId: row.member.memberId, month: d.month, hours: d.currentProjectHours })
+          memberTotal += d.currentProjectHours
         }
       })
+      totalsByMember.set(row.member.memberId, memberTotal)
     })
+
+    // Push the derived totals back into personnelInfo.aitsMembers so the
+    // Personnel tab reflects the same numbers without manual entry.
+    const nextPersonnelInfo = {
+      ...project.personnelInfo,
+      aitsMembers: project.personnelInfo.aitsMembers.map((member) =>
+        member.userId && totalsByMember.has(member.userId)
+          ? { ...member, totalPlannedHours: totalsByMember.get(member.userId) ?? 0 }
+          : member,
+      ),
+    }
+
     try {
-      await loading.run('Đang lưu phân bổ giờ công…', () =>
+      await loading.run('Đang lưu nguồn lực dự án…', () =>
         updateProject({
           projectId: project.id,
           patch: {
             monthlyAllocations: next.sort((a, b) =>
               a.month.localeCompare(b.month) || a.memberId.localeCompare(b.memberId),
             ),
+            personnelInfo: nextPersonnelInfo,
           },
         }),
       )
       setMessage('')
-      toast.success('Đã lưu phân bổ giờ công')
+      toast.success('Đã lưu nguồn lực dự án')
     } catch (err) {
-      toast.error('Không lưu được phân bổ giờ công', err instanceof Error ? err.message : '')
+      toast.error('Không lưu được nguồn lực dự án', err instanceof Error ? err.message : '')
     }
   }
 
@@ -4215,18 +4613,21 @@ function WorkloadTabPanel({
           {projectMonths.length} tháng
         </span>
         <div className="panel-actions">
-          <button type="button" className="ghost-button ghost-button--compact" onClick={autoDistributeAll}>
-            <Sparkles size={16} />
-            Chia đều
-          </button>
+          <label className="toggle-control">
+            <input
+              type="checkbox"
+              checked={showMonthlyAllocations}
+              onChange={(event) => setShowMonthlyAllocations(event.target.checked)}
+            />
+            <span>Hiển thị theo tháng</span>
+          </label>
           <button
             type="button"
             className="primary-button primary-button--compact"
             onClick={handleSave}
-            disabled={!canSave}
           >
             <Save size={16} />
-            Lưu phân bổ
+            Lưu nguồn lực
           </button>
         </div>
       </div>
@@ -4235,16 +4636,16 @@ function WorkloadTabPanel({
 
       <section className="detail-grid detail-grid--compact">
         <div className="detail-card">
-          <span>Muc tieu</span>
-          <strong>{formatHours(totalTargetHours)}</strong>
-        </div>
-        <div className="detail-card">
-          <span>Da draft</span>
+          <span>Tổng giờ công kế hoạch</span>
           <strong>{formatHours(totalDraftHours)}</strong>
         </div>
         <div className="detail-card">
-          <span>Dong loi</span>
-          <strong>{invalidRows}</strong>
+          <span>Tổng giờ công theo Kinh doanh</span>
+          <strong>{formatHours(totalBusinessHours)}</strong>
+        </div>
+        <div className="detail-card">
+          <span>Đã thực hiện</span>
+          <strong>{formatHours(totalActualHours)}</strong>
         </div>
         <div className="detail-card">
           <span>Qua tai</span>
@@ -4256,14 +4657,14 @@ function WorkloadTabPanel({
         <table className="workload-planner-table">
           <thead>
             <tr>
-              <th>Thanh vien</th>
-              <th>Muc tieu</th>
-              <th>Da phan bo</th>
-              <th>Can bang</th>
-              <th>Tac vu</th>
-              {projectMonths.map((month) => (
-                <th key={month}>{formatMonthLabel(month)}</th>
-              ))}
+              <th>Thành viên</th>
+              <th>Kế hoạch thực hiện</th>
+              <th>Đã thực hiện</th>
+              {showMonthlyAllocations
+                ? projectMonths.map((month) => (
+                    <th key={month}>{formatMonthLabel(month)}</th>
+                  ))
+                : null}
             </tr>
           </thead>
           <tbody>
@@ -4275,59 +4676,245 @@ function WorkloadTabPanel({
                   <small>{row.member.user.email}</small>
                 </td>
                 <td>
-                  <strong>{formatHours(row.targetHours)}</strong>
-                  <p className="workload-cell-note">Theo nhan su AITS</p>
-                </td>
-                <td>
                   <strong>{formatHours(row.allocatedHours)}</strong>
-                  <p className="workload-cell-note">{row.monthDetails.length} thang</p>
                 </td>
                 <td>
-                  <StatusPill
-                    label={`${row.deltaHours > 0 ? 'Thieu' : row.deltaHours < 0 ? 'Vuot' : 'Can bang'} ${formatHours(Math.abs(row.deltaHours))}`}
-                    tone={row.deltaHours === 0 ? 'success' : 'warning'}
-                  />
+                  <strong>{formatHours(row.actualHours)}</strong>
                 </td>
-                <td>
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--compact"
-                    onClick={() => autoDistributeMember(row.member)}
-                  >
-                    <RefreshCcw size={15} />
-                    Chia deu
-                  </button>
-                </td>
-                {row.monthDetails.map((detail) => (
-                  <td key={`${row.member.memberId}-${detail.month}`}>
-                    <div className="workload-month-cell">
-                      <input
-                        type="number"
-                        min={0}
-                        value={detail.currentProjectHours}
-                        onChange={(e) =>
-                          updateDraftHours(row.member.memberId, detail.month, Number(e.target.value))
-                        }
-                      />
-                      <div className="workload-month-cell__meta">
-                        <span>DA khac: {formatHours(detail.otherProjectsHours)}</span>
-                        <span>
-                          Tong: {formatHours(detail.totalMonthHours)}/{formatHours(detail.capacity)}
-                        </span>
-                        <span className={detail.remainingHours < 0 ? 'text-danger' : ''}>
-                          Con: {formatHours(detail.remainingHours)}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                ))}
+                {showMonthlyAllocations
+                  ? row.monthDetails.map((detail) => (
+                      <td key={`${row.member.memberId}-${detail.month}`}>
+                        <div className="workload-month-cell">
+                          <div className="workload-month-cell__input-row">
+                            <input
+                              type="number"
+                              min={0}
+                              value={detail.currentProjectHours}
+                              onChange={(e) =>
+                                updateDraftHours(row.member.memberId, detail.month, Number(e.target.value))
+                              }
+                            />
+                            <button
+                              type="button"
+                              className={
+                                'ghost-button icon-button workload-month-cell__detail-btn' +
+                                (detail.projectRemaining < 0
+                                  ? ' workload-month-cell__detail-btn--warn'
+                                  : '')
+                              }
+                              onClick={() =>
+                                setDetailModal({ memberId: row.member.memberId, month: detail.month })
+                              }
+                              title={
+                                detail.projectRemaining < 0
+                                  ? `Vượt quota Dự án a.Office ${formatHours(-detail.projectRemaining)}`
+                                  : 'Xem chi tiết giờ công'
+                              }
+                              aria-label="Xem chi tiết giờ công"
+                            >
+                              <Info size={14} />
+                            </button>
+                          </div>
+                          <div className="workload-month-cell__meta">
+                            <span>TH: {formatHours(detail.actualHours)}</span>
+                            <span>DA khác: {formatHours(detail.otherProjectsHours)}</span>
+                            <span>
+                              Tổng: {formatHours(detail.totalMonthHours)}/{formatHours(detail.capacity)}
+                            </span>
+                            <span className={detail.remainingHours < 0 ? 'text-danger' : ''}>
+                              Còn: {formatHours(detail.remainingHours)}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                    ))
+                  : null}
               </tr>
             ))}
           </tbody>
+          {showMonthlyAllocations ? (
+            <tfoot>
+              <tr>
+                <td>Tổng</td>
+                <td>
+                  <strong>{formatHours(totalDraftHours)}</strong>
+                </td>
+                <td>
+                  <strong>{formatHours(totalActualHours)}</strong>
+                </td>
+                {monthlyTotals.map((total) => (
+                  <td key={total.month}>
+                    <strong>{formatHours(total.planned)}</strong>
+                    <p className="workload-cell-note">TH: {formatHours(total.actual)}</p>
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
 
       <InlineActivityLog logs={workloadLogs} getUser={getUserById} />
+
+      {detailModal
+        ? (() => {
+            const targetMember = resolvedMembers.find((m) => m.memberId === detailModal.memberId)
+            if (!targetMember) return null
+            const draftHours = getDraftHours(detailModal.memberId, detailModal.month)
+            return (
+              <MonthHourDetailModal
+                member={targetMember}
+                month={detailModal.month}
+                currentProjectId={project.id}
+                currentProjectHours={draftHours}
+                allProjects={projects}
+                onClose={() => setDetailModal(null)}
+              />
+            )
+          })()
+        : null}
     </div>
   )
 }
+
+/* ═══════ Month-hour detail popup (resource-management drill-down) ═══════ */
+
+function MonthHourDetailModal({
+  member,
+  month,
+  currentProjectId,
+  currentProjectHours,
+  allProjects,
+  onClose,
+}: {
+  member: ResolvedAitsMember
+  month: string
+  currentProjectId: string
+  currentProjectHours: number
+  allProjects: Project[]
+  onClose: () => void
+}) {
+  const breakdown = getAOfficeBreakdown(member.user, month)
+
+  // Project rows: current project uses the live draft (so unsaved edits are
+  // reflected), every other project uses its persisted monthlyAllocations.
+  const projectRows = allProjects
+    .map((p) => {
+      const hours =
+        p.id === currentProjectId
+          ? currentProjectHours
+          : p.monthlyAllocations
+              .filter((a) => a.memberId === member.memberId && a.month === month)
+              .reduce((sum, a) => sum + a.hours, 0)
+      return { project: p, hours, isCurrent: p.id === currentProjectId }
+    })
+    .filter((row) => row.hours > 0 || row.isCurrent)
+
+  const totalProjectHours = projectRows.reduce((sum, r) => sum + r.hours, 0)
+  const remainingProject = breakdown.project - totalProjectHours
+  const totalUsed = breakdown.dbhd + breakdown.cr + breakdown.other + totalProjectHours
+  const remainingTotal = breakdown.total - totalUsed
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal-card workload-detail-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="panel-heading">
+          <div>
+            <h3>Chi tiết giờ công</h3>
+            <p>
+              <strong>{member.personnel.fullName || member.user.name}</strong> ·{' '}
+              {formatMonthLabel(month)}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="ghost-button icon-button"
+            onClick={onClose}
+            aria-label="Đóng"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <section className="workload-detail-section">
+          <h4>Kế hoạch a.Office (mock)</h4>
+          <table className="workload-detail-table">
+            <tbody>
+              <tr>
+                <td>Đảm bảo hoạt động (DBHD)</td>
+                <td>{formatHours(breakdown.dbhd)}</td>
+              </tr>
+              <tr>
+                <td>Change Request</td>
+                <td>{formatHours(breakdown.cr)}</td>
+              </tr>
+              <tr>
+                <td>Dự án</td>
+                <td>{formatHours(breakdown.project)}</td>
+              </tr>
+              <tr>
+                <td>Khác</td>
+                <td>{formatHours(breakdown.other)}</td>
+              </tr>
+              <tr className="workload-detail-table__total">
+                <td>Tổng a.Office</td>
+                <td>{formatHours(breakdown.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section className="workload-detail-section">
+          <h4>Phân bổ theo dự án</h4>
+          {projectRows.length === 0 ? (
+            <p className="workload-cell-note">Chưa phân bổ giờ công cho dự án nào trong tháng này.</p>
+          ) : (
+            <table className="workload-detail-table">
+              <tbody>
+                {projectRows.map((row) => (
+                  <tr key={row.project.id}>
+                    <td>
+                      <strong>{row.project.code}</strong> — {row.project.name}
+                      {row.isCurrent ? (
+                        <span className="status-pill tone-info" style={{ marginLeft: '0.5rem' }}>
+                          Dự án hiện tại
+                        </span>
+                      ) : null}
+                    </td>
+                    <td>{formatHours(row.hours)}</td>
+                  </tr>
+                ))}
+                <tr className="workload-detail-table__total">
+                  <td>Tổng đã phân bổ</td>
+                  <td>{formatHours(totalProjectHours)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        <section className="workload-detail-section workload-detail-summary">
+          <div className="detail-card">
+            <span>Giờ công Dự án còn lại</span>
+            <strong className={remainingProject < 0 ? 'text-danger' : ''}>
+              {formatHours(remainingProject)}
+            </strong>
+            <small>Quota Dự án − tổng đã phân bổ</small>
+          </div>
+          <div className="detail-card">
+            <span>Giờ công tổng còn lại</span>
+            <strong className={remainingTotal < 0 ? 'text-danger' : ''}>
+              {formatHours(remainingTotal)}
+            </strong>
+            <small>Tổng a.Office − (DBHD + CR + Khác + đã phân bổ)</small>
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+

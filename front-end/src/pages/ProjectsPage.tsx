@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { CirclePlus, Eye, FileText, ShieldAlert, Trash2, Users, X } from 'lucide-react'
+import { CirclePlus, Eye, FileText, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -13,11 +13,21 @@ import {
   getHealthTone,
   getStatusTone,
   getVisibleProjects,
-  isProjectCoordinator,
   normalizeUserRole,
 } from '../lib/calculations'
+import { readDocumentAttachment } from '../lib/fileAttachment'
 import { formatDate, getCatalogLabel } from '../lib/formatters'
-import type { CreateProjectTeamMemberInput, Project, User } from '../types'
+import type {
+  BusinessCenterCode,
+  CreateProjectTeamMemberInput,
+  CustomerGroupCode,
+  DocumentAttachmentInput,
+  DomainCode,
+  MarketCode,
+  Project,
+  ProjectKindCode,
+  User,
+} from '../types'
 
 interface MemberDraft {
   selected: boolean
@@ -31,21 +41,53 @@ interface ProjectSection {
   projects: Project[]
 }
 
-function buildProjectCode(projectCount: number) {
-  return `PRJ-${dayjs().format('YYYY')}-${String(projectCount + 1).padStart(3, '0')}`
+type ProjectListFilter = 'ALL' | 'ACTIVE' | 'CLOSED'
+
+const businessCenterOptions: BusinessCenterCode[] = ['BU1', 'BU2', 'BU3', 'BU4', 'BU5']
+const customerGroupOptions: CustomerGroupCode[] = ['VNA', 'LDLK', 'OT', 'NB']
+const marketOptions: MarketCode[] = ['HK', 'CHK', 'AN', 'CP', 'XD', 'TC', 'GD', 'NL', 'DN', 'YT', 'HH']
+const domainOptions: DomainCode[] = ['PM', 'HT', 'DV']
+const projectKindOptions: ProjectKindCode[] = ['NC', 'KT', 'HĐ', 'NB']
+const projectListFilters: Array<{ id: ProjectListFilter; label: string }> = [
+  { id: 'ALL', label: 'Tất cả' },
+  { id: 'ACTIVE', label: 'Đang triển khai' },
+  { id: 'CLOSED', label: 'Đã đóng/tạm đóng' },
+]
+
+function getProjectYear(value: string) {
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('YYYY') : dayjs().format('YYYY')
 }
 
-function buildInitialForm(projectCount: number, sponsorId: string) {
+function buildProjectCode(projects: Project[], form: ReturnType<typeof buildInitialForm>) {
+  const year = getProjectYear(form.startDate)
+  const sequence = projects.filter((project) => getProjectYear(project.startDate) === year).length + 1
+  return [
+    year,
+    String(sequence).padStart(3, '0'),
+    form.businessCenterCode,
+    form.customerGroupCode,
+    form.domainCode,
+    form.projectKindCode,
+  ].join('-')
+}
+
+function buildInitialForm(sponsorId: string) {
   return {
-    code: buildProjectCode(projectCount),
     name: '',
-    summary: '',
     sponsor: sponsorId,
     objective: '',
     adminId: '',
     startDate: dayjs().format('YYYY-MM-DD'),
     endDate: dayjs().add(4, 'month').endOf('month').format('YYYY-MM-DD'),
     ttkDecisionNumber: '',
+    ttkDecisionFileName: '',
+    ttkDecisionAttachment: null as DocumentAttachmentInput | null,
+    businessCenterCode: 'BU1' as BusinessCenterCode,
+    customerGroupCode: 'VNA' as CustomerGroupCode,
+    marketCode: 'HK' as MarketCode,
+    domainCode: 'PM' as DomainCode,
+    projectKindCode: 'NC' as ProjectKindCode,
   }
 }
 
@@ -58,34 +100,21 @@ function buildEmptyMemberDraft(): MemberDraft {
   }
 }
 
-function buildProjectSections(projects: Project[], currentUser: User): ProjectSection[] {
-  const normalizedRole = normalizeUserRole(currentUser.role)
-
-  if (normalizedRole === 'PMO') {
-    return [
-      { title: 'Đang triển khai', projects: projects.filter((p) => p.status === 'ACTIVE') },
-      { title: 'Tạm đóng', projects: projects.filter((p) => p.status === 'PAUSED') },
-      { title: 'Đã đóng', projects: projects.filter((p) => p.status === 'CLOSED') },
-    ].filter((section) => section.projects.length)
+function buildProjectSections(projects: Project[], activeFilter: ProjectListFilter): ProjectSection[] {
+  if (activeFilter === 'ACTIVE') {
+    return [{ title: 'Đang triển khai', projects: projects.filter((p) => p.status === 'ACTIVE') }]
   }
 
-  if (normalizedRole === 'ADMIN_HC') {
-    return [{ title: 'Dự án đã khởi tạo', projects }].filter((section) => section.projects.length)
-  }
-
-  if (normalizedRole === 'PM') {
+  if (activeFilter === 'CLOSED') {
     return [
-      { title: 'PM phụ trách', projects: projects.filter((p) => p.adminId === currentUser.id) },
       {
-        title: 'Tham gia điều phối',
-        projects: projects.filter(
-          (p) => p.adminId !== currentUser.id && isProjectCoordinator(p, currentUser.id),
-        ),
+        title: 'Đã đóng/tạm đóng',
+        projects: projects.filter((p) => p.status === 'PAUSED' || p.status === 'CLOSED'),
       },
-    ].filter((section) => section.projects.length)
+    ]
   }
 
-  return [{ title: 'Dự án tham gia', projects }]
+  return [{ title: 'Tất cả dự án', projects }]
 }
 
 export function ProjectsPage() {
@@ -95,10 +124,13 @@ export function ProjectsPage() {
   const loading = useLoading()
   const [message, setMessage] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [activeProjectFilter, setActiveProjectFilter] = useState<ProjectListFilter>('ALL')
 
   const normalizedRole = currentUser ? normalizeUserRole(currentUser.role) : null
   const visibleProjects = getVisibleProjects(projects, currentUser)
-  const projectSections = currentUser ? buildProjectSections(visibleProjects, currentUser) : []
+  const projectSections = currentUser
+    ? buildProjectSections(visibleProjects, activeProjectFilter).filter((section) => section.projects.length)
+    : []
   // BA decision 12/05/2026: only ADMIN_HC (TCHC) can create projects.
   const canCreate = normalizedRole === 'ADMIN_HC'
   const sponsorCandidates = users.filter((user) => normalizeUserRole(user.role) !== 'DELIVERY_MEMBER')
@@ -108,20 +140,21 @@ export function ProjectsPage() {
   })
   const roleOptions = catalogs.projectMemberRoles.length
     ? catalogs.projectMemberRoles
-    : [{ value: 'Thanh vien trien khai', label: 'Thanh vien trien khai' }]
+    : [{ value: 'Thanh vien trien khai', label: 'Thành viên triển khai' }]
   const defaultSponsorId = sponsorCandidates[0]?.id ?? users[0]?.id ?? ''
 
-  const [form, setForm] = useState(buildInitialForm(projects.length, defaultSponsorId))
+  const [form, setForm] = useState(buildInitialForm(defaultSponsorId))
   const [memberDrafts, setMemberDrafts] = useState<Record<string, MemberDraft>>({})
 
   const selectedMemberCount = Object.values(memberDrafts).filter((d) => d.selected).length
+  const generatedProjectCode = buildProjectCode(projects, form)
 
   function getMemberDraft(userId: string) {
     return memberDrafts[userId] ?? buildEmptyMemberDraft()
   }
 
   function resetCreateState() {
-    setForm(buildInitialForm(projects.length, defaultSponsorId))
+    setForm(buildInitialForm(defaultSponsorId))
     setMemberDrafts({})
   }
 
@@ -183,7 +216,7 @@ export function ProjectsPage() {
     event.preventDefault()
 
     if (!currentUser || normalizeUserRole(currentUser.role) !== 'ADMIN_HC') {
-      setMessage('Chi To chuc Hanh chinh (TCHC) moi co quyen tao du an.')
+      setMessage('Chỉ Tổ chức Hành chính (TCHC) mới có quyền tạo dự án.')
       return
     }
 
@@ -196,22 +229,23 @@ export function ProjectsPage() {
       .map(({ user, draft }) => ({
         userId: user.id,
         role: user.id === form.adminId ? 'PM du an' : draft.role || 'Thanh vien trien khai',
+        responsibility: draft.responsibility.trim(),
         totalPlannedHours: Math.max(0, Math.round(draft.totalPlannedHours)),
       }))
 
     if (!selectedMembers.length) {
-      setMessage('Hay chon it nhat mot nhan su trien khai cho du an.')
+      setMessage('Hãy chọn ít nhất một nhân sự triển khai cho dự án.')
       return
     }
 
     if (!form.adminId || !selectedMembers.some((member) => member.userId === form.adminId)) {
-      setMessage('Hay chon 1 PM thuoc danh sach nhan su trien khai.')
+      setMessage('Hãy chọn 1 PM thuộc danh sách nhân sự triển khai.')
       return
     }
 
     const ok = await confirm({
       title: 'Tạo dự án mới?',
-      description: `Mã ${form.code} · ${selectedMembers.length} thành viên. Sau khi lưu, dự án sẽ ở trạng thái Đang triển khai.`,
+      description: `Mã ${generatedProjectCode} - ${selectedMembers.length} thành viên. Sau khi lưu, dự án sẽ ở trạng thái Đang triển khai.`,
       tone: 'primary',
       confirmLabel: 'Tạo dự án',
     })
@@ -220,12 +254,22 @@ export function ProjectsPage() {
     try {
       await loading.run('Đang tạo dự án…', () =>
         createProject({
-          code: form.code,
+          code: generatedProjectCode,
           name: form.name,
-          summary: form.summary,
           sponsor: form.sponsor,
           objective: form.objective,
           ttkDecisionNumber: form.ttkDecisionNumber,
+          ttkDecisionAttachment: form.ttkDecisionAttachment
+            ? {
+                ...form.ttkDecisionAttachment,
+                title: form.ttkDecisionAttachment.fileName,
+              }
+            : undefined,
+          businessCenterCode: form.businessCenterCode,
+          customerGroupCode: form.customerGroupCode,
+          marketCode: form.marketCode,
+          domainCode: form.domainCode,
+          projectKindCode: form.projectKindCode,
           createdById: currentUser.id,
           adminId: form.adminId,
           startDate: form.startDate,
@@ -234,7 +278,7 @@ export function ProjectsPage() {
           department: currentUser.unit,
         }),
       )
-      toast.success('Đã tạo dự án mới', form.code)
+      toast.success('Đã tạo dự án mới', generatedProjectCode)
       setIsCreateOpen(false)
       resetCreateState()
       setMessage('')
@@ -263,6 +307,32 @@ export function ProjectsPage() {
 
       {message ? <p className="form-success">{message}</p> : null}
 
+      <section className="panel panel--compact project-filter-panel">
+        <div className="segmented-control" aria-label="Lọc danh sách dự án">
+          {projectListFilters.map((filter) => {
+            const count =
+              filter.id === 'ALL'
+                ? visibleProjects.length
+                : filter.id === 'ACTIVE'
+                  ? visibleProjects.filter((project) => project.status === 'ACTIVE').length
+                  : visibleProjects.filter(
+                      (project) => project.status === 'PAUSED' || project.status === 'CLOSED',
+                    ).length
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                className={activeProjectFilter === filter.id ? 'segmented-control__item--active' : ''}
+                onClick={() => setActiveProjectFilter(filter.id)}
+              >
+                {filter.label}
+                <span>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       {projectSections.length ? (
         projectSections.map((section) => (
           <section key={section.title} className="project-section-block">
@@ -271,90 +341,82 @@ export function ProjectsPage() {
               <StatusPill label={`${section.projects.length} dự án`} tone="info" />
             </div>
 
-            <div className="project-grid">
-              {section.projects.map((project) => {
-                const admin = getUser(project.adminId)
-                const sponsor = getUser(project.sponsor)
-                const memberNames = project.personnelInfo.aitsMembers
-                  .map((member) => member.fullName || getUser(member.userId)?.name || member.userId)
-                  .join(', ')
+            <div className="table-wrapper project-table-wrapper">
+              <table className="project-table">
+                <thead>
+                  <tr>
+                    <th>Mã dự án</th>
+                    <th>Tên dự án</th>
+                    <th>PM</th>
+                    <th>Sponsor</th>
+                    <th>Trạng thái</th>
+                    <th>Health</th>
+                    <th>Tiến độ</th>
+                    <th>Nhân sự</th>
+                    <th>Tài liệu</th>
+                    <th>Rủi ro</th>
+                    <th>Thời gian</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.projects.map((project) => {
+                    const admin = getUser(project.adminId)
+                    const sponsor = getUser(project.sponsor)
 
-                return (
-                  <article key={project.id} className="project-card">
-                    <div className="project-card__header">
-                      <div>
-                        <span className="eyebrow">{project.code}</span>
-                        <h3>{project.name}</h3>
-                      </div>
-                      <div className="inline-actions">
-                        <StatusPill
-                          label={getCatalogLabel(catalogs.projectStatuses, project.status)}
-                          tone={getStatusTone(project.status)}
-                        />
-                      </div>
-                    </div>
-
-                    <p>{project.summary}</p>
-
-                    <div className="project-meta-grid">
-                      <div>
-                        <span>PM</span>
-                        <strong>{admin?.name ?? 'Chua xac dinh'}</strong>
-                      </div>
-                      <div>
-                        <span>Sponsor</span>
-                        <strong>{sponsor?.name ?? (project.sponsor || 'Dang cap nhat')}</strong>
-                      </div>
-                      <div>
-                        <span>Thoi gian</span>
-                        <strong>
+                    return (
+                      <tr key={project.id}>
+                        <td>
+                          <strong>{project.code}</strong>
+                        </td>
+                        <td className="project-table__name">
+                          <strong>{project.name}</strong>
+                          {project.summary ? <p>{project.summary}</p> : null}
+                        </td>
+                        <td>{admin?.name ?? 'Chưa xác định'}</td>
+                        <td>{sponsor?.name ?? (project.sponsor || 'Đang cập nhật')}</td>
+                        <td>
+                          <StatusPill
+                            label={getCatalogLabel(catalogs.projectStatuses, project.status)}
+                            tone={getStatusTone(project.status)}
+                          />
+                        </td>
+                        <td>
+                          <StatusPill
+                            label={getCatalogLabel(catalogs.healthStatuses, project.health)}
+                            tone={getHealthTone(project.health)}
+                          />
+                        </td>
+                        <td className="project-table__progress">
+                          <strong>{project.progress}%</strong>
+                          <div className="progress-shell">
+                            <div className="progress-bar" style={{ width: `${project.progress}%` }} />
+                          </div>
+                        </td>
+                        <td>{project.personnelInfo.aitsMembers.length}</td>
+                        <td>{project.documents.length}</td>
+                        <td>{project.risks.length}</td>
+                        <td>
                           {formatDate(project.startDate)} - {formatDate(project.endDate)}
-                        </strong>
-                      </div>
-                      <div>
-                        <span>Health</span>
-                        <StatusPill
-                          label={getCatalogLabel(catalogs.healthStatuses, project.health)}
-                          tone={getHealthTone(project.health)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="progress-shell">
-                      <div className="progress-bar" style={{ width: `${project.progress}%` }} />
-                    </div>
-
-                    <div className="inline-metrics">
-                      <span>
-                        <Users size={14} /> {project.personnelInfo.aitsMembers.length} nhan su
-                      </span>
-                      <span>
-                        <FileText size={14} /> {project.documents.length} tai lieu
-                      </span>
-                      <span>
-                        <ShieldAlert size={14} /> {project.risks.length} rui ro
-                      </span>
-                    </div>
-
-                    <div className="member-list">
-                      <strong>To trien khai:</strong>
-                      <p>{memberNames}</p>
-                    </div>
-
-                    <Link to={`/projects/${project.id}`} className="secondary-button">
-                      <Eye size={16} />
-                      Xem chi tiet
-                    </Link>
-                  </article>
-                )
-              })}
+                        </td>
+                        <td>
+                          <Link to={`/projects/${project.id}`} className="secondary-button secondary-button--compact">
+                            <Eye size={15} />
+                            Xem
+                          </Link>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         ))
       ) : (
         <section className="panel empty-panel">
-          <h3>Chua co du an</h3>
-          <p>Khong co du an phu hop vai tro hien tai.</p>
+          <h3>Chưa có dự án</h3>
+          <p>Không có dự án phù hợp vai trò hiện tại.</p>
         </section>
       )}
 
@@ -364,8 +426,8 @@ export function ProjectsPage() {
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">PMO workspace</span>
-                <h3>Tao du an moi</h3>
-                <p>Khoi tao thong tin, PM va to trien khai.</p>
+                <h3>Tạo dự án mới</h3>
+                <p>Khởi tạo thông tin, PM và tổ triển khai.</p>
               </div>
               <button type="button" className="ghost-button icon-button" onClick={closeCreateModal}>
                 <X size={16} />
@@ -374,16 +436,91 @@ export function ProjectsPage() {
 
             <form className="form-grid" onSubmit={handleSubmit}>
               <label>
-                <span>Ma du an</span>
+                <span>Mã dự án</span>
                 <input
-                  value={form.code}
-                  onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
+                  value={generatedProjectCode}
+                  readOnly
                   required
                 />
               </label>
 
               <label>
-                <span>Ten du an</span>
+                <span>Mã trung tâm kinh doanh</span>
+                <select
+                  value={form.businessCenterCode}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      businessCenterCode: event.target.value as BusinessCenterCode,
+                    }))
+                  }
+                >
+                  {businessCenterOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+
+              <label>
+                <span>Mã nhóm khách hàng</span>
+                <select
+                  value={form.customerGroupCode}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      customerGroupCode: event.target.value as CustomerGroupCode,
+                    }))
+                  }
+                >
+                  {customerGroupOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+
+              <label>
+                <span>Mã thị trường</span>
+                <select
+                  value={form.marketCode}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      marketCode: event.target.value as MarketCode,
+                    }))
+                  }
+                >
+                  {marketOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+
+              <label>
+                <span>Mã lĩnh vực</span>
+                <select
+                  value={form.domainCode}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      domainCode: event.target.value as DomainCode,
+                    }))
+                  }
+                >
+                  {domainOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+
+              <label>
+                <span>Mã loại dự án</span>
+                <select
+                  value={form.projectKindCode}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      projectKindCode: event.target.value as ProjectKindCode,
+                    }))
+                  }
+                >
+                  {projectKindOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+
+              <label>
+                <span>Tên dự án</span>
                 <input
                   value={form.name}
                   onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -391,18 +528,8 @@ export function ProjectsPage() {
                 />
               </label>
 
-              <label className="span-2">
-                <span>Tom tat</span>
-                <textarea
-                  rows={3}
-                  value={form.summary}
-                  onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))}
-                  required
-                />
-              </label>
-
               <label>
-                <span>Sponsor du an</span>
+                <span>Sponsor dự án</span>
                 <select
                   value={form.sponsor}
                   onChange={(event) => setForm((current) => ({ ...current, sponsor: event.target.value }))}
@@ -416,12 +543,12 @@ export function ProjectsPage() {
               </label>
 
               <label>
-                <span>PM du an</span>
+                <span>PM dự án</span>
                 <select
                   value={form.adminId}
                   onChange={(event) => handlePmChange(event.target.value)}
                 >
-                  <option value="">Chon PM</option>
+                  <option value="">Chọn PM</option>
                   {deployableUsers
                     .filter((user) => normalizeUserRole(user.role) === 'PM' && getMemberDraft(user.id).selected)
                     .map((user) => (
@@ -433,7 +560,7 @@ export function ProjectsPage() {
               </label>
 
               <label>
-                <span>Ngay bat dau</span>
+                <span>Ngày bắt đầu</span>
                 <input
                   type="date"
                   value={form.startDate}
@@ -442,7 +569,7 @@ export function ProjectsPage() {
               </label>
 
               <label>
-                <span>Ngay ket thuc</span>
+                <span>Ngày kết thúc</span>
                 <input
                   type="date"
                   value={form.endDate}
@@ -451,7 +578,7 @@ export function ProjectsPage() {
               </label>
 
               <label className="span-2">
-                <span>Nhiem vu</span>
+                <span>Nhiệm vụ</span>
                 <textarea
                   rows={2}
                   value={form.objective}
@@ -461,23 +588,65 @@ export function ProjectsPage() {
               </label>
 
               <label>
-                <span>So quyet dinh TTK</span>
+                <span>Số quyết định TTK</span>
                 <input
                   value={form.ttkDecisionNumber}
-                  placeholder="Vi du: QD-2026/001"
+                  placeholder="Ví dụ: QD-2026/001"
                   onChange={(event) => setForm((current) => ({ ...current, ttkDecisionNumber: event.target.value }))}
                 />
+              </label>
+
+              <label>
+                <span>Tệp đính kèm QĐ TTK</span>
+                <div className="document-upload-field">
+                  <input
+                    className="document-file-input"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,image/*"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) {
+                        setForm((current) => ({
+                          ...current,
+                          ttkDecisionFileName: '',
+                          ttkDecisionAttachment: null,
+                        }))
+                        return
+                      }
+
+                      try {
+                        const attachment = await readDocumentAttachment(file)
+                        setForm((current) => ({
+                          ...current,
+                          ttkDecisionFileName: attachment.fileName,
+                          ttkDecisionAttachment: attachment,
+                        }))
+                      } catch (err) {
+                        toast.error('Không đọc được file', err instanceof Error ? err.message : '')
+                        setForm((current) => ({
+                          ...current,
+                          ttkDecisionFileName: '',
+                          ttkDecisionAttachment: null,
+                        }))
+                      }
+                    }}
+                  />
+                  <div className="document-upload-meta">
+                    <FileText size={15} />
+                    <span>{form.ttkDecisionFileName || 'Chưa chọn file'}</span>
+                  </div>
+                </div>
               </label>
 
               <div className="span-2 roster-builder">
                 <div className="roster-builder__header">
                   <div>
                     <span className="eyebrow">Roster builder</span>
-                    <h4>To trien khai</h4>
-                    <p>Chon nhan su tham gia du an.</p>
+                    <h4>Tổ triển khai</h4>
+                    <p>Chọn nhân sự tham gia dự án.</p>
                   </div>
                   <div className="inline-actions">
-                    <StatusPill label={`${selectedMemberCount} da chon`} tone={selectedMemberCount ? 'info' : 'neutral'} />
+                    <StatusPill label={`${selectedMemberCount} đã chọn`} tone={selectedMemberCount ? 'info' : 'neutral'} />
                     <select
                       className="ghost-button ghost-button--compact"
                       value=""
@@ -489,7 +658,7 @@ export function ProjectsPage() {
                         event.target.value = ''
                       }}
                     >
-                      <option value="">+ Them nhan su...</option>
+                      <option value="">+ Thêm nhân sự...</option>
                       {deployableUsers
                         .filter((u) => !getMemberDraft(u.id).selected)
                         .map((user) => (
@@ -506,13 +675,13 @@ export function ProjectsPage() {
                     <thead>
                       <tr>
                         <th>STT</th>
-                        <th>Ho va ten</th>
-                        <th>Chuc danh</th>
-                        <th>Don vi</th>
-                        <th>Vai tro</th>
-                        <th>Nhiem vu</th>
-                        <th>Ma NV</th>
-                        <th>Thao tac</th>
+                        <th>Họ và tên</th>
+                        <th>Chức danh</th>
+                        <th>Đơn vị</th>
+                        <th>Vai trò</th>
+                        <th>Nhiệm vụ</th>
+                        <th>Mã NV</th>
+                        <th>Thao tác</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -548,7 +717,7 @@ export function ProjectsPage() {
                               <td>
                                 <input
                                   value={draft.responsibility}
-                                  placeholder="Nhap nhiem vu"
+                                  placeholder="Nhập nhiệm vụ"
                                   onChange={(event) =>
                                     updateMemberDraft(user.id, { responsibility: event.target.value })
                                   }
@@ -563,7 +732,7 @@ export function ProjectsPage() {
                                   onClick={() => toggleMember(user)}
                                 >
                                   <Trash2 size={14} />
-                                  Xoa
+                                  Xóa
                                 </button>
                               </td>
                             </tr>
@@ -572,7 +741,7 @@ export function ProjectsPage() {
                       {!selectedMemberCount ? (
                         <tr>
                           <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>
-                            Chua chon nhan su.
+                            Chưa chọn nhân sự.
                           </td>
                         </tr>
                       ) : null}
@@ -583,11 +752,11 @@ export function ProjectsPage() {
 
               <div className="modal-actions span-2">
                 <button type="button" className="ghost-button" onClick={closeCreateModal}>
-                  Huy
+                  Hủy
                 </button>
                 <button type="submit" className="primary-button">
                   <CirclePlus size={16} />
-                  Tao du an
+                  Tạo dự án
                 </button>
               </div>
             </form>
@@ -597,3 +766,4 @@ export function ProjectsPage() {
     </div>
   )
 }
+

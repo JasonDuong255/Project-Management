@@ -14,24 +14,25 @@ import {
   ksvDecisionSchema,
   requestCloseSchema,
   tchcDecisionSchema,
+  transitionReasonSchema,
 } from './close-workflow.schema.js'
 
 export const closeWorkflowRouter = Router()
 
-closeWorkflowRouter.post('/:projectId/pause', async (req, res, next) => {
+closeWorkflowRouter.post('/:projectId/pause', validateBody(transitionReasonSchema), async (req, res, next) => {
   try {
     if (!req.user) throw new ApiError(401, 'Authentication required')
-    await pauseProject(String(req.params.projectId), req.user)
+    await pauseProject(String(req.params.projectId), req.body, req.user)
     res.json(await assembleSnapshot(req.user))
   } catch (err) {
     next(err)
   }
 })
 
-closeWorkflowRouter.post('/:projectId/resume', async (req, res, next) => {
+closeWorkflowRouter.post('/:projectId/resume', validateBody(transitionReasonSchema), async (req, res, next) => {
   try {
     if (!req.user) throw new ApiError(401, 'Authentication required')
-    await resumeProject(String(req.params.projectId), req.user)
+    await resumeProject(String(req.params.projectId), req.body, req.user)
     res.json(await assembleSnapshot(req.user))
   } catch (err) {
     next(err)

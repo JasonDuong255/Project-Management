@@ -1,6 +1,24 @@
 # 01 — Current state of the app
 
-> Snapshot of what is **actually built and wired** as of branch `v2.3-brd-audit`. Not aspirational. Cite code paths so a reviewer can verify in 30 seconds.
+> Snapshot of what is **actually built and wired** as of branch `v2.3-brd-audit`, with a 2026-05-19 feature-change addendum below. Not aspirational. Cite code paths so a reviewer can verify in 30 seconds.
+
+## 0. Latest implemented changes - 2026-05-19
+
+Detailed change log: `02-feature-changes-2026-05-19.md`.
+
+Code areas touched:
+
+| Area | Current behavior |
+| ---- | ---------------- |
+| Project list | `/projects` now uses a table layout with filters `Tất cả`, `Đang triển khai`, `Đã đóng/tạm đóng`. |
+| Project creation | TCHC creates projects; project code is generated realtime from year, sequence, BU, customer group, domain and project type. Manual project-code entry and create-time summary were removed. |
+| TTK decision | Create-project form accepts a TTK decision attachment; backend stores it under project documents as `Quyết định thành lập TTK`. |
+| Init tab | TCHC can update init information. Basis documents are reduced to `Hợp đồng mua` and `Hợp đồng bán`, with add/edit/delete document actions. |
+| Overview | Sponsor/PS is shown before PM. Project summary is edited from overview by users with the right coordination/edit permission. |
+| Detail tabs | Tab order is `Khởi tạo`, `Thông tin chung`, `Nhân sự`, `Kế hoạch`, `Nguồn lực`, `Rủi ro`, `Tài liệu`; tab subtitles were removed from tab titles. |
+| Resource management | Workload tab can toggle monthly allocation display and shows planned hours, actual hours from worklogs, monthly actuals and business planned totals. |
+| Tasks | Completed tasks cannot be edited and cannot receive new worklogs. Task-row actions expose update, progress logging and subtask creation inline. |
+| Close flow | Pause, close and reopen controls are compact; pause/reopen require a popup reason and persist that reason through the backend workflow. |
 
 ## 1. Architecture
 

@@ -8,6 +8,7 @@ Living documentation for the QLDA app (front-end + back-end). Anything an agent 
 | ---- | ------- |
 | `00-context.md` | One-screen overview: what the app is, its users, and where existing docs live. Read this first. |
 | `01-current-state.md` | What is actually built today — features, endpoints, data model, gotchas. Generated from the codebase, not aspirational. |
+| `02-feature-changes-2026-05-19.md` | Snapshot of the feature changes implemented after the latest user trial feedback: project table list, project-code automation, TTK attachment, tab/resource/task/close-flow updates. |
 | `BRD.md` | The Business Requirements Document (provided by the product owner). Source of truth for *what should exist*. |
 | `audit/` | Gap analysis: BRD requirements vs. `01-current-state.md`. Created after BRD is in place. |
 | `plan/` | Implementation plan derived from the audit. Created after the audit is reviewed. |
@@ -35,9 +36,10 @@ The active BA branch is **`v2.3-brd-audit`** in the front-end repo. Branch namin
 
 1. Read `00-context.md` (60 seconds).
 2. Read `01-current-state.md` to understand what the codebase does today.
-3. Read `BRD.md` to understand what it *must* do.
-4. Read `audit/` to see the delta.
-5. Read `plan/` to see what's queued and what's done.
+3. Read `02-feature-changes-2026-05-19.md` for the latest implemented product changes.
+4. Read `BRD.md` to understand what it *must* do.
+5. Read `audit/` to see the delta.
+6. Read `plan/` to see what's queued and what's done.
 
 ## Pre-existing project docs (now consolidated in this folder)
 

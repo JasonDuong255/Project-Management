@@ -79,6 +79,14 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
     }),
   )
 
+  // v3.12 BA: endDate optional in input - default 120 ngày từ startDate khi
+  // user chưa khai báo durationDays. Sẽ được tinh chỉnh lại khi PM cập nhật
+  // basisInfo.durationDays trong tab Thông tin chung.
+  const startAt = new Date(input.startDate)
+  const endAt = input.endDate
+    ? new Date(input.endDate)
+    : new Date(startAt.getTime() + 120 * 24 * 60 * 60 * 1000)
+
   return prisma.$transaction(async (tx) => {
     const project = await tx.project.create({
       data: {
@@ -91,8 +99,11 @@ export async function createProject(input: CreateProjectInput, currentUser: Auth
         ttkDecisionNumber: input.ttkDecisionNumber,
         createdById: input.createdById,
         adminId: input.adminId,
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
+        startDate: startAt,
+        endDate: endAt,
+        // v3.12 BA #6 (19/05/2026): kickoffDate = startDate khi tạo mới.
+        // PM có thể cập nhật riêng sau (sửa kickoffDate ở tab Thông tin chung).
+        kickoffDate: startAt,
         basisInfo: {
           ...DEFAULT_BASIS,
           businessCenterCode: input.businessCenterCode,
@@ -165,6 +176,9 @@ export async function updateProject(
     }
 
     const data: Prisma.ProjectUpdateInput = {}
+    if (patch.code !== undefined) data.code = patch.code
+    // v3.12 BA #4 (19/05/2026): Kiện toàn cho phép đổi tên.
+    if (patch.name !== undefined) data.name = patch.name
     if (patch.summary !== undefined) data.summary = patch.summary
     if (patch.sponsor !== undefined) data.sponsor = patch.sponsor
     if (patch.department !== undefined) data.department = patch.department

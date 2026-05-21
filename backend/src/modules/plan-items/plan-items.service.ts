@@ -21,6 +21,53 @@ export async function savePlanItem(
     const isUpdate = Boolean(input.id)
     const isSubtask = input.parentId !== null
 
+    // v3.12 BA #9 (19/05/2026): subtask phải nằm hoàn toàn trong phạm vi milestone cha:
+    //   1. Date range: [start, end] và [baselineStart, baselineEnd] đều phải nằm trong cha.
+    //   2. plannedHours: tổng subtasks (bao gồm row hiện tại) <= parent.plannedHours.
+    //   Trả về 422 với message rõ ràng nếu vi phạm. Hard block (BA Q4 option a).
+    if (isSubtask && input.parentId) {
+      const parent = await tx.planItem.findUnique({
+        where: { id: input.parentId },
+        include: { children: { where: { id: { not: input.id ?? undefined } } } },
+      })
+      if (!parent || parent.projectId !== projectId) {
+        throw new ApiError(422, 'Parent task không thuộc dự án này')
+      }
+      const childStart = new Date(input.startDate)
+      const childEnd = new Date(input.endDate)
+      const childBaselineStart = new Date(input.baselineStartDate)
+      const childBaselineEnd = new Date(input.baselineEndDate)
+
+      if (childStart < parent.startDate || childEnd > parent.endDate) {
+        throw new ApiError(
+          422,
+          `Subtask vượt phạm vi thời gian của milestone cha (${parent.startDate
+            .toISOString()
+            .slice(0, 10)} → ${parent.endDate.toISOString().slice(0, 10)})`,
+        )
+      }
+      if (
+        childBaselineStart < parent.baselineStartDate ||
+        childBaselineEnd > parent.baselineEndDate
+      ) {
+        throw new ApiError(
+          422,
+          `Subtask vượt phạm vi baseline của milestone cha (${parent.baselineStartDate
+            .toISOString()
+            .slice(0, 10)} → ${parent.baselineEndDate.toISOString().slice(0, 10)})`,
+        )
+      }
+
+      const siblingsHoursSum = parent.children.reduce((sum, c) => sum + c.plannedHours, 0)
+      if (siblingsHoursSum + input.plannedHours > parent.plannedHours) {
+        throw new ApiError(
+          422,
+          `Tổng giờ công các subtask vượt quá giờ công milestone cha (` +
+            `${siblingsHoursSum + input.plannedHours}/${parent.plannedHours} giờ).`,
+        )
+      }
+    }
+
     const dataBase = {
       projectId,
       parentId: input.parentId,

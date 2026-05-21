@@ -185,6 +185,22 @@ export async function addWorklog(input: SaveWorklogInput): Promise<AppSnapshot> 
   })
 }
 
+/**
+ * v3.12 BA #7 (19/05/2026): PM dự án / điều phối / PMO duyệt hoặc từ chối
+ * worklog. Chỉ worklog APPROVED mới cộng vào task.actualHours.
+ */
+export async function decideWorklog(
+  projectId: string,
+  worklogId: string,
+  decision: 'APPROVED' | 'REJECTED',
+  reason = '',
+): Promise<AppSnapshot> {
+  return apiCall<AppSnapshot>(`/projects/${projectId}/worklogs/${worklogId}/decide`, {
+    method: 'PATCH',
+    body: { decision, reason },
+  })
+}
+
 export async function raiseDelay(input: {
   projectId: string
   taskId: string

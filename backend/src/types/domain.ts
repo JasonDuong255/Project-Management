@@ -50,6 +50,9 @@ export type ActivityLogAction =
   | 'PERSONNEL_REMOVED'
   | 'DOCUMENT_UPDATED'
   | 'ALLOCATION_UPDATED'
+  // v3.12 BA #7 (19/05/2026): worklog approval workflow.
+  | 'WORKLOG_APPROVED'
+  | 'WORKLOG_REJECTED'
 
 export type ExternalPersonnelKind = 'CUSTOMER' | 'PARTNER'
 

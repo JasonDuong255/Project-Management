@@ -30,6 +30,9 @@ interface SeedUser {
   phone?: string
   monthlyCapacity?: number
   avatarColor?: string
+  /** v3.12 BA: mock HRM flag for resigned employees. */
+  isResigned?: boolean
+  resignedAt?: string
 }
 
 interface SeedProject {
@@ -204,6 +207,7 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
     // simply users.role === 'ADMIN_HC'.
     const functionalTitle = u.username === 'dev.duy' ? 'KSV' : 'NORMAL'
 
+    const resignedAt = u.resignedAt ? new Date(u.resignedAt) : null
     await prisma.user.upsert({
       where: { id: authId },
       create: {
@@ -220,6 +224,8 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         phone: u.phone ?? '',
         monthlyCapacity: u.monthlyCapacity ?? 160,
         avatarColor: u.avatarColor ?? '#0f766e',
+        isResigned: u.isResigned ?? false,
+        resignedAt,
       },
       update: {
         username: u.username,
@@ -234,6 +240,8 @@ export async function runSeed(opts: { wipe?: boolean } = {}) {
         phone: u.phone ?? '',
         monthlyCapacity: u.monthlyCapacity ?? 160,
         avatarColor: u.avatarColor ?? '#0f766e',
+        isResigned: u.isResigned ?? false,
+        resignedAt,
       },
     })
   }

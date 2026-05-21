@@ -320,6 +320,14 @@ td p,
   grid-column: span 2;
 }
 
+.field-hint {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 /* ─── Buttons ─── */
 .primary-button,
 .secondary-button,
@@ -1727,6 +1735,83 @@ td p,
   margin-top: 0.1rem;
 }
 
+/* v3.12 BA #2: khối PS/PM read-only ở top tab Khởi tạo. Highlight nhẹ. */
+.overview-section--bubble {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--primary-light-5);
+  border: 1px solid var(--primary-light-3);
+}
+
+.overview-section--bubble .detail-card {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.overview-section--bubble .detail-card strong {
+  font-size: 1.05rem;
+  color: var(--accent);
+}
+
+.overview-section--bubble .detail-card small {
+  color: var(--muted);
+}
+
+/* v3.12 BA: khối file PAKD trong section Tài chính */
+.overview-section__pakd {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--panel-border);
+  background: rgba(220, 177, 51, 0.06);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.overview-section__pakd-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.overview-section__pakd-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.code-composition {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border: 1px dashed var(--panel-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.code-composition__part {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.code-composition__part span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.code-composition__part strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
 .overview-approval-strip {
   display: flex;
   gap: 0.45rem;
@@ -1872,6 +1957,111 @@ td p,
   color: var(--muted);
 }
 
+/* v3.12 BA: highlight nhẹ nhân sự đã nghỉ việc theo HRM. Đỏ pastel + pill
+   đỏ ở dưới tên để PM nhanh chóng phát hiện và thay thế. */
+.personnel-row--resigned {
+  background: rgba(225, 14, 14, 0.06);
+}
+
+/* v3.12 BA #7: worklog bị PM/điều phối từ chối */
+.worklog-row--rejected {
+  background: rgba(225, 14, 14, 0.04);
+  opacity: 0.85;
+}
+
+/* v3.12 BA #7: banner thông báo PM có worklog cần duyệt. Hiển thị ở top Plan tab. */
+.worklog-inbox-banner {
+  background: rgba(220, 177, 51, 0.08);
+  border: 1px solid rgba(220, 177, 51, 0.45);
+}
+
+/* v3.12 BA #7: nút "Duyệt worklog" với badge count chờ duyệt. */
+.has-pending-worklog {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.has-pending-worklog__badge {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.7rem;
+}
+
+/* v3.12 BA #8: khối evidence khi sửa root task. Hiện chỉ khi planForm.id && !parentId. */
+.task-evidence-block {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--panel-border);
+  background: var(--primary-light-5);
+}
+
+.task-evidence-block__title strong {
+  font-size: 0.95rem;
+}
+
+.task-evidence-block__title p {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.task-evidence-section {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.task-evidence-section--required {
+  border-color: rgba(220, 177, 51, 0.55);
+  background: rgba(220, 177, 51, 0.06);
+}
+
+.task-evidence-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.personnel-row--resigned td {
+  border-bottom-color: rgba(225, 14, 14, 0.15);
+}
+
+.personnel-row__resigned-pill {
+  margin-left: 0.5rem;
+  font-size: 0.65rem;
+  padding: 0.15rem 0.5rem;
+}
+
+/* v3.12 BA: toggle giữa chế độ HRM (dropdown) và nhập tay cho row AITS. */
+.personnel-source-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+
+.personnel-source-toggle .ghost-button {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.personnel-source-toggle__btn--active {
+  background: var(--panel) !important;
+  color: var(--accent) !important;
+  font-weight: 700;
+}
+
 /* ─── Documents ─── */
 .document-panel,
 .document-form,
@@ -1981,6 +2171,13 @@ td p,
   padding: 0.2rem 0.45rem;
   border-radius: 999px;
   background: #f3f4f6;
+}
+
+/* v3.12 BA fix: PS/PM input readonly trong form tạo dự án. Khi chưa derive được
+   (chưa có member nào trong roster gán vai trò PS/PM) → border vàng cảnh báo. */
+.roster-derived-empty {
+  border-color: var(--warning) !important;
+  background: rgba(220, 177, 51, 0.06) !important;
 }
 
 /* ─── Roster builder ─── */
@@ -2210,19 +2407,6 @@ td p,
 .workload-month-cell__detail-btn {
   flex: 0 0 auto;
   padding: 0.35rem;
-}
-
-/* Subtle warning when this user's project allocations exceed the a.Office
-   "Du an" quota for the month — keeps the icon discoverable without
-   shouting. Pairs with the red text in the popup. */
-.workload-month-cell__detail-btn--warn {
-  background: rgba(220, 177, 51, 0.18);
-  border-color: rgba(220, 177, 51, 0.55);
-  color: var(--warning);
-}
-
-.workload-month-cell__detail-btn--warn:hover {
-  background: rgba(220, 177, 51, 0.28);
 }
 
 .workload-month-cell__meta {
@@ -2847,6 +3031,10 @@ td p,
 
   .risk-summary-strip {
     grid-template-columns: 1fr;
+  }
+
+  .code-composition {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .gantt-header,

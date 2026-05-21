@@ -451,6 +451,8 @@ function buildOverviewForm(project: Project) {
     adminId: project.adminId,
     status: project.status,
     startDate: project.startDate,
+    // v3.16: ngày kết thúc dự kiến (project.endDate). Editable trong Thông tin chung.
+    endDate: project.endDate,
     basisInfo: {
       outputContracts: cloneReferenceItems(project.basisInfo.outputContracts),
       inputContracts: cloneReferenceItems(project.basisInfo.inputContracts),
@@ -742,19 +744,26 @@ interface ResolvedAitsMember {
   personnel: ProjectAitsPersonnel
 }
 
+/**
+ * v3.16 (19/05/2026): Ngày kết thúc dự kiến của dự án = project.endDate
+ * (field editable trong Thông tin chung, label "Ngày kết thúc dự kiến").
+ * Trước v3.16 dùng basisInfo.durationDays để derive — nay đã bỏ vì user
+ * khai báo trực tiếp endDate. Fallback startDate nếu endDate trống.
+ */
 function getEstimatedProjectEndDate(project: Project) {
-  if (project.basisInfo.durationDays > 0) {
-    return dayjs(project.startDate).add(project.basisInfo.durationDays - 1, 'day')
-  }
-  return dayjs(project.endDate)
+  return dayjs(project.endDate || project.startDate)
 }
 
+/**
+ * v3.16: phạm vi phân bổ giờ công theo tháng dựa vào [kickoffDate, endDate].
+ * Fallback: kickoffDate → startDate; endDate → startDate.
+ */
 function getProjectAllocationMonths(project: Project) {
-  const startMonth = dayjs(project.startDate).startOf('month')
-  const endMonth = getEstimatedProjectEndDate(project).startOf('month')
+  const kickoff = dayjs(project.kickoffDate || project.startDate).startOf('month')
+  const end = dayjs(project.endDate || project.startDate).startOf('month')
   const months: string[] = []
-  let cursor = startMonth
-  while (cursor.isBefore(endMonth) || cursor.isSame(endMonth, 'month')) {
+  let cursor = kickoff
+  while (cursor.isBefore(end) || cursor.isSame(end, 'month')) {
     months.push(cursor.format('YYYY-MM'))
     cursor = cursor.add(1, 'month')
   }
@@ -2671,6 +2680,24 @@ export function ProjectDetailPage() {
                     onChange={(event) =>
                       setOverviewForm((current) =>
                         current ? { ...current, startDate: event.target.value } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo}
+                  />
+                </label>
+
+                {/* v3.16 (19/05/2026): Ngày kết thúc dự kiến (bind project.endDate)
+                    đặt cạnh Ngày kick off. Phạm vi phân bổ giờ công theo tháng
+                    sẽ dựa vào [kickoff, endDate] thay vì basisInfo.durationDays. */}
+                <label>
+                  <span>Ngày kết thúc dự kiến</span>
+                  <input
+                    type="date"
+                    value={overviewForm.endDate}
+                    min={overviewForm.startDate || undefined}
+                    onChange={(event) =>
+                      setOverviewForm((current) =>
+                        current ? { ...current, endDate: event.target.value } : current,
                       )
                     }
                     disabled={!canEditProjectInfo}

@@ -7,6 +7,7 @@ import { prisma } from '../../db/prisma.js'
 import { writeActivityLog } from '../../lib/activity-log.js'
 import { recalculateProjectProgress } from '../../lib/recalc.js'
 import { assembleSnapshot } from '../snapshot/snapshot.service.js'
+import { canDecideWorklog } from '../../lib/permissions.js'
 
 export const worklogsRouter = Router()
 
@@ -17,6 +18,11 @@ const worklogSchema = z.object({
   hours: z.number().nonnegative(),
   progressNote: z.string().default(''),
   progress: z.number().int().min(0).max(100),
+})
+
+const decideSchema = z.object({
+  decision: z.enum(['APPROVED', 'REJECTED']),
+  reason: z.string().optional().default(''),
 })
 
 worklogsRouter.post(
@@ -41,6 +47,8 @@ worklogsRouter.post(
           throw new ApiError(409, 'Completed tasks cannot receive worklogs')
         }
 
+        // v3.12 BA #7 (19/05/2026): worklog mới mặc định PENDING. Không cộng
+        // vào task.actualHours cho đến khi PM/điều phối Duyệt.
         await tx.worklog.create({
           data: {
             projectId: String(req.params.projectId),
@@ -49,10 +57,11 @@ worklogsRouter.post(
             date: new Date(req.body.date),
             hours: req.body.hours,
             progressNote: req.body.progressNote,
+            // status mặc định = PENDING (qua @default trong schema).
           },
         })
 
-        // Auto-status: NOT_STARTED → IN_PROGRESS; progress ≥ 100 → DONE
+        // Member's self-reported progress vẫn cập nhật ngay (không phụ thuộc duyệt).
         const nextProgress = req.body.progress
         let nextStatus: PlanTaskStatus = task.status
         if (task.status === 'NOT_STARTED' && nextProgress > 0) nextStatus = 'IN_PROGRESS'
@@ -61,7 +70,7 @@ worklogsRouter.post(
         await tx.planItem.update({
           where: { id: task.id },
           data: {
-            actualHours: { increment: req.body.hours },
+            // KHÔNG increment actualHours - chờ duyệt mới cộng.
             progress: nextProgress,
             status: nextStatus,
           },
@@ -74,10 +83,91 @@ worklogsRouter.post(
           entityType: 'PLAN_ITEM',
           entityId: task.id,
           entityName: task.name,
-          changes: [{ field: 'hours', oldValue: null, newValue: req.body.hours }],
+          changes: [
+            { field: 'hours', oldValue: null, newValue: req.body.hours },
+            { field: 'status', oldValue: null, newValue: 'PENDING' },
+          ],
         })
 
         await recalculateProjectProgress(tx, String(req.params.projectId))
+      })
+
+      res.json(await assembleSnapshot(user))
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+/**
+ * v3.12 BA #7 (19/05/2026): PM dự án + điều phối + PMO duyệt / từ chối worklog.
+ * - APPROVED → cộng vào task.actualHours, ghi activity WORKLOG_APPROVED.
+ * - REJECTED → ghi rejectReason, ghi activity WORKLOG_REJECTED. Không tự duyệt
+ *   worklog của chính mình.
+ */
+worklogsRouter.patch(
+  '/:projectId/worklogs/:worklogId/decide',
+  validateBody(decideSchema),
+  async (req, res, next) => {
+    try {
+      if (!req.user) throw new ApiError(401, 'Authentication required')
+      const user = req.user
+      const projectId = String(req.params.projectId)
+      const worklogId = String(req.params.worklogId)
+
+      await prisma.$transaction(async (tx) => {
+        const worklog = await tx.worklog.findUnique({
+          where: { id: worklogId },
+          include: { task: true, project: true },
+        })
+        if (!worklog || worklog.projectId !== projectId) {
+          throw new ApiError(404, 'Worklog not found')
+        }
+        if (!(await canDecideWorklog(tx, user, worklog))) {
+          throw new ApiError(403, 'You do not have permission to decide this worklog')
+        }
+        if (worklog.memberId === user.id) {
+          throw new ApiError(409, 'Cannot decide your own worklog')
+        }
+        if (worklog.status !== 'PENDING') {
+          throw new ApiError(409, `Worklog already ${worklog.status.toLowerCase()}`)
+        }
+
+        const decision = req.body.decision as 'APPROVED' | 'REJECTED'
+        const reason = String(req.body.reason ?? '')
+
+        await tx.worklog.update({
+          where: { id: worklogId },
+          data: {
+            status: decision,
+            decidedById: user.id,
+            decidedAt: new Date(),
+            rejectReason: decision === 'REJECTED' ? reason : '',
+          },
+        })
+
+        if (decision === 'APPROVED') {
+          await tx.planItem.update({
+            where: { id: worklog.taskId },
+            data: { actualHours: { increment: worklog.hours } },
+          })
+          await recalculateProjectProgress(tx, projectId)
+        }
+
+        await writeActivityLog(tx, {
+          projectId,
+          userId: user.id,
+          action: decision === 'APPROVED' ? 'WORKLOG_APPROVED' : 'WORKLOG_REJECTED',
+          entityType: 'PLAN_ITEM',
+          entityId: worklog.taskId,
+          entityName: worklog.task.name,
+          changes: [
+            { field: 'status', oldValue: 'PENDING', newValue: decision },
+            ...(decision === 'REJECTED' && reason
+              ? [{ field: 'rejectReason', oldValue: null, newValue: reason }]
+              : []),
+          ],
+        })
       })
 
       res.json(await assembleSnapshot(user))

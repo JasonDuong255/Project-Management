@@ -30,7 +30,9 @@ export const createProjectSchema = z.object({
   createdById: z.string().uuid(),
   adminId: z.string().uuid(),
   startDate: z.string(),
-  endDate: z.string(),
+  // v3.12 BA: endDate optional - service compute từ basisInfo.durationDays
+  // (default 120 ngày khi durationDays = 0).
+  endDate: z.string().optional(),
   teamMembers: z.array(teamMemberInput).default([]),
   department: z.string().default(''),
 })
@@ -39,6 +41,9 @@ export const updateProjectSchema = z.object({
   patch: z
     .object({
       summary: z.string().optional(),
+      code: z.string().min(1).optional(),
+      // v3.12 BA #4 (19/05/2026): Kiện toàn cho phép đổi tên dự án.
+      name: z.string().min(1).optional(),
       sponsor: z.string().optional(),
       department: z.string().optional(),
       objective: z.string().optional(),
@@ -58,17 +63,25 @@ export const updateProjectSchema = z.object({
       endDate: z.string().optional(),
       basisInfo: z.record(z.unknown()).optional(),
       financialInfo: z.record(z.unknown()).optional(),
-      // AITS members must always be bound to a real User (userId is required).
-      // Free-text customer / partner rows remain unconstrained.
+      // AITS members: hoặc liên kết User (userId UUID) hoặc đánh dấu manualEntry=true (nhập thủ công).
+      // v3.12 BA (19/05/2026): nới lỏng yêu cầu HRM-only của v3.5.
       personnelInfo: z
         .object({
           aitsMembers: z
             .array(
               z
                 .object({
-                  userId: z.string().uuid({ message: 'aitsMembers[].userId is required (must be linked to a User)' }),
+                  userId: z.string().uuid().nullable().optional(),
+                  manualEntry: z.boolean().optional(),
                 })
-                .passthrough(),
+                .passthrough()
+                .refine(
+                  (m) => Boolean(m.userId) || m.manualEntry === true,
+                  {
+                    message:
+                      'aitsMembers[]: cần userId UUID hoặc manualEntry=true (nhập thủ công)',
+                  },
+                ),
             )
             .optional(),
           customerMembers: z.array(z.record(z.unknown())).optional(),

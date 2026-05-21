@@ -58,6 +58,9 @@ export interface User {
   /** v3.1 BRD I — TCNL/KSV identification independent of role. */
   functionalTitle?: FunctionalTitle
   isActive?: boolean
+  /** v3.12 BA (19/05/2026): cờ nghỉ việc từ HRM. UI hiển thị badge + tô đỏ. */
+  isResigned?: boolean
+  resignedAt?: string | null
   employeeCode: string
   title: string
   unit: string
@@ -146,16 +149,31 @@ export interface ProjectFinancialItem {
   note: string
 }
 
+export interface PakdAttachmentRef {
+  /** Reference vào ProjectDocument đã upload (category = 'PAKD'). */
+  documentId: string
+  fileName: string
+  uploadedAt: string
+}
+
 export interface ProjectFinancialInfo {
   revenue: ProjectFinancialItem
   internalCost: ProjectFinancialItem
   externalCost: ProjectFinancialItem
   profit: ProjectFinancialItem
   costSource: string
+  /** v3.12 BA: file Phương án kinh doanh (PAKD) đã được phê duyệt. */
+  pakdAttachment?: PakdAttachmentRef | null
 }
 
 export interface ProjectAitsPersonnel {
-  userId: string
+  /**
+   * v3.5 (12/05/2026): bắt buộc liên kết User nội bộ.
+   * v3.12 (19/05/2026): cho phép nullable nếu manualEntry=true (nhập thủ công).
+   */
+  userId: string | null
+  /** v3.12 BA: nhân sự nhập tay (không có trong HRM). Khi true → userId có thể null. */
+  manualEntry?: boolean
   employeeCode: string
   fullName: string
   title: string
@@ -209,8 +227,13 @@ export interface Project {
   memberIds: string[]
   /** v3.1: first-class member rows replacing the personnelInfo string-match. */
   members?: ProjectMemberRow[]
+  /** Ngày kick off (chính thức bắt đầu triển khai). */
   startDate: string
   endDate: string
+  /** v3.12 BA #6: Ngày khởi tạo bản ghi dự án trong hệ thống (DB createdAt). */
+  createdAt?: string
+  /** v3.12 BA #6 Q1 option (b): cột kickoffDate riêng. Trùng startDate hiện tại. */
+  kickoffDate?: string | null
   status: ProjectStatus
   health: HealthStatus
   progress: number
@@ -258,6 +281,9 @@ export interface PlanItem {
   replanRequested: boolean
 }
 
+/** v3.12 BA #7 (19/05/2026): worklog approval workflow. */
+export type WorklogStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
 export interface Worklog {
   id: string
   taskId: string
@@ -266,6 +292,11 @@ export interface Worklog {
   date: string
   hours: number
   progressNote: string
+  /** v3.12: mặc định PENDING; chỉ APPROVED mới cộng vào task.actualHours. */
+  status?: WorklogStatus
+  decidedById?: string | null
+  decidedAt?: string | null
+  rejectReason?: string
 }
 
 export interface DelayRaise {
@@ -310,6 +341,9 @@ export type ActivityLogAction =
   | 'PERSONNEL_ADDED'
   | 'PERSONNEL_REMOVED'
   | 'ALLOCATION_UPDATED'
+  /** v3.12 BA #7 (19/05/2026): worklog approval workflow. */
+  | 'WORKLOG_APPROVED'
+  | 'WORKLOG_REJECTED'
 
 export interface ActivityLogChange {
   field: string
@@ -393,7 +427,8 @@ export interface CreateProjectInput {
   createdById: string
   adminId: string
   startDate: string
-  endDate: string
+  /** v3.12 BA: optional - BE compute từ basisInfo.durationDays nếu thiếu. */
+  endDate?: string
   teamMembers: CreateProjectTeamMemberInput[]
   department?: string
 }
@@ -403,6 +438,8 @@ export interface UpdateProjectInput {
   patch: Partial<
     Pick<
       Project,
+      | 'code'
+      | 'name'
       | 'summary'
       | 'sponsor'
       | 'department'

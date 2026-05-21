@@ -75,7 +75,17 @@ type ProjectDocumentCategory =
   | 'PROJECT_DOCUMENT'
   | 'SUBMISSION'
   | 'MEETING_MINUTES'
+  /** v3.12 BA: Phương án kinh doanh (PAKD) đã phê duyệt - đính kèm trong Tài chính. */
+  | 'PAKD'
+  /** v3.12 BA #8 (19/05/2026): bằng chứng phê duyệt khi sửa timeline/giờ công root task. */
+  | 'TASK_CHANGE_EVIDENCE'
 type ProjectDetailTab = 'PROJECT_INIT' | 'OVERVIEW' | 'PERSONNEL' | 'DOCUMENTS' | 'RISKS' | 'PLAN' | 'WORKLOAD'
+
+const businessCenterOptions: BusinessCenterCode[] = ['BU1', 'BU2', 'BU3', 'BU4', 'BU5']
+const customerGroupOptions: CustomerGroupCode[] = ['VNA', 'LDLK', 'OT', 'NB']
+const marketOptions: MarketCode[] = ['HK', 'CHK', 'AN', 'CP', 'XD', 'TC', 'GD', 'NL', 'DN', 'YT', 'HH']
+const domainOptions: DomainCode[] = ['PM', 'HT', 'DV']
+const projectKindOptions: ProjectKindCode[] = ['NC', 'KT', 'HĐ', 'HD', 'NB']
 
 const ACTION_LABELS: Record<ActivityLogAction, string> = {
   PROJECT_INFO_UPDATED: 'Cập nhật thông tin',
@@ -188,6 +198,8 @@ const projectDocumentCategories: Array<{ value: ProjectDocumentCategory; label: 
   { value: 'PURCHASE_CONTRACT', label: 'Hợp đồng mua' },
   { value: 'SALE_CONTRACT', label: 'Hợp đồng bán' },
   { value: 'CONTRACT', label: 'Hợp đồng' },
+  { value: 'PAKD', label: 'Phương án kinh doanh (PAKD)' },
+  { value: 'TASK_CHANGE_EVIDENCE', label: 'Bằng chứng thay đổi task' },
   { value: 'PROJECT_DOCUMENT', label: 'Tài liệu dự án' },
   { value: 'SUBMISSION', label: 'Tờ trình' },
   { value: 'MEETING_MINUTES', label: 'Biên bản họp' },
@@ -230,6 +242,23 @@ function normalizeProjectDocumentCategory(category: string): ProjectDocumentCate
     return 'CONTRACT'
   }
 
+  if (
+    normalizedCategory === 'pakd' ||
+    normalizedCategory === 'phuong an kinh doanh' ||
+    normalizedCategory === 'phương án kinh doanh' ||
+    normalizedCategory === 'phương án kinh doanh (pakd)'
+  ) {
+    return 'PAKD'
+  }
+
+  if (
+    normalizedCategory === 'task_change_evidence' ||
+    normalizedCategory === 'bang chung thay doi task' ||
+    normalizedCategory === 'bằng chứng thay đổi task'
+  ) {
+    return 'TASK_CHANGE_EVIDENCE'
+  }
+
   if (normalizedCategory === 'submission' || normalizedCategory === 'to trinh') {
     return 'SUBMISSION'
   }
@@ -265,6 +294,8 @@ function cloneFinancialInfo(financialInfo: ProjectFinancialInfo): ProjectFinanci
 function cloneAitsPersonnel(items: ProjectAitsPersonnel[]) {
   return items.map((item) => ({
     userId: item.userId,
+    // v3.12 BA: cờ nhập tay - phải clone để form không bị reset về HRM mode.
+    manualEntry: item.manualEntry === true,
     employeeCode: item.employeeCode,
     fullName: item.fullName,
     title: item.title,
@@ -299,6 +330,7 @@ function createReferenceItem(): ProjectReferenceItem {
 function createAitsPersonnel(): ProjectAitsPersonnel {
   return {
     userId: '',
+    manualEntry: false,
     employeeCode: '',
     fullName: '',
     title: '',
@@ -335,7 +367,8 @@ function sanitizeReferenceItems(items: ProjectReferenceItem[]) {
 function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
   return items
     .map((item) => ({
-      userId: item.userId,
+      userId: item.userId || null,
+      manualEntry: item.manualEntry === true,
       employeeCode: item.employeeCode.trim(),
       fullName: item.fullName.trim(),
       title: item.title.trim(),
@@ -346,10 +379,13 @@ function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
       email: item.email.trim(),
       phone: item.phone.trim(),
     }))
-    // BA decision 12/05/2026: every AITS row must be bound to a real User
-    // (userId is a valid UUID). Unbound drafts are silently dropped here so
-    // the BE strict validator never rejects the whole save.
-    .filter((item) => item.userId.length > 0)
+    // v3.5 (12/05/2026): row HRM phải có userId UUID hợp lệ.
+    // v3.12 (19/05/2026): row manualEntry chỉ cần fullName.
+    .filter(
+      (item) =>
+        (item.manualEntry && item.fullName.length > 0) ||
+        (!item.manualEntry && item.userId !== null && item.userId.length > 0),
+    )
 }
 
 function sanitizeExternalPersonnel(items: ProjectExternalPersonnel[]) {
@@ -377,6 +413,12 @@ function sanitizeExternalPersonnel(items: ProjectExternalPersonnel[]) {
 
 function formatCurrencyPreview(amount: number) {
   return `${Number(amount || 0).toLocaleString('vi-VN')} VND`
+}
+
+function getProjectCodeSequence(code: string) {
+  const parts = code.split('-')
+  if (parts[0] === 'PRJ') return parts[2] ?? '---'
+  return parts[1] ?? '---'
 }
 
 function buildInitForm(project: Project) {
@@ -578,6 +620,13 @@ function buildPlanForm(project: Project, task?: PlanItem | null) {
       plannedHours: task.plannedHours,
       dependencyNote: task.dependencyNote ?? '',
       deliverable: task.deliverable ?? '',
+      // v3.12 BA #8: file bằng chứng + ghi chú cho root task khi đổi timeline / giờ công.
+      evidenceTimelineFile: null as DocumentAttachmentInput | null,
+      evidenceTimelineFileName: '',
+      evidenceTimelineNote: '',
+      evidenceHoursFile: null as DocumentAttachmentInput | null,
+      evidenceHoursFileName: '',
+      evidenceHoursNote: '',
     }
   }
 
@@ -596,6 +645,12 @@ function buildPlanForm(project: Project, task?: PlanItem | null) {
     progress: 0,
     plannedHours: 16,
     dependencyNote: '',
+    evidenceTimelineFile: null as DocumentAttachmentInput | null,
+    evidenceTimelineFileName: '',
+    evidenceTimelineNote: '',
+    evidenceHoursFile: null as DocumentAttachmentInput | null,
+    evidenceHoursFileName: '',
+    evidenceHoursNote: '',
     deliverable: '',
   }
 }
@@ -826,6 +881,7 @@ export function ProjectDetailPage() {
     saveRisk,
     deleteRisk,
     addWorklog,
+    decideWorklog,
     activityLogs: allActivityLogs,
     getUser,
   } = useAppData()
@@ -861,6 +917,29 @@ export function ProjectDetailPage() {
   const [initForm, setInitForm] = useState<ReturnType<typeof buildInitForm> | null>(null)
   const [overviewForm, setOverviewForm] = useState<ReturnType<typeof buildOverviewForm> | null>(null)
   const [personnelForm, setPersonnelForm] = useState<ReturnType<typeof buildPersonnelForm> | null>(null)
+  // v3.12 BA fix (19/05/2026): PS/PM được derive từ aitsMembers.role match
+  // ('PS du an' / 'PM du an'), không cần state riêng. Bỏ personnelPsDraft / personnelPmDraft.
+  // v3.12 BA #4: dialog Kiện toàn xác nhận metadata sau khi sửa nhân sự.
+  const [reorganizationDialog, setReorganizationDialog] = useState<{
+    name: string
+    code: string
+    decisionNumber: string
+    resolve: (value: { name: string; code: string; decisionNumber: string } | null) => void
+  } | null>(null)
+  function openReorganizationDialog(initial: {
+    initialName: string
+    initialCode: string
+    initialDecisionNumber: string
+  }): Promise<{ name: string; code: string; decisionNumber: string } | null> {
+    return new Promise((resolve) => {
+      setReorganizationDialog({
+        name: initial.initialName,
+        code: initial.initialCode,
+        decisionNumber: initial.initialDecisionNumber,
+        resolve,
+      })
+    })
+  }
   const [documentForm, setDocumentForm] = useState<ReturnType<typeof buildDocumentForm> | null>(null)
   const [planForm, setPlanForm] = useState<ReturnType<typeof buildPlanForm> | null>(null)
   const [riskForm, setRiskForm] = useState<RiskFormState | null>(null)
@@ -874,6 +953,56 @@ export function ProjectDetailPage() {
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false)
   const [isRiskModalOpen, setIsRiskModalOpen] = useState(false)
   const [planRiskPrompt, setPlanRiskPrompt] = useState<PlanRiskPromptState | null>(null)
+  // v3.12 BA #7: modal duyệt worklog cho 1 task cụ thể (null = inbox toàn dự án).
+  const [worklogApprovalScope, setWorklogApprovalScope] = useState<
+    { taskId: string | null } | null
+  >(null)
+  const initProjectCodeSequence = initForm ? getProjectCodeSequence(initForm.code) : '---'
+  const initGeneratedProjectCode = initForm
+    ? [
+        dayjs(initForm.startDate).format('YYYY'),
+        initProjectCodeSequence,
+        initForm.businessCenterCode,
+        initForm.customerGroupCode,
+        initForm.domainCode,
+        initForm.projectKindCode,
+      ].join('-')
+    : ''
+  const initProjectCodeParts = initForm
+    ? [
+        { label: 'Năm khởi tạo', value: dayjs(initForm.startDate).format('YYYY') },
+        { label: 'Số thứ tự', value: initProjectCodeSequence },
+        { label: 'Trung tâm kinh doanh', value: initForm.businessCenterCode },
+        { label: 'Nhóm khách hàng', value: initForm.customerGroupCode },
+        { label: 'Lĩnh vực', value: initForm.domainCode },
+        { label: 'Loại dự án', value: initForm.projectKindCode },
+      ]
+    : []
+
+  // v3.12 BA fix (19/05/2026): PS/PM derive từ aitsMembers.role match
+  // ('PS du an' / 'PM du an'). Read-only, hiển thị bên trong section "Thông tin cơ bản".
+  const initPsRow = project
+    ? project.personnelInfo.aitsMembers.find(
+        (m) => (m.role ?? '').trim().toLowerCase() === 'ps du an',
+      )
+    : null
+  const initPmRow = project
+    ? project.personnelInfo.aitsMembers.find(
+        (m) => (m.role ?? '').trim().toLowerCase() === 'pm du an',
+      )
+    : null
+  const initPsUser = initPsRow?.userId
+    ? getUser(initPsRow.userId)
+    : project ? getUser(project.sponsor) : null
+  const initPmUser = initPmRow?.userId
+    ? getUser(initPmRow.userId)
+    : project ? getUser(project.adminId) : null
+  const initPsText = initPsUser
+    ? `${initPsUser.name}${initPsUser.title ? ' - ' + initPsUser.title : ''}`
+    : initPsRow?.fullName ?? ''
+  const initPmText = initPmUser
+    ? `${initPmUser.name}${initPmUser.employeeCode ? ' - ' + initPmUser.employeeCode : ''}`
+    : initPmRow?.fullName ?? ''
 
   const projectTasks = project ? getProjectTasks(planItems, project.id) : []
   const overviewTasks = projectTasks.filter((task) => task.parentId === null)
@@ -1056,6 +1185,22 @@ export function ProjectDetailPage() {
         .filter((item) => item.taskId === selectedTask.id)
         .sort((left, right) => right.date.localeCompare(left.date))
     : []
+  // v3.12 BA #7: số worklog của task đang chọn đang chờ PM/điều phối duyệt.
+  const selectedTaskPendingCount = selectedTaskWorklogs.filter(
+    (w) => (w.status ?? 'PENDING') === 'PENDING' && w.memberId !== currentUser?.id,
+  ).length
+  // Toàn dự án — tất cả worklog PENDING thuộc các task của project hiện tại,
+  // mà current user CÓ QUYỀN duyệt (không tự duyệt). Dùng cho inbox top Plan tab.
+  const projectPendingWorklogs = canManagePlan
+    ? worklogs
+        .filter(
+          (w) =>
+            w.projectId === project.id &&
+            (w.status ?? 'PENDING') === 'PENDING' &&
+            w.memberId !== currentUser?.id,
+        )
+        .sort((left, right) => right.date.localeCompare(left.date))
+    : []
   const projectManagers = users.filter(
     (user) => normalizeUserRole(user.role) === 'PM',
   )
@@ -1160,6 +1305,7 @@ export function ProjectDetailPage() {
             ? {
                 ...item,
                 userId: picked.id,
+                manualEntry: false,
                 employeeCode: picked.employeeCode,
                 fullName: picked.name,
                 title: picked.title,
@@ -1169,6 +1315,42 @@ export function ProjectDetailPage() {
               }
             : item,
         ),
+      }
+    })
+  }
+
+  /**
+   * v3.12 BA (19/05/2026): toggle AITS row giữa 2 chế độ:
+   * - manualEntry=false (HRM): chọn user từ dropdown, các field identity readonly.
+   * - manualEntry=true (thủ công): nhập tay mọi field; userId = null.
+   * Khi bật manualEntry: clear userId nhưng giữ lại fullName/title... vừa nhập.
+   * Khi tắt manualEntry: clear identity, user phải chọn lại từ dropdown.
+   */
+  function toggleAitsManualEntry(index: number) {
+    setPersonnelForm((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        aitsMembers: current.aitsMembers.map((item, itemIndex) => {
+          if (itemIndex !== index) return item
+          const next = !item.manualEntry
+          if (next) {
+            // Bật thủ công: bỏ userId, giữ các field hiện tại.
+            return { ...item, manualEntry: true, userId: '' }
+          }
+          // Tắt thủ công: clear identity, đợi user chọn HRM lại.
+          return {
+            ...item,
+            manualEntry: false,
+            userId: '',
+            employeeCode: '',
+            fullName: '',
+            title: '',
+            unit: '',
+            email: '',
+            phone: '',
+          }
+        }),
       }
     })
   }
@@ -1368,13 +1550,15 @@ export function ProjectDetailPage() {
   async function handlePersonnelSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!personnelForm || !project) return
-    const ok = await confirm({
-      title: 'Lưu thông tin nhân sự?',
-      description: 'Toàn bộ thay đổi nhân sự AITS / KH / Đối tác sẽ được lưu và ghi vào lịch sử thao tác.',
-      tone: 'primary',
-      confirmLabel: 'Lưu thay đổi',
+
+    // v3.12 BA #4 (19/05/2026): popup "Kiện toàn" mở khi Lưu, bắt buộc xác nhận/cập nhật
+    // Tên dự án + Mã + Số quyết định TTK trước khi commit.
+    const reorganization = await openReorganizationDialog({
+      initialName: project.name,
+      initialCode: project.code,
+      initialDecisionNumber: project.ttkDecisionNumber ?? '',
     })
-    if (!ok) return
+    if (!reorganization) return
 
     const sanitizedPersonnel: ProjectPersonnelInfo = {
       aitsMembers: sanitizeAitsPersonnel(personnelForm.aitsMembers),
@@ -1382,15 +1566,39 @@ export function ProjectDetailPage() {
       partners: sanitizeExternalPersonnel(personnelForm.partners),
     }
 
+    // v3.12 BA fix (19/05/2026): PS/PM derive từ VAI TRÒ trong bảng Tổ triển khai.
+    // - PS = aitsMember đầu tiên có role === 'PS du an' (case-insensitive)
+    // - PM = aitsMember đầu tiên có role === 'PM du an' (case-insensitive)
+    // Nếu không tìm thấy → giữ nguyên project.sponsor / project.adminId hiện tại.
+    const derivedPs = sanitizedPersonnel.aitsMembers.find(
+      (m) => m.role.trim().toLowerCase() === 'ps du an' && m.userId,
+    )
+    const derivedPm = sanitizedPersonnel.aitsMembers.find(
+      (m) => m.role.trim().toLowerCase() === 'pm du an' && m.userId,
+    )
+
     await personnelEdit.withSave(async () => {
       try {
-        await loading.run('Đang lưu thông tin nhân sự…', () =>
-          updateProject({ projectId: project.id, patch: { personnelInfo: sanitizedPersonnel } }),
+        await loading.run('Đang Kiện toàn nhân sự…', () =>
+          updateProject({
+            projectId: project.id,
+            patch: {
+              personnelInfo: sanitizedPersonnel,
+              // v3.12 BA fix: derive PS/PM từ role-in-project.
+              sponsor: derivedPs?.userId ?? project.sponsor,
+              adminId: derivedPm?.userId ?? project.adminId,
+              // v3.12 BA #4: cập nhật metadata theo Kiện toàn dialog.
+              name: reorganization.name.trim() || project.name,
+              code: reorganization.code.trim() || project.code,
+              ttkDecisionNumber:
+                reorganization.decisionNumber.trim() || project.ttkDecisionNumber,
+            },
+          }),
         )
         setPersonnelForm(sanitizedPersonnel)
-        toast.success('Đã cập nhật thông tin nhân sự dự án')
+        toast.success('Đã Kiện toàn nhân sự + cập nhật quyết định')
       } catch (err) {
-        toast.error('Không lưu được thông tin nhân sự', err instanceof Error ? err.message : '')
+        toast.error('Không Kiện toàn được nhân sự', err instanceof Error ? err.message : '')
         throw err
       }
     })
@@ -1413,15 +1621,25 @@ export function ProjectDetailPage() {
           updateProject({
             projectId: project.id,
             patch: {
+              code: initGeneratedProjectCode,
               sponsor: initForm.sponsor,
               objective: initForm.objective.trim(),
               ttkDecisionNumber: initForm.ttkDecisionNumber.trim(),
               adminId: initForm.adminId,
               startDate: initForm.startDate,
               endDate: initForm.endDate,
+              basisInfo: {
+                ...project.basisInfo,
+                businessCenterCode: initForm.businessCenterCode,
+                customerGroupCode: initForm.customerGroupCode,
+                marketCode: initForm.marketCode,
+                domainCode: initForm.domainCode,
+                projectKindCode: initForm.projectKindCode,
+              },
             },
           }),
         )
+        setInitForm((current) => current ? { ...current, code: initGeneratedProjectCode } : current)
         toast.success('Đã cập nhật thông tin khởi tạo dự án')
       } catch (err) {
         toast.error('Không lưu được thông tin khởi tạo', err instanceof Error ? err.message : '')
@@ -1705,17 +1923,63 @@ export function ProjectDetailPage() {
     }
 
     const submittedPlan = { ...planForm }
+
+    // v3.12 BA #8 (sửa lại 19/05/2026): root task — chỉ Timeline thay đổi mới
+    // yêu cầu Tờ trình + ghi chú. Giờ công kế hoạch có thể đổi tự do.
+    const isRootEdit =
+      Boolean(submittedPlan.id) && !submittedPlan.parentId && existingTask !== null
+    let timelineDirty = false
+    if (isRootEdit && existingTask) {
+      timelineDirty =
+        existingTask.baselineStartDate !== submittedPlan.baselineStartDate ||
+        existingTask.baselineEndDate !== submittedPlan.baselineEndDate ||
+        existingTask.startDate !== submittedPlan.startDate ||
+        existingTask.endDate !== submittedPlan.endDate
+
+      if (timelineDirty) {
+        if (!submittedPlan.evidenceTimelineFile) {
+          toast.warning(
+            'Thiếu tờ trình Timeline',
+            'Sửa Timeline của task tổng quan cần Tờ trình đã phê duyệt + ghi chú.',
+          )
+          return
+        }
+        if (!submittedPlan.evidenceTimelineNote.trim()) {
+          toast.warning('Thiếu ghi chú Timeline', 'Bắt buộc ghi chú lý do thay đổi Timeline.')
+          return
+        }
+      }
+    }
+
     const ok = await confirm({
       title: submittedPlan.id ? 'Cập nhật task?' : 'Tạo task mới?',
       description: submittedPlan.parentId
         ? 'Task này thuộc về một task cha trong kế hoạch.'
-        : 'Task tổng quan sẽ được thêm vào kế hoạch triển khai.',
+        : timelineDirty
+          ? 'Sẽ lưu thay đổi Timeline + đính kèm Tờ trình thay đổi kế hoạch và ghi nhận lịch sử.'
+          : 'Task tổng quan sẽ được thêm vào kế hoạch triển khai.',
       tone: 'primary',
       confirmLabel: submittedPlan.id ? 'Lưu thay đổi' : 'Tạo task',
     })
     if (!ok) return
 
     try {
+      // v3.12 BA #8: upload Tờ trình TRƯỚC khi lưu task (chỉ khi Timeline đổi).
+      // File lên projectDocuments với category 'TASK_CHANGE_EVIDENCE'.
+      if (timelineDirty && submittedPlan.evidenceTimelineFile) {
+        await loading.run('Đang tải Tờ trình thay đổi kế hoạch…', () =>
+          addProjectDocument({
+            projectId: project.id,
+            title: `[Timeline] ${submittedPlan.name} — ${submittedPlan.evidenceTimelineFile?.fileName ?? ''}`,
+            category: 'TASK_CHANGE_EVIDENCE',
+            description: `Timeline thay đổi: ${submittedPlan.evidenceTimelineNote.trim()}`,
+            url: '',
+            attachment: submittedPlan.evidenceTimelineFile,
+            uploadedBy: currentUser.id,
+          }),
+        )
+      }
+
       await loading.run('Đang lưu task…', () =>
         savePlanItem({
           id: submittedPlan.id || undefined,
@@ -1750,6 +2014,45 @@ export function ProjectDetailPage() {
       toast.success(submittedPlan.id ? 'Đã cập nhật task' : 'Đã tạo task mới', submittedPlan.name)
     } catch (err) {
       toast.error('Không lưu được task', err instanceof Error ? err.message : '')
+    }
+  }
+
+  /**
+   * v3.12 BA #7 (19/05/2026): PM dự án / điều phối / PMO duyệt hoặc từ chối worklog.
+   * Khi từ chối, hỏi lý do qua confirm-with-text dialog (prompt).
+   */
+  async function handleWorklogDecide(worklogId: string, decision: 'APPROVED' | 'REJECTED') {
+    if (!project) return
+    let reason = ''
+    if (decision === 'REJECTED') {
+      // Window prompt là cách tối thiểu để lấy lý do; có thể nâng cấp lên modal sau.
+      const input = window.prompt('Nhập lý do từ chối worklog:')
+      if (input === null) return
+      reason = input.trim()
+    }
+    const ok = await confirm({
+      title: decision === 'APPROVED' ? 'Duyệt worklog?' : 'Từ chối worklog?',
+      description:
+        decision === 'APPROVED'
+          ? 'Giờ công sẽ được cộng vào task.actualHours và ghi vào lịch sử dự án.'
+          : `Worklog sẽ bị từ chối${reason ? ` với lý do: ${reason}` : ''}.`,
+      tone: decision === 'APPROVED' ? 'primary' : 'danger',
+      confirmLabel: decision === 'APPROVED' ? 'Duyệt' : 'Từ chối',
+    })
+    if (!ok) return
+    try {
+      await loading.run(
+        decision === 'APPROVED' ? 'Đang duyệt worklog…' : 'Đang từ chối worklog…',
+        () => decideWorklog(project.id, worklogId, decision, reason),
+      )
+      toast.success(
+        decision === 'APPROVED' ? 'Đã duyệt worklog' : 'Đã từ chối worklog',
+      )
+    } catch (err) {
+      toast.error(
+        decision === 'APPROVED' ? 'Không duyệt được worklog' : 'Không từ chối được worklog',
+        err instanceof Error ? err.message : '',
+      )
     }
   }
 
@@ -2097,37 +2400,119 @@ export function ProjectDetailPage() {
           />
 
           <form className="form-grid form-grid--compact overview-form" onSubmit={handleInitSubmit}>
+            {/* v3.12 BA fix (19/05/2026): PS/PM hiển thị bên trong section "Thông tin cơ bản",
+                read-only ở mọi trạng thái (cả edit mode). Đổi PS/PM bằng cách gán vai trò
+                'PS du an' / 'PM du an' trong tab Nhân sự. */}
             <div className="overview-section span-2">
               <h4 className="overview-section__title">Thông tin cơ bản</h4>
               <div className="overview-section__grid">
-                <label>
-                  <span>Mã dự án</span>
-                  <input value={initForm.code} disabled />
-                </label>
                 <label>
                   <span>Tên dự án</span>
                   <input value={initForm.name} disabled />
                 </label>
                 <label>
+                  <span>Project Sponsor (PS) — readonly</span>
+                  <input
+                    value={initPsText}
+                    readOnly
+                    placeholder='Đổi tại tab Nhân sự (gán vai trò "PS du an")'
+                    className={initPsText ? '' : 'roster-derived-empty'}
+                  />
+                </label>
+                <label>
+                  <span>Project Manager (PM) — readonly</span>
+                  <input
+                    value={initPmText}
+                    readOnly
+                    placeholder='Đổi tại tab Nhân sự (gán vai trò "PM du an")'
+                    className={initPmText ? '' : 'roster-derived-empty'}
+                  />
+                </label>
+                <label>
                   <span>Mã trung tâm kinh doanh</span>
-                  <input value={initForm.businessCenterCode} disabled />
+                  <select
+                    value={initForm.businessCenterCode}
+                    onChange={(event) =>
+                      setInitForm((current) =>
+                        current ? { ...current, businessCenterCode: event.target.value as BusinessCenterCode } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
+                  >
+                    {businessCenterOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                  </select>
                 </label>
                 <label>
                   <span>Mã nhóm khách hàng</span>
-                  <input value={initForm.customerGroupCode} disabled />
+                  <select
+                    value={initForm.customerGroupCode}
+                    onChange={(event) =>
+                      setInitForm((current) =>
+                        current ? { ...current, customerGroupCode: event.target.value as CustomerGroupCode } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
+                  >
+                    {customerGroupOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                  </select>
                 </label>
                 <label>
                   <span>Mã thị trường</span>
-                  <input value={initForm.marketCode} disabled />
+                  <select
+                    value={initForm.marketCode}
+                    onChange={(event) =>
+                      setInitForm((current) =>
+                        current ? { ...current, marketCode: event.target.value as MarketCode } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
+                  >
+                    {marketOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                  </select>
                 </label>
                 <label>
                   <span>Mã lĩnh vực</span>
-                  <input value={initForm.domainCode} disabled />
+                  <select
+                    value={initForm.domainCode}
+                    onChange={(event) =>
+                      setInitForm((current) =>
+                        current ? { ...current, domainCode: event.target.value as DomainCode } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
+                  >
+                    {domainOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                  </select>
                 </label>
                 <label>
                   <span>Mã loại dự án</span>
-                  <input value={initForm.projectKindCode} disabled />
+                  <select
+                    value={initForm.projectKindCode}
+                    onChange={(event) =>
+                      setInitForm((current) =>
+                        current ? { ...current, projectKindCode: event.target.value as ProjectKindCode } : current,
+                      )
+                    }
+                    disabled={!canEditProjectInfo || !initEdit.isEditing}
+                  >
+                    {projectKindOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+                  </select>
                 </label>
+                <label className="span-2">
+                  <span>Mã dự án</span>
+                  <input value={initGeneratedProjectCode} disabled />
+                  <small className="field-hint">
+                    Tự sinh theo: Năm khởi tạo - Số thứ tự trong năm - Mã trung tâm kinh doanh - Mã nhóm khách hàng - Mã lĩnh vực - Mã loại dự án.
+                  </small>
+                </label>
+                <div className="code-composition span-2" aria-label="Cấu trúc mã dự án">
+                  {initProjectCodeParts.map((part) => (
+                    <div key={part.label} className="code-composition__part">
+                      <span>{part.label}</span>
+                      <strong>{part.value}</strong>
+                    </div>
+                  ))}
+                </div>
                 <label>
                   <span>Nhiệm vụ</span>
                   <textarea
@@ -2165,49 +2550,44 @@ export function ProjectDetailPage() {
                   <input value={getUser(project.createdById)?.name ?? project.createdById} disabled />
                 </label>
               </div>
+
+              {/* v3.12 BA #3: hiển thị file QĐ TTK đã upload khi tạo dự án. */}
+              {(() => {
+                const ttkFile = project.documents
+                  .filter((d) => normalizeProjectDocumentCategory(d.category) === 'TTK_DECISION')
+                  .sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || ''))[0]
+                if (!ttkFile) {
+                  return (
+                    <p className="workload-cell-note" style={{ marginTop: '0.5rem' }}>
+                      Chưa có file QĐ TTK đính kèm. Có thể bổ sung trong tab <em>Tài liệu</em>.
+                    </p>
+                  )
+                }
+                return (
+                  <div className="overview-section__pakd-meta" style={{ marginTop: '0.5rem' }}>
+                    <FileText size={15} />
+                    <span>{ttkFile.title}</span>
+                    {ttkFile.url ? (
+                      <a
+                        href={ttkFile.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ghost-button ghost-button--compact"
+                      >
+                        Tải xuống
+                      </a>
+                    ) : null}
+                    <small>Tải lên {formatDate(ttkFile.uploadedAt)}</small>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="overview-section span-2">
-              <h4 className="overview-section__title">Căn cứ</h4>
-              <div className="overview-reference-grid">
-                {renderDocumentCategoryTable('PURCHASE_CONTRACT', 'Hợp đồng mua')}
-                {renderDocumentCategoryTable('SALE_CONTRACT', 'Hợp đồng bán')}
-              </div>
-            </div>
-
-            <div className="overview-section span-2">
-              <h4 className="overview-section__title">PM và thời gian</h4>
+              <h4 className="overview-section__title">Thời gian dự án</h4>
               <div className="overview-section__grid">
                 <label>
-                  <span>Sponsor</span>
-                  <select
-                    value={initForm.sponsor}
-                    onChange={(event) =>
-                      setInitForm((current) => current ? { ...current, sponsor: event.target.value } : current)
-                    }
-                    disabled={!canEditProjectInfo || !initEdit.isEditing}
-                  >
-                    {users.filter((u) => normalizeUserRole(u.role) !== 'DELIVERY_MEMBER').map((u) => (
-                      <option key={u.id} value={u.id}>{u.name} - {u.title}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>PM phụ trách</span>
-                  <select
-                    value={initForm.adminId}
-                    onChange={(event) =>
-                      setInitForm((current) => current ? { ...current, adminId: event.target.value } : current)
-                    }
-                    disabled={!canEditProjectInfo || !initEdit.isEditing}
-                  >
-                    {users.filter((u) => normalizeUserRole(u.role) === 'PM').map((u) => (
-                      <option key={u.id} value={u.id}>{u.name} - {u.employeeCode}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Ngày bắt đầu</span>
+                  <span>Ngày kick off</span>
                   <input
                     type="date"
                     value={initForm.startDate}
@@ -2218,14 +2598,11 @@ export function ProjectDetailPage() {
                   />
                 </label>
                 <label>
-                  <span>Ngày kết thúc</span>
+                  <span>Ngày khởi tạo dự án</span>
                   <input
-                    type="date"
-                    value={initForm.endDate}
-                    onChange={(event) =>
-                      setInitForm((current) => current ? { ...current, endDate: event.target.value } : current)
-                    }
-                    disabled={!canEditProjectInfo || !initEdit.isEditing}
+                    type="text"
+                    value={formatDate(project.createdAt ?? '')}
+                    disabled
                   />
                 </label>
               </div>
@@ -2283,7 +2660,7 @@ export function ProjectDetailPage() {
                 </label>
 
                 <label>
-                  <span>Ngày bắt đầu</span>
+                  <span>Ngày kick off</span>
                   <input
                     type="date"
                     value={overviewForm.startDate}
@@ -2374,10 +2751,8 @@ export function ProjectDetailPage() {
             <div className="overview-section span-2">
               <h4 className="overview-section__title">Thông tin triển khai</h4>
 
-              <div className="overview-reference-grid">
-                {renderReferenceEditor('outputContracts')}
-                {renderReferenceEditor('inputContracts')}
-              </div>
+              {/* v3.12 BA fix (19/05/2026): bỏ 2 bảng Hợp đồng mua/bán ở đây vì
+                  trùng với section "Căn cứ" bên dưới (cùng dữ liệu project.documents). */}
 
               <div className="overview-section__grid overview-section__grid--tight">
                 <label>
@@ -2479,6 +2854,16 @@ export function ProjectDetailPage() {
                     disabled={!canEditProjectInfo}
                   />
                 </label>
+              </div>
+            </div>
+
+            {/* v3.12 BA fix (19/05/2026): "Căn cứ" chuyển xuống dưới "Thông tin
+                triển khai". Trước đây ở đầu tab Thông tin chung, đã di chuyển. */}
+            <div className="overview-section span-2">
+              <h4 className="overview-section__title">Căn cứ</h4>
+              <div className="overview-reference-grid">
+                {renderDocumentCategoryTable('PURCHASE_CONTRACT', 'Hợp đồng mua')}
+                {renderDocumentCategoryTable('SALE_CONTRACT', 'Hợp đồng bán')}
               </div>
             </div>
 
@@ -2620,6 +3005,14 @@ export function ProjectDetailPage() {
                   disabled={!canEditProjectInfo}
                 />
               </label>
+
+              {/* v3.12 BA: File PAKD đã phê duyệt. Hiển thị file mới nhất + cho phép
+                  upload mới. Mỗi lần upload tạo 1 ProjectDocument category='PAKD'. */}
+              <PakdAttachmentBlock
+                project={project}
+                canEdit={canEditProjectInfo && overviewEdit.isEditing}
+                currentUserId={currentUser?.id ?? ''}
+              />
             </div>
 
           </fieldset>
@@ -2642,8 +3035,10 @@ export function ProjectDetailPage() {
             setPersonnelForm(buildPersonnelForm(project))
             personnelEdit.exit()
           }}
-          readingLabel="Bấm Cập nhật để chỉnh sửa nhân sự AITS / Khách hàng / Đối tác."
-          editingLabel="Sửa các trường, sau đó bấm Lưu thay đổi."
+          readingLabel="Bấm Kiện toàn để chỉnh sửa nhân sự AITS / PS / PM / Khách hàng / Đối tác."
+          editingLabel="Sửa các trường, sau đó bấm Kiện toàn để xác nhận thay đổi."
+          startLabel="Kiện toàn"
+          saveLabel="Kiện toàn"
         />
 
         <form className="personnel-form" onSubmit={handlePersonnelSubmit}>
@@ -2651,9 +3046,20 @@ export function ProjectDetailPage() {
             disabled={!personnelEdit.isEditing || !canEditProjectInfo}
             className="edit-mode-fieldset"
           >
+            {/* v3.12 BA fix (19/05/2026): PS/PM được nhận diện qua VAI TRÒ trong
+                bảng Tổ triển khai bên dưới (role === 'PS du an' / 'PM du an'),
+                KHÔNG còn dropdown chọn PS/PM riêng. Top tab Khởi tạo readonly
+                hiển thị kết quả derive. */}
+            <div className="panel panel--info" style={{ marginBottom: '0.75rem', padding: '0.6rem 0.85rem' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                <strong>PS / PM dự án</strong> được nhận diện theo cột <em>Vai trò</em> trong bảng Tổ triển khai.
+                Gán vai trò <code>PS du an</code> hoặc <code>PM du an</code> cho thành viên tương ứng.
+              </p>
+            </div>
+
             <div className="personnel-group">
               <div className="personnel-group__header">
-                <h4 className="personnel-group__title">Nhân sự AITS</h4>
+                <h4 className="personnel-group__title">Tổ triển khai (Nhân sự AITS)</h4>
                 {personnelEditable ? (
                   <button
                     type="button"
@@ -2695,38 +3101,135 @@ export function ProjectDetailPage() {
                             normalizeUserRole(u.role) !== 'ADMIN_HC' &&
                             !otherSelectedIds.has(u.id),
                         )
+                        // v3.12 BA: tô đỏ + badge cho thành viên có cờ HRM nghỉ việc.
+                        const linkedUser = member.userId
+                          ? users.find((u) => u.id === member.userId)
+                          : null
+                        const isResigned = linkedUser?.isResigned === true
+                        const isManual = member.manualEntry === true
                         return (
-                          <tr key={`aits-${index}`}>
+                          <tr
+                            key={`aits-${index}`}
+                            className={isResigned ? 'personnel-row--resigned' : undefined}
+                          >
                             <td className="personnel-table__index">{index + 1}</td>
                             <td>
-                              <select
-                                value={member.userId}
-                                onChange={(event) => bindAitsPersonnelUser(index, event.target.value)}
-                                disabled={!canEditProjectInfo}
-                              >
-                                <option value="">— Chọn nhân viên —</option>
-                                {aitsPool.map((u) => (
-                                  <option key={u.id} value={u.id}>
-                                    {u.name} ({u.employeeCode})
-                                  </option>
-                                ))}
-                              </select>
-                              {member.userId ? (
-                                <p className="workload-cell-note">{member.fullName}</p>
+                              {/* v3.12 BA: source toggle - HRM (dropdown) vs Thủ công (text input). */}
+                              {personnelEditable ? (
+                                <div className="personnel-source-toggle">
+                                  <button
+                                    type="button"
+                                    className={
+                                      'ghost-button ghost-button--compact' +
+                                      (!isManual ? ' personnel-source-toggle__btn--active' : '')
+                                    }
+                                    onClick={() => isManual && toggleAitsManualEntry(index)}
+                                  >
+                                    HRM
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={
+                                      'ghost-button ghost-button--compact' +
+                                      (isManual ? ' personnel-source-toggle__btn--active' : '')
+                                    }
+                                    onClick={() => !isManual && toggleAitsManualEntry(index)}
+                                  >
+                                    Thủ công
+                                  </button>
+                                </div>
+                              ) : null}
+
+                              {isManual ? (
+                                <input
+                                  value={member.fullName}
+                                  onChange={(event) =>
+                                    updateAitsPersonnelItem(index, 'fullName', event.target.value)
+                                  }
+                                  placeholder="Họ và tên (nhập tay)"
+                                  disabled={!canEditProjectInfo}
+                                />
+                              ) : (
+                                <select
+                                  value={member.userId ?? ''}
+                                  onChange={(event) => bindAitsPersonnelUser(index, event.target.value)}
+                                  disabled={!canEditProjectInfo}
+                                >
+                                  <option value="">— Chọn nhân viên —</option>
+                                  {aitsPool.map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                      {u.name} ({u.employeeCode}){u.isResigned ? ' • Đã nghỉ' : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              {!isManual && member.userId ? (
+                                <p className="workload-cell-note">
+                                  {member.fullName}
+                                  {isResigned ? (
+                                    <span className="status-pill tone-danger personnel-row__resigned-pill">
+                                      Đã nghỉ việc
+                                      {linkedUser?.resignedAt
+                                        ? ` ${formatDate(linkedUser.resignedAt)}`
+                                        : ''}
+                                    </span>
+                                  ) : null}
+                                </p>
+                              ) : null}
+                              {isManual ? (
+                                <p className="workload-cell-note">
+                                  <span className="status-pill tone-warning personnel-row__resigned-pill">
+                                    Nhập thủ công
+                                  </span>
+                                </p>
                               ) : null}
                             </td>
                             <td>
-                              <strong>{member.title || '—'}</strong>
-                              <p className="workload-cell-note">{member.unit || '—'}</p>
+                              {isManual ? (
+                                <>
+                                  <input
+                                    value={member.title}
+                                    onChange={(event) =>
+                                      updateAitsPersonnelItem(index, 'title', event.target.value)
+                                    }
+                                    placeholder="Chức danh"
+                                    disabled={!canEditProjectInfo}
+                                  />
+                                  <input
+                                    value={member.unit}
+                                    onChange={(event) =>
+                                      updateAitsPersonnelItem(index, 'unit', event.target.value)
+                                    }
+                                    placeholder="Đơn vị"
+                                    disabled={!canEditProjectInfo}
+                                    style={{ marginTop: '0.3rem' }}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <strong>{member.title || '—'}</strong>
+                                  <p className="workload-cell-note">{member.unit || '—'}</p>
+                                </>
+                              )}
                             </td>
                             <td>
-                              <input
+                              {/* v3.12 BA fix: dùng dropdown từ projectMemberRoles để đảm bảo
+                                  role match đúng giá trị (vd 'PM du an'). PS/PM được derive
+                                  từ cột này khi lưu, không còn dropdown riêng. */}
+                              <select
                                 value={member.role}
                                 onChange={(event) =>
                                   updateAitsPersonnelItem(index, 'role', event.target.value)
                                 }
                                 disabled={!canEditProjectInfo}
-                              />
+                              >
+                                <option value="">— Chọn vai trò —</option>
+                                {catalogs.projectMemberRoles.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
                             </td>
                             <td>
                               <input
@@ -2753,8 +3256,32 @@ export function ProjectDetailPage() {
                               />
                             </td>
                             <td>
-                              <span>{member.email || '—'}</span>
-                              <p className="workload-cell-note">{member.phone || '—'}</p>
+                              {isManual ? (
+                                <>
+                                  <input
+                                    value={member.email}
+                                    onChange={(event) =>
+                                      updateAitsPersonnelItem(index, 'email', event.target.value)
+                                    }
+                                    placeholder="Email"
+                                    disabled={!canEditProjectInfo}
+                                  />
+                                  <input
+                                    value={member.phone}
+                                    onChange={(event) =>
+                                      updateAitsPersonnelItem(index, 'phone', event.target.value)
+                                    }
+                                    placeholder="SDT"
+                                    disabled={!canEditProjectInfo}
+                                    style={{ marginTop: '0.3rem' }}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <span>{member.email || '—'}</span>
+                                  <p className="workload-cell-note">{member.phone || '—'}</p>
+                                </>
+                              )}
                             </td>
                             {personnelEditable ? (
                               <td className="personnel-table__actions">
@@ -3294,6 +3821,30 @@ export function ProjectDetailPage() {
 
       {activeDetailTab === 'PLAN' ? (
       <section className="task-workspace detail-tab-panel">
+        {/* v3.12 BA #7 (19/05/2026): inbox worklog chờ duyệt toàn dự án.
+            Chỉ hiển thị cho PM/điều phối/PMO khi có ít nhất 1 worklog PENDING. */}
+        {projectPendingWorklogs.length ? (
+          <article className="panel panel--compact worklog-inbox-banner">
+            <div className="panel-heading panel-heading--compact">
+              <div>
+                <strong>
+                  Có {projectPendingWorklogs.length} worklog đang chờ bạn xác nhận
+                </strong>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  Worklog mới mặc định ở trạng thái chờ duyệt — chỉ cộng vào tổng giờ công khi PM xác nhận.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="primary-button primary-button--compact"
+                onClick={() => setWorklogApprovalScope({ taskId: null })}
+              >
+                Xem & duyệt
+              </button>
+            </div>
+          </article>
+        ) : null}
+
         <article className="panel panel--compact">
           <div className="panel-heading panel-heading--compact">
             <StatusPill label={`${projectTasks.length} task`} tone="info" />
@@ -3333,6 +3884,28 @@ export function ProjectDetailPage() {
                       >
                         <Timer size={15} />
                         Mở cập nhật
+                      </button>
+                    ) : null}
+                    {/* v3.12 BA #7: PM/điều phối duyệt worklog cho task này.
+                        Badge thể hiện số worklog đang chờ. */}
+                    {canManagePlan && selectedTaskWorklogs.length > 0 ? (
+                      <button
+                        type="button"
+                        className={
+                          'ghost-button ghost-button--compact' +
+                          (selectedTaskPendingCount > 0 ? ' has-pending-worklog' : '')
+                        }
+                        onClick={() =>
+                          setWorklogApprovalScope({ taskId: selectedTask.id })
+                        }
+                      >
+                        <Timer size={15} />
+                        Duyệt worklog
+                        {selectedTaskPendingCount > 0 ? (
+                          <span className="status-pill tone-warning has-pending-worklog__badge">
+                            {selectedTaskPendingCount}
+                          </span>
+                        ) : null}
                       </button>
                     ) : null}
                     {canManagePlan ? (
@@ -4014,6 +4587,34 @@ export function ProjectDetailPage() {
                     ))}
                 </select>
               </label>
+
+              {/* v3.12 BA #9 (19/05/2026): hiển thị phạm vi cha cho subtask để PM
+                  thấy giới hạn date + hours. BE sẽ chặn 422 nếu vi phạm. */}
+              {planForm.parentId
+                ? (() => {
+                    const parent = projectTasks.find((t) => t.id === planForm.parentId)
+                    if (!parent) return null
+                    const siblingsHours = projectTasks
+                      .filter(
+                        (t) => t.parentId === parent.id && t.id !== planForm.id,
+                      )
+                      .reduce((s, t) => s + t.plannedHours, 0)
+                    const remainingHours = parent.plannedHours - siblingsHours
+                    return (
+                      <div
+                        className="panel panel--info span-2"
+                        style={{ padding: '0.6rem 0.85rem' }}
+                      >
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                          <strong>Giới hạn từ milestone cha "{parent.name}":</strong>
+                          {' '}thời gian {formatDate(parent.startDate)} → {formatDate(parent.endDate)}
+                          ; giờ công còn lại {remainingHours}/{parent.plannedHours} giờ
+                          (subtask khác đã chiếm {siblingsHours}).
+                        </p>
+                      </div>
+                    )
+                  })()
+                : null}
               <label className="span-2">
                 <span>Thanh vien</span>
                 <div className="checkbox-grid member-selector-grid">
@@ -4113,6 +4714,119 @@ export function ProjectDetailPage() {
                   }
                 />
               </label>
+
+              {/* v3.12 BA #8 (19/05/2026, sửa lại 19/05): khi SỬA ROOT TASK (parentId === null,
+                  có id) VÀ Timeline thay đổi → bắt buộc đính kèm Tờ trình thay đổi kế hoạch.
+                  Giờ công kế hoạch thay đổi tự do, không cần tờ trình. */}
+              {planForm.id && !planForm.parentId
+                ? (() => {
+                    const existing = projectTasks.find((t) => t.id === planForm.id)
+                    if (!existing) return null
+                    const timelineDirty =
+                      existing.baselineStartDate !== planForm.baselineStartDate ||
+                      existing.baselineEndDate !== planForm.baselineEndDate ||
+                      existing.startDate !== planForm.startDate ||
+                      existing.endDate !== planForm.endDate
+                    return (
+                      <div className="span-2 task-evidence-block">
+                        <div className="task-evidence-block__title">
+                          <strong>Tờ trình thay đổi kế hoạch</strong>
+                          <p>
+                            Khi thay đổi Timeline của task tổng quan, bắt buộc đính kèm
+                            Tờ trình đã được phê duyệt + ghi chú lý do thay đổi.
+                          </p>
+                        </div>
+
+                        <div
+                          className={
+                            'task-evidence-section' +
+                            (timelineDirty ? ' task-evidence-section--required' : '')
+                          }
+                        >
+                          <div className="task-evidence-section__header">
+                            <strong>Timeline (baseline + actual)</strong>
+                            <span
+                              className={
+                                'status-pill ' +
+                                (timelineDirty ? 'tone-warning' : 'tone-success')
+                              }
+                            >
+                              {timelineDirty ? 'Cần tờ trình' : 'Không thay đổi'}
+                            </span>
+                          </div>
+                          {timelineDirty ? (
+                            <>
+                              <label>
+                                <span>Ghi chú lý do thay đổi Timeline</span>
+                                <textarea
+                                  rows={2}
+                                  value={planForm.evidenceTimelineNote}
+                                  onChange={(event) =>
+                                    setPlanForm((current) =>
+                                      current
+                                        ? { ...current, evidenceTimelineNote: event.target.value }
+                                        : current,
+                                    )
+                                  }
+                                  placeholder="VD: PM họp với khách hàng yêu cầu lùi ngày kết thúc 2 tuần."
+                                />
+                              </label>
+                              <label>
+                                <span>Tờ trình đã phê duyệt</span>
+                                <div className="document-upload-field">
+                                  <input
+                                    type="file"
+                                    className="document-file-input"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                                    onChange={async (event) => {
+                                      const file = event.target.files?.[0]
+                                      if (!file) {
+                                        setPlanForm((current) =>
+                                          current
+                                            ? {
+                                                ...current,
+                                                evidenceTimelineFile: null,
+                                                evidenceTimelineFileName: '',
+                                              }
+                                            : current,
+                                        )
+                                        return
+                                      }
+                                      try {
+                                        const attachment = await readDocumentAttachment(file)
+                                        setPlanForm((current) =>
+                                          current
+                                            ? {
+                                                ...current,
+                                                evidenceTimelineFile: attachment,
+                                                evidenceTimelineFileName: attachment.fileName,
+                                              }
+                                            : current,
+                                        )
+                                      } catch (err) {
+                                        toast.error(
+                                          'Không đọc được file',
+                                          err instanceof Error ? err.message : '',
+                                        )
+                                      }
+                                    }}
+                                  />
+                                  <div className="document-upload-meta">
+                                    <FileText size={15} />
+                                    <span>
+                                      {planForm.evidenceTimelineFileName || 'Chưa chọn file'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </label>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    )
+                  })()
+                : null}
+
               <div className="modal-actions span-2">
                 <button type="button" className="ghost-button" onClick={closePlanModal}>
                   Hủy
@@ -4282,20 +4996,91 @@ export function ProjectDetailPage() {
                 <thead>
                   <tr>
                     <th>Ngày</th>
-                    <th>Thanh vien</th>
+                    <th>Thành viên</th>
                     <th>Giờ công</th>
-                    <th>Noi dung</th>
+                    <th>Nội dung</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedTaskWorklogs.map((item) => (
-                    <tr key={item.id}>
-                      <td>{formatDate(item.date)}</td>
-                      <td>{getUser(item.memberId)?.name}</td>
-                      <td>{formatHours(item.hours)}</td>
-                      <td>{item.progressNote}</td>
-                    </tr>
-                  ))}
+                  {selectedTaskWorklogs.map((item) => {
+                    const status = item.status ?? 'PENDING'
+                    // v3.12 BA #7: PM/điều phối/PMO duyệt; không tự duyệt worklog của mình.
+                    const canDecide =
+                      status === 'PENDING' &&
+                      canManagePlan &&
+                      currentUser?.id !== item.memberId
+                    return (
+                      <tr
+                        key={item.id}
+                        className={
+                          status === 'REJECTED' ? 'worklog-row--rejected' : undefined
+                        }
+                      >
+                        <td>{formatDate(item.date)}</td>
+                        <td>{getUser(item.memberId)?.name}</td>
+                        <td>{formatHours(item.hours)}</td>
+                        <td>
+                          {item.progressNote}
+                          {status === 'REJECTED' && item.rejectReason ? (
+                            <p
+                              className="workload-cell-note"
+                              style={{ color: 'var(--danger)' }}
+                            >
+                              Lý do từ chối: {item.rejectReason}
+                            </p>
+                          ) : null}
+                        </td>
+                        <td>
+                          <StatusPill
+                            label={
+                              status === 'APPROVED'
+                                ? 'Đã duyệt'
+                                : status === 'REJECTED'
+                                  ? 'Đã từ chối'
+                                  : 'Chờ duyệt'
+                            }
+                            tone={
+                              status === 'APPROVED'
+                                ? 'success'
+                                : status === 'REJECTED'
+                                  ? 'danger'
+                                  : 'warning'
+                            }
+                          />
+                          {item.decidedById && status !== 'PENDING' ? (
+                            <p className="workload-cell-note">
+                              {getUser(item.decidedById)?.name ?? '—'}
+                              {item.decidedAt ? ` · ${formatDate(item.decidedAt)}` : ''}
+                            </p>
+                          ) : null}
+                        </td>
+                        <td>
+                          {canDecide ? (
+                            <div style={{ display: 'flex', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                className="primary-button primary-button--compact"
+                                onClick={() => void handleWorklogDecide(item.id, 'APPROVED')}
+                              >
+                                Duyệt
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost-button ghost-button--compact"
+                                onClick={() => void handleWorklogDecide(item.id, 'REJECTED')}
+                              >
+                                Từ chối
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="workload-cell-note">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -4332,6 +5117,321 @@ export function ProjectDetailPage() {
         />
       ) : null}
 
+      {/* v3.12 BA #4: dialog Kiện toàn xác nhận metadata sau khi sửa nhân sự. */}
+      {reorganizationDialog ? (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            reorganizationDialog.resolve(null)
+            setReorganizationDialog(null)
+          }}
+        >
+          <section
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '520px', width: 'min(520px, 92vw)' }}
+          >
+            <div className="panel-heading">
+              <div>
+                <h3>Kiện toàn dự án</h3>
+                <p>
+                  Sau khi điều chỉnh thành phần nhân sự, hãy xác nhận / cập nhật
+                  các thông tin định danh dự án.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button icon-button"
+                onClick={() => {
+                  reorganizationDialog.resolve(null)
+                  setReorganizationDialog(null)
+                }}
+                aria-label="Đóng"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="form-stack">
+              <label>
+                <span>Tên dự án</span>
+                <input
+                  value={reorganizationDialog.name}
+                  onChange={(event) =>
+                    setReorganizationDialog((current) =>
+                      current ? { ...current, name: event.target.value } : current,
+                    )
+                  }
+                  placeholder="VD: Triển khai hệ thống KSV"
+                />
+              </label>
+              <label>
+                <span>Mã dự án</span>
+                <input
+                  value={reorganizationDialog.code}
+                  onChange={(event) =>
+                    setReorganizationDialog((current) =>
+                      current ? { ...current, code: event.target.value } : current,
+                    )
+                  }
+                />
+              </label>
+              <label>
+                <span>Số quyết định TTK mới</span>
+                <input
+                  value={reorganizationDialog.decisionNumber}
+                  onChange={(event) =>
+                    setReorganizationDialog((current) =>
+                      current ? { ...current, decisionNumber: event.target.value } : current,
+                    )
+                  }
+                  placeholder="VD: QD-2026/012"
+                />
+              </label>
+            </div>
+            <div className="confirm-card__actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  reorganizationDialog.resolve(null)
+                  setReorganizationDialog(null)
+                }}
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  reorganizationDialog.resolve({
+                    name: reorganizationDialog.name,
+                    code: reorganizationDialog.code,
+                    decisionNumber: reorganizationDialog.decisionNumber,
+                  })
+                  setReorganizationDialog(null)
+                }}
+              >
+                Xác nhận Kiện toàn
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {/* v3.12 BA #7 (19/05/2026): modal duyệt worklog. taskId=null → inbox toàn dự án. */}
+      {worklogApprovalScope ? (
+        <div
+          className="modal-backdrop"
+          onClick={() => setWorklogApprovalScope(null)}
+        >
+          <section
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '720px', width: 'min(720px, 94vw)' }}
+          >
+            <div className="panel-heading">
+              <div>
+                <h3>
+                  {worklogApprovalScope.taskId
+                    ? `Duyệt worklog - ${
+                        projectTasks.find((t) => t.id === worklogApprovalScope.taskId)?.name ?? ''
+                      }`
+                    : 'Duyệt worklog (toàn dự án)'}
+                </h3>
+                <p>
+                  Worklog mới mặc định <strong>Chờ duyệt</strong>. Chỉ giờ công được
+                  duyệt mới cộng vào <code>actualHours</code>.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost-button icon-button"
+                onClick={() => setWorklogApprovalScope(null)}
+                aria-label="Đóng"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {(() => {
+              const list = (
+                worklogApprovalScope.taskId
+                  ? worklogs.filter((w) => w.taskId === worklogApprovalScope.taskId)
+                  : worklogs.filter((w) => w.projectId === project.id)
+              )
+                .filter((w) => (w.status ?? 'PENDING') === 'PENDING')
+                .filter((w) => w.memberId !== currentUser?.id)
+                .sort((a, b) => b.date.localeCompare(a.date))
+
+              if (list.length === 0) {
+                return (
+                  <div className="empty-panel" style={{ margin: '0.5rem 0' }}>
+                    <h3>Không còn worklog chờ duyệt</h3>
+                    <p>Tất cả worklog đã được xử lý.</p>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Task</th>
+                        <th>Ngày</th>
+                        <th>Thành viên</th>
+                        <th>Giờ công</th>
+                        <th>Nội dung</th>
+                        <th>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((wl) => {
+                        const task = projectTasks.find((t) => t.id === wl.taskId)
+                        return (
+                          <tr key={wl.id}>
+                            <td>
+                              <strong>{task?.name ?? '—'}</strong>
+                              {task?.parentId ? (
+                                <p className="workload-cell-note">Subtask</p>
+                              ) : null}
+                            </td>
+                            <td>{formatDate(wl.date)}</td>
+                            <td>{getUser(wl.memberId)?.name ?? wl.memberId}</td>
+                            <td>{formatHours(wl.hours)}</td>
+                            <td>{wl.progressNote || '—'}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                <button
+                                  type="button"
+                                  className="primary-button primary-button--compact"
+                                  onClick={() => void handleWorklogDecide(wl.id, 'APPROVED')}
+                                >
+                                  Duyệt
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ghost-button ghost-button--compact"
+                                  onClick={() => void handleWorklogDecide(wl.id, 'REJECTED')}
+                                >
+                                  Từ chối
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
+          </section>
+        </div>
+      ) : null}
+
+    </div>
+  )
+}
+
+/* ═══════ PAKD file block (Tài chính - v3.12 BA) ═══════ */
+
+function PakdAttachmentBlock({
+  project,
+  canEdit,
+  currentUserId,
+}: {
+  project: Project
+  canEdit: boolean
+  currentUserId: string
+}) {
+  const toast = useToast()
+  const loading = useLoading()
+  const { addProjectDocument } = useAppData()
+  const [uploading, setUploading] = useState(false)
+
+  // Lấy file PAKD mới nhất theo uploadedAt giảm dần.
+  const latestPakd = project.documents
+    .filter((d) => normalizeProjectDocumentCategory(d.category) === 'PAKD')
+    .sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || ''))[0]
+
+  async function handleFile(file: File | null) {
+    if (!file) return
+    setUploading(true)
+    try {
+      const attachment = await readDocumentAttachment(file)
+      await loading.run('Đang tải file PAKD…', () =>
+        addProjectDocument({
+          projectId: project.id,
+          title: file.name,
+          category: 'PAKD',
+          description: 'Phương án kinh doanh đã phê duyệt',
+          url: '',
+          attachment,
+          uploadedBy: currentUserId,
+        }),
+      )
+      toast.success('Đã tải file PAKD', file.name)
+    } catch (err) {
+      toast.error(
+        'Không tải được file PAKD',
+        err instanceof Error ? err.message : '',
+      )
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="overview-section__pakd span-2">
+      <div className="overview-section__pakd-header">
+        <strong>File PAKD đã phê duyệt</strong>
+        {latestPakd ? (
+          <span className="status-pill tone-success">Đã đính kèm</span>
+        ) : (
+          <span className="status-pill tone-warning">Chưa có file</span>
+        )}
+      </div>
+
+      {latestPakd ? (
+        <div className="overview-section__pakd-meta">
+          <FileText size={15} />
+          <span>{latestPakd.title}</span>
+          {latestPakd.url ? (
+            <a
+              href={latestPakd.url}
+              target="_blank"
+              rel="noreferrer"
+              className="ghost-button ghost-button--compact"
+            >
+              Tải xuống
+            </a>
+          ) : null}
+          <small>
+            Tải lên {formatDate(latestPakd.uploadedAt)}
+          </small>
+        </div>
+      ) : null}
+
+      {canEdit ? (
+        <label className="document-upload-field">
+          <input
+            type="file"
+            className="document-file-input"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
+            disabled={uploading}
+            onChange={async (event) => {
+              const file = event.target.files?.[0] ?? null
+              await handleFile(file)
+              event.target.value = ''
+            }}
+          />
+          <div className="document-upload-meta">
+            <FileText size={15} />
+            <span>{uploading ? 'Đang tải…' : 'Chọn file PAKD mới để tải lên'}</span>
+          </div>
+        </label>
+      ) : null}
     </div>
   )
 }
@@ -4510,6 +5610,7 @@ function WorkloadTabPanel({
         month,
         currentProjectHours: currentHours,
         actualHours,
+        plannedRemainingHours: currentHours - actualHours,
         otherProjectsHours: otherHours,
         totalMonthHours: totalProjectHours,
         remainingHours: member.user.monthlyCapacity - totalProjectHours,
@@ -4524,15 +5625,15 @@ function WorkloadTabPanel({
       member,
       allocatedHours,
       actualHours,
+      plannedRemainingHours: allocatedHours - actualHours,
       monthDetails,
-      overloadedMonths: monthDetails.filter((d) => d.remainingHours < 0).length,
     }
   })
 
   const totalDraftHours = rowSummaries.reduce((sum, r) => sum + r.allocatedHours, 0)
   const totalBusinessHours = Number(project.basisInfo.durationHours) || 0
   const totalActualHours = rowSummaries.reduce((sum, r) => sum + r.actualHours, 0)
-  const overloadedCells = rowSummaries.reduce((sum, r) => sum + r.overloadedMonths, 0)
+  const totalPlannedRemainingHours = totalDraftHours - totalActualHours
   const monthlyTotals = projectMonths.map((month) => ({
     month,
     planned: rowSummaries.reduce(
@@ -4542,6 +5643,11 @@ function WorkloadTabPanel({
     ),
     actual: rowSummaries.reduce(
       (sum, row) => sum + (row.monthDetails.find((detail) => detail.month === month)?.actualHours ?? 0),
+      0,
+    ),
+    remaining: rowSummaries.reduce(
+      (sum, row) =>
+        sum + (row.monthDetails.find((detail) => detail.month === month)?.plannedRemainingHours ?? 0),
       0,
     ),
   }))
@@ -4648,8 +5754,10 @@ function WorkloadTabPanel({
           <strong>{formatHours(totalActualHours)}</strong>
         </div>
         <div className="detail-card">
-          <span>Qua tai</span>
-          <strong>{overloadedCells}</strong>
+          <span>Giờ công còn lại</span>
+          <strong className={totalPlannedRemainingHours < 0 ? 'text-danger' : ''}>
+            {formatHours(totalPlannedRemainingHours)}
+          </strong>
         </div>
       </section>
 
@@ -4660,6 +5768,7 @@ function WorkloadTabPanel({
               <th>Thành viên</th>
               <th>Kế hoạch thực hiện</th>
               <th>Đã thực hiện</th>
+              <th>Còn lại</th>
               {showMonthlyAllocations
                 ? projectMonths.map((month) => (
                     <th key={month}>{formatMonthLabel(month)}</th>
@@ -4681,6 +5790,11 @@ function WorkloadTabPanel({
                 <td>
                   <strong>{formatHours(row.actualHours)}</strong>
                 </td>
+                <td>
+                  <strong className={row.plannedRemainingHours < 0 ? 'text-danger' : ''}>
+                    {formatHours(row.plannedRemainingHours)}
+                  </strong>
+                </td>
                 {showMonthlyAllocations
                   ? row.monthDetails.map((detail) => (
                       <td key={`${row.member.memberId}-${detail.month}`}>
@@ -4696,20 +5810,11 @@ function WorkloadTabPanel({
                             />
                             <button
                               type="button"
-                              className={
-                                'ghost-button icon-button workload-month-cell__detail-btn' +
-                                (detail.projectRemaining < 0
-                                  ? ' workload-month-cell__detail-btn--warn'
-                                  : '')
-                              }
+                              className="ghost-button icon-button workload-month-cell__detail-btn"
                               onClick={() =>
                                 setDetailModal({ memberId: row.member.memberId, month: detail.month })
                               }
-                              title={
-                                detail.projectRemaining < 0
-                                  ? `Vượt quota Dự án a.Office ${formatHours(-detail.projectRemaining)}`
-                                  : 'Xem chi tiết giờ công'
-                              }
+                              title="Xem chi tiết giờ công"
                               aria-label="Xem chi tiết giờ công"
                             >
                               <Info size={14} />
@@ -4721,8 +5826,8 @@ function WorkloadTabPanel({
                             <span>
                               Tổng: {formatHours(detail.totalMonthHours)}/{formatHours(detail.capacity)}
                             </span>
-                            <span className={detail.remainingHours < 0 ? 'text-danger' : ''}>
-                              Còn: {formatHours(detail.remainingHours)}
+                            <span className={detail.plannedRemainingHours < 0 ? 'text-danger' : ''}>
+                              Còn KH: {formatHours(detail.plannedRemainingHours)}
                             </span>
                           </div>
                         </div>
@@ -4742,10 +5847,16 @@ function WorkloadTabPanel({
                 <td>
                   <strong>{formatHours(totalActualHours)}</strong>
                 </td>
+                <td>
+                  <strong className={totalPlannedRemainingHours < 0 ? 'text-danger' : ''}>
+                    {formatHours(totalPlannedRemainingHours)}
+                  </strong>
+                </td>
                 {monthlyTotals.map((total) => (
                   <td key={total.month}>
                     <strong>{formatHours(total.planned)}</strong>
                     <p className="workload-cell-note">TH: {formatHours(total.actual)}</p>
+                    <p className="workload-cell-note">Còn: {formatHours(total.remaining)}</p>
                   </td>
                 ))}
               </tr>

@@ -6,3 +6,7 @@ dist
 .DS_Store
 coverage
 .vitest
+
+# Runtime-uploaded project files (base64 attachments saved by lib/file-storage.ts).
+# Per-developer state — not source. Reseed populates demo data without files.
+uploads/

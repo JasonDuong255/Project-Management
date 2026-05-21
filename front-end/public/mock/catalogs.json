@@ -38,6 +38,7 @@
     { "value": "Khoi Phap che", "label": "Khối Pháp chế" }
   ],
   "projectMemberRoles": [
+    { "value": "PS du an", "label": "PS dự án" },
     { "value": "PM du an", "label": "PM dự án" },
     { "value": "Dieu phoi du an", "label": "Điều phối dự án" },
     { "value": "Business Analyst", "label": "Business Analyst" },

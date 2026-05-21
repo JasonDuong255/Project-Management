@@ -43,6 +43,13 @@ interface AppContextValue extends AppSnapshot {
   savePlanItem: (input: SavePlanItemInput) => Promise<void>
   deletePlanItem: (input: DeletePlanItemInput) => Promise<void>
   addWorklog: (input: SaveWorklogInput) => Promise<void>
+  /** v3.12 BA #7: PM dự án / điều phối / PMO duyệt hoặc từ chối worklog. */
+  decideWorklog: (
+    projectId: string,
+    worklogId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason?: string,
+  ) => Promise<void>
   raiseDelay: (input: {
     projectId: string
     taskId: string
@@ -223,6 +230,16 @@ export function AppProvider({ children }: PropsWithChildren) {
     setState(snapshot)
   }
 
+  async function decideWorklog(
+    projectId: string,
+    worklogId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason = '',
+  ) {
+    const snapshot = await apiClient.decideWorklog(projectId, worklogId, decision, reason)
+    setState(snapshot)
+  }
+
   async function addWorklog(input: SaveWorklogInput) {
     const snapshot = await apiClient.addWorklog(input)
     setState(snapshot)
@@ -328,6 +345,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         savePlanItem,
         deletePlanItem,
         addWorklog,
+        decideWorklog,
         raiseDelay,
         saveAllocation,
         saveRisk,

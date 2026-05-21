@@ -110,5 +110,21 @@
     "phone": "0909000104",
     "monthlyCapacity": 150,
     "avatarColor": "#ca8a04"
+  },
+  {
+    "id": "u-mem-5",
+    "name": "Do Van Thanh",
+    "email": "thanh.former@company.vn",
+    "username": "dev.thanh",
+    "password": "123456",
+    "role": "DELIVERY_MEMBER",
+    "employeeCode": "NV105",
+    "title": "Ky su trien khai",
+    "unit": "To trien khai so 1",
+    "phone": "0909000105",
+    "monthlyCapacity": 150,
+    "avatarColor": "#94a3b8",
+    "isResigned": true,
+    "resignedAt": "2026-04-30"
   }
 ]

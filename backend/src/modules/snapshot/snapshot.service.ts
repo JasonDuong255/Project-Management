@@ -80,6 +80,9 @@ function serializeUser(u: Awaited<ReturnType<typeof prisma.user.findFirstOrThrow
     phone: u.phone,
     monthlyCapacity: u.monthlyCapacity,
     avatarColor: u.avatarColor,
+    // v3.12 BA: cờ HRM nghỉ việc.
+    isResigned: u.isResigned,
+    resignedAt: u.resignedAt ? u.resignedAt.toISOString() : null,
   }
 }
 
@@ -107,6 +110,9 @@ function serializeProject(p: ProjectRow) {
     })),
     startDate: p.startDate.toISOString().slice(0, 10),
     endDate: p.endDate.toISOString().slice(0, 10),
+    // v3.12 BA #6: createdAt = ngày khởi tạo bản ghi; kickoffDate = ngày kick off thực.
+    createdAt: p.createdAt.toISOString(),
+    kickoffDate: p.kickoffDate ? p.kickoffDate.toISOString().slice(0, 10) : null,
     status: p.status,
     health: p.health,
     pausedAt: p.pausedAt?.toISOString() ?? null,
@@ -201,6 +207,11 @@ function serializeWorklog(w: Awaited<ReturnType<typeof prisma.worklog.findFirstO
     date: w.date.toISOString().slice(0, 10),
     hours: w.hours,
     progressNote: w.progressNote,
+    // v3.12 BA #7 (19/05/2026): approval workflow fields.
+    status: w.status,
+    decidedById: w.decidedById,
+    decidedAt: w.decidedAt ? w.decidedAt.toISOString() : null,
+    rejectReason: w.rejectReason,
   }
 }
 

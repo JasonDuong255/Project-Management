@@ -67,6 +67,14 @@ enum DelayRaiseStatus {
   REPLANNED
 }
 
+// v3.12 BA #7 (19/05/2026): worklog cần duyệt bởi PM/điều phối trước khi
+// cộng vào task.actualHours.
+enum WorklogStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum RiskLevel {
   LOW
   MEDIUM
@@ -111,6 +119,9 @@ enum ActivityLogAction {
   PERSONNEL_REMOVED
   DOCUMENT_UPDATED
   ALLOCATION_UPDATED
+  // v3.12 BA #7 (19/05/2026): worklog approval workflow.
+  WORKLOG_APPROVED
+  WORKLOG_REJECTED
 }
 
 enum ExternalPersonnelKind {
@@ -172,6 +183,10 @@ model User {
   phone           String          @default("")
   monthlyCapacity Int             @default(160)
   avatarColor     String          @default("#0f766e")
+  // v3.12 BA (19/05/2026): cờ nhận diện nhân sự đã nghỉ từ HRM. UI highlight
+  // đỏ nhạt + badge khi user.isResigned = true.
+  isResigned      Boolean         @default(false)
+  resignedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -183,6 +198,7 @@ model User {
   planItemAssignees   PlanItemAssignee[]
   ownedRisks          ProjectRisk[]
   worklogs            Worklog[]
+  decidedWorklogs     Worklog[]              @relation("WorklogDecided")
   raisedDelays        DelayRaise[]
   activityLogs        ActivityLog[]
   monthlyAllocations  MonthlyAllocation[]
@@ -210,6 +226,9 @@ model Project {
   projectType       ProjectType   @default(INTERNAL)             // BRD III.1.2.2.1
   startDate         DateTime
   endDate           DateTime
+  // v3.12 BA #6 Q1 option (b): cột kickoffDate riêng (giữ startDate cho tương thích).
+  // UI Thông tin chung hiển thị Ngày kick off từ cột này; nếu null fallback startDate.
+  kickoffDate       DateTime?
   status            ProjectStatus @default(ACTIVE)               // v3.1: was INITIATION/PLANNING/...; now operational
   health            HealthStatus  @default(STABLE)               // v3.1: now auto-derived (job lands in v3.2)
   progress          Int           @default(0)
@@ -461,9 +480,19 @@ model Worklog {
   progressNote String   @default("")
   createdAt    DateTime @default(now())
 
-  task    PlanItem @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  member  User     @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  // v3.12 BA #7 (19/05/2026): worklog approval workflow.
+  // Worklog mới mặc định PENDING; chỉ APPROVED mới cộng vào task.actualHours.
+  // PM dự án + điều phối + PMO có quyền duyệt/từ chối. Không tự duyệt worklog
+  // của chính mình.
+  status         WorklogStatus @default(PENDING)
+  decidedById    String?       @db.Uuid
+  decidedAt      DateTime?
+  rejectReason   String        @default("")
+
+  task        PlanItem @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  member      User     @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  decidedBy   User?    @relation("WorklogDecided", fields: [decidedById], references: [id], onDelete: SetNull)
 
   @@index([taskId])
   @@index([projectId, memberId])

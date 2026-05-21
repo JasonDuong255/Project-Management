@@ -26,9 +26,23 @@ const CATALOG_GROUPS: CatalogGroupDef[] = [
   {
     key: 'projectMemberRoles',
     title: 'Vai trò tổ triển khai',
-    description: 'PM dự án, BA, Lập trình, ...',
+    description: 'PS dự án, PM dự án, BA, ...',
   },
 ]
+
+/**
+ * v3.12 BA (19/05/2026): Một số catalog value là "system-locked" — không cho xoá
+ * vì hệ thống dùng chúng để nhận diện vai trò trong dự án (vd: project.adminId
+ * derive từ aitsMember có role === 'PM du an'). Xoá khỏi catalog sẽ làm cả app
+ * mất khả năng tự xác định PM/PS từ Tổ triển khai.
+ */
+const LOCKED_CATALOG_VALUES: Partial<Record<keyof Catalogs, string[]>> = {
+  projectMemberRoles: ['PS du an', 'PM du an'],
+}
+
+function isCatalogValueLocked(key: keyof Catalogs, value: string): boolean {
+  return LOCKED_CATALOG_VALUES[key]?.includes(value) ?? false
+}
 
 export function AdminCatalogPage() {
   const { catalogs, currentUser, updateCatalogGroup, resetDemoData } = useAppData()
@@ -72,6 +86,13 @@ export function AdminCatalogPage() {
   }
 
   async function handleRemoveOption(key: keyof Catalogs, value: string) {
+    if (isCatalogValueLocked(key, value)) {
+      toast.warning(
+        'Không thể xoá',
+        `"${value}" là vai trò hệ thống dùng để nhận diện trong dự án.`,
+      )
+      return
+    }
     const opt = catalogs[key].find((o) => o.value === value)
     const ok = await confirm({
       title: `Xoá giá trị "${opt?.label ?? value}"?`,
@@ -192,26 +213,39 @@ function CatalogGroupCard({
       </div>
 
       <div className="stack-list">
-        {options.map((item) => (
-          <div key={item.value} className="list-row">
-            <div>
-              <strong>{item.label}</strong>
-              <p>{item.value}</p>
-              {item.description ? <p style={{ opacity: 0.6 }}>{item.description}</p> : null}
+        {options.map((item) => {
+          const locked = isCatalogValueLocked(group.key, item.value)
+          return (
+            <div key={item.value} className="list-row">
+              <div>
+                <strong>
+                  {item.label}
+                  {locked ? (
+                    <span
+                      className="status-pill tone-info"
+                      style={{ marginLeft: '0.5rem', fontSize: '0.65rem', padding: '0.15rem 0.5rem' }}
+                    >
+                      Khoá hệ thống
+                    </span>
+                  ) : null}
+                </strong>
+                <p>{item.value}</p>
+                {item.description ? <p style={{ opacity: 0.6 }}>{item.description}</p> : null}
+              </div>
+              {canEdit && !locked ? (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => void onRemove(item.value)}
+                  disabled={busy}
+                  title="Gỡ giá trị này"
+                >
+                  <Trash2 size={15} />
+                </button>
+              ) : null}
             </div>
-            {canEdit ? (
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => void onRemove(item.value)}
-                disabled={busy}
-                title="Gỡ giá trị này"
-              >
-                <Trash2 size={15} />
-              </button>
-            ) : null}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {canEdit ? (

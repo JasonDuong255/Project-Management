@@ -1,4 +1,4 @@
-import type { Project, ProjectMember, User } from '@prisma/client'
+import type { Prisma, Project, ProjectMember, User, Worklog } from '@prisma/client'
 import type { AuthUser } from '../types/domain.js'
 
 export type ProjectWithMembers = Project & { members: ProjectMember[] }
@@ -70,6 +70,26 @@ export function filterVisibleProjects<P extends ProjectWithMembers>(
   user: AuthUser,
 ): P[] {
   return projects.filter((p) => canViewProject(p, user))
+}
+
+/**
+ * v3.12 BA #7 (19/05/2026): PM dự án + điều phối + PMO được phép duyệt/từ chối
+ * worklog. ADMIN_HC không có quyền (nghiệp vụ thuộc PM). Không tự duyệt
+ * worklog của chính mình (kiểm tra ở route handler).
+ */
+export async function canDecideWorklog(
+  tx: Prisma.TransactionClient,
+  user: AuthUser,
+  worklog: Worklog,
+): Promise<boolean> {
+  if (user.role === 'PMO') return true
+  const project = await tx.project.findUnique({
+    where: { id: worklog.projectId },
+    include: { members: true },
+  })
+  if (!project) return false
+  if (project.adminId === user.id) return true
+  return isProjectCoordinator(project, user.id)
 }
 
 export function assertCanManagePlan(project: ProjectWithMembers, user: AuthUser): void {

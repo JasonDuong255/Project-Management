@@ -78,8 +78,9 @@ function buildInitialForm(sponsorId: string) {
     sponsor: sponsorId,
     objective: '',
     adminId: '',
+    // v3.12 BA: bỏ endDate khỏi form tạo. BE auto-compute từ basisInfo.durationDays
+    // hoặc default = startDate + 120 ngày khi user chưa khai báo basis info.
     startDate: dayjs().format('YYYY-MM-DD'),
-    endDate: dayjs().add(4, 'month').endOf('month').format('YYYY-MM-DD'),
     ttkDecisionNumber: '',
     ttkDecisionFileName: '',
     ttkDecisionAttachment: null as DocumentAttachmentInput | null,
@@ -149,6 +150,19 @@ export function ProjectsPage() {
   const selectedMemberCount = Object.values(memberDrafts).filter((d) => d.selected).length
   const generatedProjectCode = buildProjectCode(projects, form)
 
+  // v3.12 BA fix (19/05/2026): PS/PM derive từ VAI TRÒ trong roster builder.
+  // - PS = nhân sự đầu tiên trong roster có role === 'PS du an'
+  // - PM = nhân sự đầu tiên trong roster có role === 'PM du an'
+  // 2 trường "Sponsor dự án" + "PM dự án" trên form là READ-ONLY, auto-fill
+  // theo derived values. Block submit nếu thiếu một trong hai.
+  const rosterEntries = Object.entries(memberDrafts).filter(([, d]) => d.selected)
+  const derivedPsUserId =
+    rosterEntries.find(([, d]) => d.role.trim().toLowerCase() === 'ps du an')?.[0] ?? ''
+  const derivedPmUserId =
+    rosterEntries.find(([, d]) => d.role.trim().toLowerCase() === 'pm du an')?.[0] ?? ''
+  const derivedPsUser = derivedPsUserId ? users.find((u) => u.id === derivedPsUserId) : null
+  const derivedPmUser = derivedPmUserId ? users.find((u) => u.id === derivedPmUserId) : null
+
   function getMemberDraft(userId: string) {
     return memberDrafts[userId] ?? buildEmptyMemberDraft()
   }
@@ -178,37 +192,14 @@ export function ProjectsPage() {
     }))
   }
 
+  // v3.12 BA fix: roster toggle thuần - không còn tự gán PM/sync form.adminId.
+  // PS/PM được derive từ cột Vai trò khi user gán 'PS du an' / 'PM du an'.
   function toggleMember(user: User) {
     const draft = getMemberDraft(user.id)
     const nextSelected = !draft.selected
-    const isPmCandidate = normalizeUserRole(user.role) === 'PM'
-
     updateMemberDraft(user.id, {
       selected: nextSelected,
-      role:
-        form.adminId === user.id
-          ? 'PM du an'
-          : draft.role || 'Thanh vien trien khai',
-    })
-
-    if (!nextSelected && form.adminId === user.id) {
-      setForm((current) => ({ ...current, adminId: '' }))
-    }
-
-    if (nextSelected && isPmCandidate && !form.adminId) {
-      setForm((current) => ({ ...current, adminId: user.id }))
-      updateMemberDraft(user.id, {
-        selected: true,
-        role: 'PM du an',
-      })
-    }
-  }
-
-  function handlePmChange(pmUserId: string) {
-    setForm((current) => ({ ...current, adminId: pmUserId }))
-    updateMemberDraft(pmUserId, {
-      selected: true,
-      role: 'PM du an',
+      role: draft.role || 'Thanh vien trien khai',
     })
   }
 
@@ -228,7 +219,7 @@ export function ProjectsPage() {
       .filter(({ draft }) => draft.selected)
       .map(({ user, draft }) => ({
         userId: user.id,
-        role: user.id === form.adminId ? 'PM du an' : draft.role || 'Thanh vien trien khai',
+        role: draft.role || 'Thanh vien trien khai',
         responsibility: draft.responsibility.trim(),
         totalPlannedHours: Math.max(0, Math.round(draft.totalPlannedHours)),
       }))
@@ -238,8 +229,14 @@ export function ProjectsPage() {
       return
     }
 
-    if (!form.adminId || !selectedMembers.some((member) => member.userId === form.adminId)) {
-      setMessage('Hãy chọn 1 PM thuộc danh sách nhân sự triển khai.')
+    // v3.12 BA fix (19/05/2026): bắt buộc phải gán vai trò PS dự án và PM dự án
+    // cho ít nhất 1 thành viên trong Tổ triển khai trước khi tạo dự án.
+    if (!derivedPsUserId) {
+      setMessage('Chưa gán vai trò "PS dự án" cho thành viên nào trong Tổ triển khai.')
+      return
+    }
+    if (!derivedPmUserId) {
+      setMessage('Chưa gán vai trò "PM dự án" cho thành viên nào trong Tổ triển khai.')
       return
     }
 
@@ -256,7 +253,8 @@ export function ProjectsPage() {
         createProject({
           code: generatedProjectCode,
           name: form.name,
-          sponsor: form.sponsor,
+          // v3.12 BA fix: PS/PM derive từ vai trò trong Tổ triển khai.
+          sponsor: derivedPsUserId,
           objective: form.objective,
           ttkDecisionNumber: form.ttkDecisionNumber,
           ttkDecisionAttachment: form.ttkDecisionAttachment
@@ -271,9 +269,9 @@ export function ProjectsPage() {
           domainCode: form.domainCode,
           projectKindCode: form.projectKindCode,
           createdById: currentUser.id,
-          adminId: form.adminId,
+          adminId: derivedPmUserId,
           startDate: form.startDate,
-          endDate: form.endDate,
+          // v3.12: endDate omitted; BE auto-computes from durationDays / fallback.
           teamMembers: selectedMembers,
           department: currentUser.unit,
         }),
@@ -436,15 +434,6 @@ export function ProjectsPage() {
 
             <form className="form-grid" onSubmit={handleSubmit}>
               <label>
-                <span>Mã dự án</span>
-                <input
-                  value={generatedProjectCode}
-                  readOnly
-                  required
-                />
-              </label>
-
-              <label>
                 <span>Mã trung tâm kinh doanh</span>
                 <select
                   value={form.businessCenterCode}
@@ -519,6 +508,18 @@ export function ProjectsPage() {
                 </select>
               </label>
 
+              <label className="span-2">
+                <span>Mã dự án</span>
+                <input
+                  value={generatedProjectCode}
+                  readOnly
+                  required
+                />
+                <small className="field-hint">
+                  Tự sinh theo: Năm khởi tạo - Số thứ tự trong năm - Mã trung tâm kinh doanh - Mã nhóm khách hàng - Mã lĩnh vực - Mã loại dự án.
+                </small>
+              </label>
+
               <label>
                 <span>Tên dự án</span>
                 <input
@@ -528,52 +529,43 @@ export function ProjectsPage() {
                 />
               </label>
 
+              {/* v3.12 BA fix: 2 trường PS/PM read-only, derive từ vai trò trong
+                  Tổ triển khai. Để đổi → gán vai trò 'PS dự án' / 'PM dự án' cho
+                  member trong bảng bên dưới. */}
               <label>
-                <span>Sponsor dự án</span>
-                <select
-                  value={form.sponsor}
-                  onChange={(event) => setForm((current) => ({ ...current, sponsor: event.target.value }))}
-                >
-                  {sponsorCandidates.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} - {user.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span>PM dự án</span>
-                <select
-                  value={form.adminId}
-                  onChange={(event) => handlePmChange(event.target.value)}
-                >
-                  <option value="">Chọn PM</option>
-                  {deployableUsers
-                    .filter((user) => normalizeUserRole(user.role) === 'PM' && getMemberDraft(user.id).selected)
-                    .map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} - {user.employeeCode}
-                      </option>
-                    ))}
-                </select>
-              </label>
-
-              <label>
-                <span>Ngày bắt đầu</span>
+                <span>Sponsor dự án (PS) — tự fill</span>
                 <input
-                  type="date"
-                  value={form.startDate}
-                  onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))}
+                  value={
+                    derivedPsUser
+                      ? `${derivedPsUser.name} - ${derivedPsUser.title}`
+                      : ''
+                  }
+                  readOnly
+                  placeholder="Gán vai trò 'PS dự án' cho 1 thành viên trong Tổ triển khai"
+                  className={derivedPsUser ? '' : 'roster-derived-empty'}
                 />
               </label>
 
               <label>
-                <span>Ngày kết thúc</span>
+                <span>PM dự án — tự fill</span>
+                <input
+                  value={
+                    derivedPmUser
+                      ? `${derivedPmUser.name} - ${derivedPmUser.employeeCode}`
+                      : ''
+                  }
+                  readOnly
+                  placeholder="Gán vai trò 'PM dự án' cho 1 thành viên trong Tổ triển khai"
+                  className={derivedPmUser ? '' : 'roster-derived-empty'}
+                />
+              </label>
+
+              <label>
+                <span>Ngày kick off</span>
                 <input
                   type="date"
-                  value={form.endDate}
-                  onChange={(event) => setForm((current) => ({ ...current, endDate: event.target.value }))}
+                  value={form.startDate}
+                  onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))}
                 />
               </label>
 
@@ -701,11 +693,10 @@ export function ProjectsPage() {
                               <td>{user.unit}</td>
                               <td>
                                 <select
-                                  value={user.id === form.adminId ? 'PM du an' : draft.role}
+                                  value={draft.role}
                                   onChange={(event) =>
                                     updateMemberDraft(user.id, { role: event.target.value })
                                   }
-                                  disabled={user.id === form.adminId}
                                 >
                                   {roleOptions.map((option) => (
                                     <option key={option.value} value={option.value}>

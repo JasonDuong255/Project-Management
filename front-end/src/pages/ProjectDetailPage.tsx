@@ -2395,8 +2395,6 @@ export function ProjectDetailPage() {
               setInitForm(buildInitForm(project))
               initEdit.exit()
             }}
-            readingLabel="Bấm Cập nhật để chỉnh sửa thông tin khởi tạo dự án."
-            editingLabel="Sửa các trường, sau đó bấm Lưu thay đổi."
           />
 
           <form className="form-grid form-grid--compact overview-form" onSubmit={handleInitSubmit}>
@@ -2628,8 +2626,6 @@ export function ProjectDetailPage() {
             setOverviewForm(buildOverviewForm(project))
             overviewEdit.exit()
           }}
-          readingLabel="Bấm Cập nhật để chỉnh sửa thông tin chung, cơ sở căn cứ, tài chính."
-          editingLabel="Sửa các trường, sau đó bấm Lưu thay đổi."
         />
 
         <form className="form-grid form-grid--compact overview-form" onSubmit={handleOverviewSubmit}>
@@ -3035,8 +3031,6 @@ export function ProjectDetailPage() {
             setPersonnelForm(buildPersonnelForm(project))
             personnelEdit.exit()
           }}
-          readingLabel="Bấm Kiện toàn để chỉnh sửa nhân sự AITS / PS / PM / Khách hàng / Đối tác."
-          editingLabel="Sửa các trường, sau đó bấm Kiện toàn để xác nhận thay đổi."
           startLabel="Kiện toàn"
           saveLabel="Kiện toàn"
         />
@@ -3046,16 +3040,8 @@ export function ProjectDetailPage() {
             disabled={!personnelEdit.isEditing || !canEditProjectInfo}
             className="edit-mode-fieldset"
           >
-            {/* v3.12 BA fix (19/05/2026): PS/PM được nhận diện qua VAI TRÒ trong
-                bảng Tổ triển khai bên dưới (role === 'PS du an' / 'PM du an'),
-                KHÔNG còn dropdown chọn PS/PM riêng. Top tab Khởi tạo readonly
-                hiển thị kết quả derive. */}
-            <div className="panel panel--info" style={{ marginBottom: '0.75rem', padding: '0.6rem 0.85rem' }}>
-              <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                <strong>PS / PM dự án</strong> được nhận diện theo cột <em>Vai trò</em> trong bảng Tổ triển khai.
-                Gán vai trò <code>PS du an</code> hoặc <code>PM du an</code> cho thành viên tương ứng.
-              </p>
-            </div>
+            {/* v3.12 BA fix (19/05/2026): PS/PM derive từ cột Vai trò
+                ('PS du an' / 'PM du an') — không còn dropdown riêng. */}
 
             <div className="personnel-group">
               <div className="personnel-group__header">
@@ -3826,14 +3812,9 @@ export function ProjectDetailPage() {
         {projectPendingWorklogs.length ? (
           <article className="panel panel--compact worklog-inbox-banner">
             <div className="panel-heading panel-heading--compact">
-              <div>
-                <strong>
-                  Có {projectPendingWorklogs.length} worklog đang chờ bạn xác nhận
-                </strong>
-                <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                  Worklog mới mặc định ở trạng thái chờ duyệt — chỉ cộng vào tổng giờ công khi PM xác nhận.
-                </p>
-              </div>
+              <strong>
+                {projectPendingWorklogs.length} worklog chờ xác nhận
+              </strong>
               <button
                 type="button"
                 className="primary-button primary-button--compact"
@@ -3948,9 +3929,7 @@ export function ProjectDetailPage() {
               <section className="plan-gantt-group">
                 <div className="plan-gantt-caption">
                   <div>
-                    <span className="eyebrow">Gantt overview</span>
-                    <h4>Task tong quan</h4>
-                    <p>Chọn task để xem subtask bên dưới</p>
+                    <h4>Tổng quan công việc</h4>
                   </div>
                   <StatusPill label={`${overviewTasks.length} task`} tone="neutral" />
                 </div>
@@ -3967,13 +3946,7 @@ export function ProjectDetailPage() {
                 <section className="plan-gantt-group">
                   <div className="plan-gantt-caption">
                     <div>
-                      <span className="eyebrow">Subtask timeline</span>
                       <h4>{focusedOverviewTask.name}</h4>
-                      <p>
-                        {focusedSubtaskGanttItems.length
-                          ? 'Timeline subtask của task đang chọn'
-                          : 'Chưa có subtask'}
-                      </p>
                     </div>
                     <StatusPill
                       label={`${focusedSubtaskGanttItems.length} subtask`}
@@ -4001,7 +3974,6 @@ export function ProjectDetailPage() {
 
             <div className="panel-heading panel-heading--compact sub-heading">
               <div>
-                <span className="eyebrow">Task actions</span>
                 <h4>Thao tác theo từng công việc</h4>
               </div>
               <StatusPill label={`${planActionRows.length} dòng`} tone="neutral" />
@@ -4102,7 +4074,6 @@ export function ProjectDetailPage() {
           >
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Tài liệu</span>
                 <h3>{documentForm.id ? 'Cập nhật tài liệu' : 'Thêm tài liệu'}</h3>
               </div>
               <button
@@ -4237,9 +4208,7 @@ export function ProjectDetailPage() {
           <div className="modal-card document-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Rủi ro</span>
                 <h3>{riskForm.id ? 'Cập nhật rủi ro' : 'Thêm rủi ro'}</h3>
-                <p>Tác động, người theo dõi và biện pháp</p>
               </div>
               <button
                 type="button"
@@ -4478,11 +4447,7 @@ export function ProjectDetailPage() {
           <div className="modal-card risk-prompt-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Ke hoach da thay doi</span>
-                <h3>Cập nhật rủi ro?</h3>
-                <p>
-                  Đã lưu thay đổi cho task <strong>{planRiskPrompt.taskName}</strong>.
-                </p>
+                <h3>Cập nhật rủi ro cho task {planRiskPrompt.taskName}?</h3>
               </div>
               <button
                 type="button"
@@ -4527,21 +4492,13 @@ export function ProjectDetailPage() {
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Plan builder</span>
                 <h3>
                   {planForm.id
-                    ? 'Sua task'
+                    ? 'Sửa task'
                     : planForm.parentId
                       ? 'Thêm subtask'
                       : 'Thêm task'}
                 </h3>
-                <p>
-                  {planForm.id
-                    ? 'Cập nhật phân công và kế hoạch'
-                    : planForm.parentId
-                      ? 'Subtask se gan vao task cha'
-                      : 'Khai bao task tong quan'}
-                </p>
               </div>
               <button
                 type="button"
@@ -4731,10 +4688,6 @@ export function ProjectDetailPage() {
                       <div className="span-2 task-evidence-block">
                         <div className="task-evidence-block__title">
                           <strong>Tờ trình thay đổi kế hoạch</strong>
-                          <p>
-                            Khi thay đổi Timeline của task tổng quan, bắt buộc đính kèm
-                            Tờ trình đã được phê duyệt + ghi chú lý do thay đổi.
-                          </p>
                         </div>
 
                         <div
@@ -4849,9 +4802,7 @@ export function ProjectDetailPage() {
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Execution update</span>
-                <h3>Cập nhật tiến độ</h3>
-                <p>{selectedTask.name}</p>
+                <h3>Cập nhật tiến độ — {selectedTask.name}</h3>
               </div>
               <div className="panel-actions">
                 <StatusPill
@@ -4985,10 +4936,9 @@ export function ProjectDetailPage() {
 
             <div className="panel-heading sub-heading">
               <div>
-                <span className="eyebrow">Worklog history</span>
                 <h3>Lịch sử cập nhật</h3>
               </div>
-              <StatusPill label={`${selectedTaskWorklogs.length} dong`} tone="neutral" />
+              <StatusPill label={`${selectedTaskWorklogs.length} dòng`} tone="neutral" />
             </div>
 
             <div className="table-wrapper">
@@ -5451,10 +5401,9 @@ function InlineActivityLog({
     <article className="panel panel--compact" style={{ marginTop: '1.5rem' }}>
       <div className="panel-heading panel-heading--compact">
         <div>
-          <span className="eyebrow">Lich su thao tac</span>
-          <h4>Nhat ky thay doi</h4>
+          <h4>Nhật ký thay đổi</h4>
         </div>
-        <StatusPill label={`${logs.length} thay doi`} tone="neutral" />
+        <StatusPill label={`${logs.length} thay đổi`} tone="neutral" />
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="data-table">

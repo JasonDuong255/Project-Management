@@ -108,7 +108,6 @@ export function DashboardPage() {
         <article className="panel chart-panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Project mix</span>
               <h3>Trạng thái dự án</h3>
             </div>
           </div>
@@ -139,7 +138,6 @@ export function DashboardPage() {
         <article className="panel chart-panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Delivery health</span>
               <h3>Kế hoạch & giờ công</h3>
             </div>
           </div>
@@ -180,7 +178,6 @@ export function DashboardPage() {
         <article className="panel chart-panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Health board</span>
               <h3>Sức khỏe dự án</h3>
             </div>
           </div>
@@ -207,10 +204,9 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Risks</span>
               <h3>Rủi ro nổi bật</h3>
             </div>
-            <StatusPill label={`${openRisks.length} risk`} tone="warning" />
+            <StatusPill label={`${openRisks.length} rủi ro`} tone="warning" />
           </div>
           <div className="stack-list">
             {openRisks.map((risk) => (
@@ -235,7 +231,6 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Workload</span>
               <h3>Lệch giờ tháng {formatMonthLabel(currentMonth)}</h3>
             </div>
             <StatusPill label={`${workloadWarnings.length} cảnh báo`} tone="warning" />
@@ -266,7 +261,6 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Tài khoản</span>
               <h3>Hồ sơ của bạn</h3>
             </div>
             <StatusPill label={currentUser?.unit ?? ''} tone="info" />

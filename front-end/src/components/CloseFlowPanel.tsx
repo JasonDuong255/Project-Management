@@ -128,9 +128,7 @@ export function CloseFlowPanel({ project }: Props) {
           <div className="modal-card close-flow-modal" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">Trạng thái dự án</span>
-                <h3>{modalTitle}</h3>
-                <p>{project.code} · {project.name}</p>
+                <h3>{modalTitle} — {project.code}</h3>
               </div>
               <button
                 type="button"

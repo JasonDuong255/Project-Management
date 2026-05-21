@@ -19,9 +19,7 @@ export function ProtectedRoute({
     return (
       <div className="screen-loader">
         <div className="loader-card">
-          <span className="eyebrow">PPM Demo Suite</span>
-          <h2>Đang nạp dữ liệu mô phỏng</h2>
-          <p>Khởi tạo dữ liệu dự án, kế hoạch, giờ công và dashboard mẫu...</p>
+          <h2>Đang nạp dữ liệu…</h2>
         </div>
       </div>
     )

@@ -21,10 +21,15 @@ enum UserRole {
   DELIVERY_MEMBER
 }
 
+/// v3.15 (19/05/2026): thêm COMPLETED.
+/// - CLOSED   = đóng + còn task tổng quan chưa 100%
+/// - COMPLETED = đóng + tất cả task tổng quan đã 100% (derive bởi
+///   close-workflow.service tchcDecide khi APPROVED)
 enum ProjectStatus {
-  ACTIVE  // Đang triển khai
-  PAUSED  // Tạm đóng
-  CLOSED  // Đóng
+  ACTIVE     // Đang triển khai
+  PAUSED     // Tạm đóng (mở lại được)
+  CLOSED     // Đóng (chưa hoàn thành)
+  COMPLETED  // Đóng và đã hoàn thành 100% task tổng quan
 }
 
 enum HealthStatus {
@@ -47,12 +52,13 @@ enum FunctionalTitle {
   // TCHC, which is the regular ADMIN_HC role and needs no overlay.)
 }
 
+/// v3.14 (19/05/2026): bỏ BLOCKED + NEEDS_REPLAN (delay-raise đã loại bỏ).
+/// Trạng thái cảnh báo deadline (DUE_SOON / OVERDUE) là derive on-the-fly ở
+/// front-end (hàm getEffectiveTaskStatus) chứ không lưu DB.
 enum PlanTaskStatus {
   NOT_STARTED
   IN_PROGRESS
-  BLOCKED
   DONE
-  NEEDS_REPLAN
 }
 
 enum WorkType {

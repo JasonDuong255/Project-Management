@@ -30,6 +30,8 @@ delayRaisesRouter.post(
         if (!task || task.projectId !== String(req.params.projectId)) {
           throw new ApiError(404, 'Task not found')
         }
+        // v3.14 (19/05/2026): delay-raise đã được loại bỏ ở FE. Endpoint giữ
+        // để tương thích nhưng KHÔNG đổi status task (NEEDS_REPLAN đã bị loại).
         await tx.delayRaise.create({
           data: {
             projectId: String(req.params.projectId),
@@ -39,10 +41,6 @@ delayRaisesRouter.post(
             impact: req.body.impact,
             status: 'OPEN',
           },
-        })
-        await tx.planItem.update({
-          where: { id: task.id },
-          data: { replanRequested: true, status: 'NEEDS_REPLAN' },
         })
       })
 

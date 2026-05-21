@@ -1,7 +1,7 @@
 import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppContext'
-import { getMemberTasks, getStatusTone } from '../lib/calculations'
+import { getEffectiveTaskStatus, getMemberTasks, getStatusTone } from '../lib/calculations'
 import { formatDate, formatHours, getCatalogLabel } from '../lib/formatters'
 
 export function MemberWorkspacePage() {
@@ -53,10 +53,15 @@ export function MemberWorkspacePage() {
                     <p>{task.deliverable}</p>
                   </td>
                   <td>
-                    <StatusPill
-                      label={getCatalogLabel(catalogs.taskStatuses, task.status)}
-                      tone={getStatusTone(task.status)}
-                    />
+                    {(() => {
+                      const eff = getEffectiveTaskStatus(task)
+                      return (
+                        <StatusPill
+                          label={getCatalogLabel(catalogs.taskStatuses, eff)}
+                          tone={getStatusTone(eff)}
+                        />
+                      )
+                    })()}
                   </td>
                   <td>
                     {formatHours(task.plannedHours)} / {formatHours(task.actualHours)}

@@ -3,13 +3,65 @@ import dayjs from 'dayjs'
 import type {
   Catalogs,
   DelayRaise,
+  EffectiveTaskStatus,
   GanttItem,
+  HealthStatus,
   PlanItem,
   Project,
   ProjectRisk,
   User,
   Worklog,
 } from '../types'
+
+/**
+ * v3.14 (19/05/2026): suy ra trạng thái HIỂN THỊ của task từ status DB + endDate.
+ * - DONE: giữ nguyên (đã hoàn thành thì không cần cảnh báo deadline)
+ * - Chưa DONE + today > endDate → OVERDUE
+ * - Chưa DONE + ngày endDate trong vòng 1 ngày (today hoặc ngày mai) → DUE_SOON
+ * - Còn lại: giữ status DB (NOT_STARTED / IN_PROGRESS)
+ * Dùng helper này MỌI NƠI hiển thị status thay vì đọc thẳng task.status,
+ * để cảnh báo deadline thống nhất.
+ */
+export function getEffectiveTaskStatus(
+  task: Pick<PlanItem, 'status' | 'progress' | 'endDate'>,
+  today = dayjs(),
+): EffectiveTaskStatus {
+  if (task.status === 'DONE' || task.progress >= 100) return 'DONE'
+  if (!task.endDate) return task.status
+  const end = dayjs(task.endDate).startOf('day')
+  const now = today.startOf('day')
+  if (end.isBefore(now)) return 'OVERDUE'
+  const diffDays = end.diff(now, 'day')
+  if (diffDays <= 1) return 'DUE_SOON'
+  return task.status
+}
+
+/**
+ * v3.14 (19/05/2026): auto-compute project.health từ task deadlines,
+ * KHÔNG còn cho PM/PMO chỉnh thủ công.
+ *
+ * Quy tắc derive (cùng pattern với getEffectiveTaskStatus):
+ * - Có ít nhất 1 task OVERDUE → AT_RISK
+ * - Có ít nhất 1 task DUE_SOON (chưa OVERDUE) → NEEDS_REVIEW
+ * - Còn lại (kể cả dự án chưa có task) → STABLE
+ *
+ * `today` injectable cho test. Dự án không có task → STABLE.
+ */
+export function getEffectiveProjectHealth(
+  project: Pick<Project, 'id'>,
+  planItems: PlanItem[],
+  today = dayjs(),
+): HealthStatus {
+  const tasks = planItems.filter((item) => item.projectId === project.id)
+  if (tasks.length === 0) return 'STABLE'
+  let hasDueSoon = false
+  for (const task of tasks) {
+    const eff = getEffectiveTaskStatus(task, today)
+    if (eff === 'OVERDUE') return 'AT_RISK'
+    if (eff === 'DUE_SOON') hasDueSoon = true
+  }
+  return hasDueSoon ? 'NEEDS_REVIEW' : 'STABLE'
+}
 
 export interface WorkloadRow {
   user: User
@@ -162,10 +214,17 @@ export function getProjectStatusChart(projects: Project[], catalogs: Catalogs) {
   }))
 }
 
-export function getHealthChart(projects: Project[], catalogs: Catalogs) {
+export function getHealthChart(
+  projects: Project[],
+  catalogs: Catalogs,
+  planItems: PlanItem[],
+) {
+  // v3.14: health derive on-the-fly từ task deadlines.
   return catalogs.healthStatuses.map((item) => ({
     name: item.label,
-    value: projects.filter((project) => project.health === item.value).length,
+    value: projects.filter(
+      (project) => getEffectiveProjectHealth(project, planItems) === item.value,
+    ).length,
   }))
 }
 
@@ -257,12 +316,11 @@ export function getProjectPerformanceRows(
 ) {
   return projects.map((project) => {
     const projectTasks = planItems.filter((item) => item.projectId === project.id)
-    const delayedTasks = projectTasks.filter(
-      (item) =>
-        item.status === 'BLOCKED' ||
-        item.status === 'NEEDS_REPLAN' ||
-        item.replanRequested,
-    ).length
+    // v3.14: delayed = DUE_SOON hoặc OVERDUE (derive theo deadline).
+    const delayedTasks = projectTasks.filter((item) => {
+      const eff = getEffectiveTaskStatus(item)
+      return eff === 'DUE_SOON' || eff === 'OVERDUE'
+    }).length
     const openRisks = project.risks.filter((risk) => risk.status !== 'MITIGATED')
       .length
     const plannedHours = projectTasks.reduce((sum, item) => sum + item.plannedHours, 0)
@@ -399,14 +457,18 @@ export function getDashboardSummary(
   planItems: PlanItem[],
   delayRaises: DelayRaise[],
 ) {
-  const blockedTasks = planItems.filter(
-    (item) => item.status === 'BLOCKED' || item.status === 'NEEDS_REPLAN',
-  ).length
+  // v3.14: gộp delay = DUE_SOON / OVERDUE (derive theo deadline).
+  const blockedTasks = planItems.filter((item) => {
+    const eff = getEffectiveTaskStatus(item)
+    return eff === 'DUE_SOON' || eff === 'OVERDUE'
+  }).length
+  // v3.14: project health derive từ task deadlines (auto-compute).
   const atRiskProjects = projects.filter(
-    (project) => project.health === 'AT_RISK',
+    (project) => getEffectiveProjectHealth(project, planItems) === 'AT_RISK',
   ).length
-  const warningProjects = projects.filter((project) => project.health !== 'STABLE')
-    .length
+  const warningProjects = projects.filter(
+    (project) => getEffectiveProjectHealth(project, planItems) !== 'STABLE',
+  ).length
   const openRaises = delayRaises.filter((item) => item.status === 'OPEN').length
 
   return {
@@ -499,25 +561,29 @@ export function buildGanttItems(
   return items
 }
 
-export function getStatusTone(status: Project['status'] | PlanItem['status']) {
+export function getStatusTone(status: Project['status'] | EffectiveTaskStatus) {
   switch (status) {
-    // Project statuses (v3.1: ACTIVE / PAUSED / CLOSED)
+    // Project statuses (v3.15: ACTIVE / PAUSED / CLOSED / COMPLETED)
     case 'ACTIVE':
       return 'info'
     case 'PAUSED':
       return 'warning'
     case 'CLOSED':
-      return 'success'
-    // Plan-item statuses
+      return 'neutral' // đóng nhưng chưa hoàn thành — xám
+    case 'COMPLETED':
+      return 'success' // đóng + tất cả task tổng quan 100% — xanh
+    // Plan-item statuses (DB-stored)
     case 'DONE':
       return 'success'
     case 'IN_PROGRESS':
       return 'info'
     case 'NOT_STARTED':
       return 'neutral'
-    case 'BLOCKED':
-    case 'NEEDS_REPLAN':
+    // v3.14: trạng thái deadline derive on-the-fly
+    case 'DUE_SOON':
       return 'warning'
+    case 'OVERDUE':
+      return 'danger'
     default:
       return 'neutral'
   }

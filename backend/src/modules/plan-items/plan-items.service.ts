@@ -85,7 +85,9 @@ export async function savePlanItem(
       monthAllocations: input.monthAllocations as unknown as Prisma.InputJsonValue,
       dependencyNote: input.dependencyNote,
       deliverable: input.deliverable,
-      replanRequested: input.status === 'NEEDS_REPLAN',
+      // v3.14: NEEDS_REPLAN đã bị loại bỏ. replanRequested luôn = false (FE
+      // không còn UI raise-delay từ member). Cột giữ cho data cũ tương thích.
+      replanRequested: false,
     }
 
     let saved

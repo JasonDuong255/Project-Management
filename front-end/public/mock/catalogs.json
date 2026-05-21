@@ -2,7 +2,8 @@
   "projectStatuses": [
     { "value": "ACTIVE", "label": "Đang triển khai" },
     { "value": "PAUSED", "label": "Tạm đóng" },
-    { "value": "CLOSED", "label": "Đã đóng" }
+    { "value": "CLOSED", "label": "Đã đóng" },
+    { "value": "COMPLETED", "label": "Hoàn thành" }
   ],
   "healthStatuses": [
     { "value": "STABLE", "label": "Ổn định" },
@@ -12,9 +13,9 @@
   "taskStatuses": [
     { "value": "NOT_STARTED", "label": "Chưa bắt đầu" },
     { "value": "IN_PROGRESS", "label": "Đang thực hiện" },
-    { "value": "BLOCKED", "label": "Bị chặn" },
     { "value": "DONE", "label": "Hoàn thành" },
-    { "value": "NEEDS_REPLAN", "label": "Cần cập nhật kế hoạch" }
+    { "value": "DUE_SOON", "label": "Gần đến hạn" },
+    { "value": "OVERDUE", "label": "Quá hạn" }
   ],
   "riskLevels": [
     { "value": "LOW", "label": "Thấp" },

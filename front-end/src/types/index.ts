@@ -198,7 +198,18 @@ export interface ProjectAitsPersonnel {
   unit: string
   role: string
   responsibility: string
+  /**
+   * v3.21 (21/05/2026): readonly — derive từ sum monthAllocations.
+   * Personnel tab không cho nhập tay. Workload tab cập nhật khi user phân bổ.
+   */
   totalPlannedHours: number
+  /**
+   * v3.21: phân bổ giờ công theo tháng cho nhân sự thủ công (manualEntry=true)
+   * — vì DB foreign key constraint trên monthly_allocations.memberId yêu cầu
+   * User UUID hợp lệ, nên dữ liệu này được nhúng vào personnelInfo JSONB.
+   * Với HRM users (manualEntry=false): vẫn dùng project.monthlyAllocations như cũ.
+   */
+  monthAllocations?: MonthAllocationItem[]
   email: string
   phone: string
 }

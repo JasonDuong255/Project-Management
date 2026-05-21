@@ -301,6 +301,10 @@ function cloneAitsPersonnel(items: ProjectAitsPersonnel[]) {
     role: item.role,
     responsibility: item.responsibility,
     totalPlannedHours: item.totalPlannedHours,
+    // v3.21: monthAllocations cho manual entries — clone để giữ qua edit-mode.
+    monthAllocations: item.monthAllocations
+      ? item.monthAllocations.map((a) => ({ month: a.month, hours: a.hours }))
+      : undefined,
     email: item.email,
     phone: item.phone,
   }))
@@ -369,6 +373,13 @@ function sanitizeAitsPersonnel(items: ProjectAitsPersonnel[]) {
       role: item.role.trim(),
       responsibility: item.responsibility.trim(),
       totalPlannedHours: Number(item.totalPlannedHours) || 0,
+      // v3.21: giữ monthAllocations qua sanitize để manual entries không mất
+      // dữ liệu phân bổ khi user save Personnel tab (Kiện toàn).
+      monthAllocations: item.monthAllocations
+        ? item.monthAllocations
+            .filter((a) => Number(a.hours) > 0 && (a.month ?? '').length > 0)
+            .map((a) => ({ month: a.month, hours: Math.max(0, Math.round(Number(a.hours))) }))
+        : undefined,
       email: item.email.trim(),
       phone: item.phone.trim(),
     }))
@@ -851,11 +862,20 @@ function buildProjectDraftAllocations(
   const nextDraft: Record<string, number> = {}
   const monthSet = new Set(months)
   members.forEach((member) => {
-    const savedByMonth = new Map(
-      project.monthlyAllocations
-        .filter((a) => a.memberId === member.memberId && monthSet.has(a.month))
-        .map((a) => [a.month, a.hours] as const),
-    )
+    // v3.21: manual entry → allocations từ personnel.monthAllocations (JSONB).
+    // HRM user → allocations từ project.monthlyAllocations (DB table).
+    const isManual = member.personnel.manualEntry === true && !member.personnel.userId
+    const savedByMonth = isManual
+      ? new Map(
+          (member.personnel.monthAllocations ?? [])
+            .filter((a) => monthSet.has(a.month))
+            .map((a) => [a.month, a.hours] as const),
+        )
+      : new Map(
+          project.monthlyAllocations
+            .filter((a) => a.memberId === member.memberId && monthSet.has(a.month))
+            .map((a) => [a.month, a.hours] as const),
+        )
     months.forEach((month) => {
       nextDraft[buildAllocationKey(member.memberId, month)] = savedByMonth.get(month) ?? 0
     })
@@ -3153,19 +3173,13 @@ export function ProjectDetailPage() {
                               />
                             </td>
                             <td>
-                              <input
-                                type="number"
-                                min={0}
-                                value={member.totalPlannedHours}
-                                onChange={(event) =>
-                                  updateAitsPersonnelItem(
-                                    index,
-                                    'totalPlannedHours',
-                                    Number(event.target.value),
-                                  )
-                                }
-                                disabled={!canEditProjectInfo}
-                              />
+                              {/* v3.21 (21/05/2026): readonly — giá trị tổng được tự
+                                  derive từ sum monthly allocations ở tab Quản lý nguồn lực
+                                  (cả HRM và manual entry). Personnel tab chỉ hiển thị. */}
+                              <strong>{formatHours(member.totalPlannedHours)}</strong>
+                              <p className="workload-cell-note">
+                                Phân bổ tại tab <em>Quản lý nguồn lực</em>
+                              </p>
                             </td>
                             <td>
                               {isManual ? (
@@ -5416,7 +5430,31 @@ function WorkloadTabPanel({
 
   const resolvedMembers = useMemo(() => {
     const mappedMembers = project.personnelInfo.aitsMembers
-      .map((personnel) => {
+      .map((personnel, idx) => {
+        // v3.21: manual entries (userId null) cũng phải xuất hiện trong workload.
+        // Vì FK constraint trên monthly_allocations yêu cầu User UUID, manual entries
+        // dùng synthetic memberId "manual:<idx>" và lưu allocations vào personnel JSONB.
+        if (personnel.manualEntry === true && !personnel.userId) {
+          const syntheticId = `manual:${idx}:${(personnel.employeeCode || personnel.fullName || '').trim()}`
+          const syntheticUser: User = {
+            id: syntheticId,
+            name: personnel.fullName || 'Nhân sự thủ công',
+            email: personnel.email || '',
+            username: '',
+            role: 'DELIVERY_MEMBER',
+            employeeCode: personnel.employeeCode || '',
+            title: personnel.title || '',
+            unit: personnel.unit || '',
+            phone: personnel.phone || '',
+            monthlyCapacity: 168,
+            avatarColor: '#94a3b8',
+          }
+          return {
+            memberId: syntheticId,
+            user: syntheticUser,
+            personnel,
+          } satisfies ResolvedAitsMember
+        }
         const user = resolveAitsUser(personnel, users)
         if (!user) return null
         return { memberId: user.id, user, personnel } satisfies ResolvedAitsMember
@@ -5556,34 +5594,70 @@ function WorkloadTabPanel({
     })
     if (!ok) return
 
-    const editableIds = new Set(resolvedMembers.map((m) => m.memberId))
+    // v3.21 (21/05/2026): tách HRM vs manual entries.
+    // - HRM (real userId): allocations vào project.monthlyAllocations table (FK).
+    // - Manual (manualEntry+null userId): allocations nhúng vào personnel JSONB.
+    const hrmEditableIds = new Set(
+      resolvedMembers
+        .filter((m) => !(m.personnel.manualEntry === true && !m.personnel.userId))
+        .map((m) => m.memberId),
+    )
     const editableMonths = new Set(projectMonths)
     const preserved = project.monthlyAllocations.filter(
-      (a) => !(editableIds.has(a.memberId) && editableMonths.has(a.month)),
+      (a) => !(hrmEditableIds.has(a.memberId) && editableMonths.has(a.month)),
     )
     const next = [...preserved]
-    // v3.11 (14/05/2026): total per member is the SUM of monthly inputs.
+
+    // Tổng per-member để derive totalPlannedHours + manual monthAllocations.
     const totalsByMember = new Map<string, number>()
+    const manualMonthAllocsByMemberId = new Map<
+      string,
+      Array<{ month: string; hours: number }>
+    >()
     rowSummaries.forEach((row) => {
+      const isManual = row.member.personnel.manualEntry === true && !row.member.personnel.userId
       let memberTotal = 0
+      const manualAllocs: Array<{ month: string; hours: number }> = []
       row.monthDetails.forEach((d) => {
         if (d.currentProjectHours > 0) {
-          next.push({ memberId: row.member.memberId, month: d.month, hours: d.currentProjectHours })
           memberTotal += d.currentProjectHours
+          if (isManual) {
+            manualAllocs.push({ month: d.month, hours: d.currentProjectHours })
+          } else {
+            next.push({
+              memberId: row.member.memberId,
+              month: d.month,
+              hours: d.currentProjectHours,
+            })
+          }
         }
       })
       totalsByMember.set(row.member.memberId, memberTotal)
+      if (isManual) {
+        manualMonthAllocsByMemberId.set(row.member.memberId, manualAllocs)
+      }
     })
 
-    // Push the derived totals back into personnelInfo.aitsMembers so the
-    // Personnel tab reflects the same numbers without manual entry.
+    // Cập nhật personnelInfo.aitsMembers — đồng bộ totalPlannedHours cho cả
+    // HRM (theo userId) và manual (theo synthetic memberId derived từ index).
     const nextPersonnelInfo = {
       ...project.personnelInfo,
-      aitsMembers: project.personnelInfo.aitsMembers.map((member) =>
-        member.userId && totalsByMember.has(member.userId)
-          ? { ...member, totalPlannedHours: totalsByMember.get(member.userId) ?? 0 }
-          : member,
-      ),
+      aitsMembers: project.personnelInfo.aitsMembers.map((member, idx) => {
+        const isManual = member.manualEntry === true && !member.userId
+        if (isManual) {
+          const syntheticId = `manual:${idx}:${(member.employeeCode || member.fullName || '').trim()}`
+          const total = totalsByMember.get(syntheticId) ?? 0
+          const allocs = manualMonthAllocsByMemberId.get(syntheticId) ?? []
+          return { ...member, totalPlannedHours: total, monthAllocations: allocs }
+        }
+        if (member.userId && totalsByMember.has(member.userId)) {
+          return {
+            ...member,
+            totalPlannedHours: totalsByMember.get(member.userId) ?? 0,
+          }
+        }
+        return member
+      }),
     }
 
     try {

@@ -48,7 +48,8 @@ export function canManageProjectPlan(project: ProjectWithMembers, user: AuthUser
 }
 
 export function canEditProjectInfo(project: ProjectWithMembers, user: AuthUser): boolean {
-  if (project.status === 'CLOSED') return false
+  // v3.15: cả CLOSED và COMPLETED đều là trạng thái cuối — không cho edit.
+  if (project.status === 'CLOSED' || project.status === 'COMPLETED') return false
   if (user.role === 'PMO' || user.role === 'ADMIN_HC') return true
   if (project.adminId === user.id) return true
   return isProjectCoordinator(project, user.id)

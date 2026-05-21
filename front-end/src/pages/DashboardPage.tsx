@@ -57,7 +57,8 @@ export function DashboardPage() {
     visibleDelayRaises,
   )
   const statusChart = getProjectStatusChart(visibleProjects, catalogs)
-  const healthChart = getHealthChart(visibleProjects, catalogs)
+  // v3.14: health derive từ task deadlines, cần truyền planItems.
+  const healthChart = getHealthChart(visibleProjects, catalogs, visiblePlanItems)
   const utilizationChart = getMonthlyUtilizationChart(users, projects, worklogs)
   const currentMonth =
     getAllMonths(projects, worklogs).at(-1) ?? dayjs().format('YYYY-MM')

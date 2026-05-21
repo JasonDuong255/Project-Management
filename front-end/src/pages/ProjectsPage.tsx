@@ -10,6 +10,7 @@ import { StatusPill } from '../components/StatusPill'
 import { useToast } from '../components/Toast'
 import { useAppData } from '../context/AppContext'
 import {
+  getEffectiveProjectHealth,
   getHealthTone,
   getStatusTone,
   getVisibleProjects,
@@ -107,10 +108,14 @@ function buildProjectSections(projects: Project[], activeFilter: ProjectListFilt
   }
 
   if (activeFilter === 'CLOSED') {
+    // v3.15: gộp cả 3 trạng thái cuối/tạm đóng — PAUSED, CLOSED, COMPLETED.
+    // Pill bên trong dòng sẽ phân biệt CLOSED (xám) vs COMPLETED (xanh).
     return [
       {
-        title: 'Đã đóng/tạm đóng',
-        projects: projects.filter((p) => p.status === 'PAUSED' || p.status === 'CLOSED'),
+        title: 'Đã đóng / tạm đóng / hoàn thành',
+        projects: projects.filter(
+          (p) => p.status === 'PAUSED' || p.status === 'CLOSED' || p.status === 'COMPLETED',
+        ),
       },
     ]
   }
@@ -119,7 +124,7 @@ function buildProjectSections(projects: Project[], activeFilter: ProjectListFilt
 }
 
 export function ProjectsPage() {
-  const { currentUser, projects, users, catalogs, createProject, getUser } = useAppData()
+  const { currentUser, projects, users, catalogs, planItems, createProject, getUser } = useAppData()
   const toast = useToast()
   const { confirm } = useConfirm()
   const loading = useLoading()
@@ -380,10 +385,16 @@ export function ProjectsPage() {
                           />
                         </td>
                         <td>
-                          <StatusPill
-                            label={getCatalogLabel(catalogs.healthStatuses, project.health)}
-                            tone={getHealthTone(project.health)}
-                          />
+                          {(() => {
+                            // v3.14: health auto-compute từ task deadlines.
+                            const eff = getEffectiveProjectHealth(project, planItems)
+                            return (
+                              <StatusPill
+                                label={getCatalogLabel(catalogs.healthStatuses, eff)}
+                                tone={getHealthTone(eff)}
+                              />
+                            )
+                          })()}
                         </td>
                         <td className="project-table__progress">
                           <strong>{project.progress}%</strong>

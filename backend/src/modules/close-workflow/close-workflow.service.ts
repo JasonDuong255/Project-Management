@@ -270,9 +270,20 @@ export async function tchcDecide(
     })
 
     if (input.decision === 'APPROVED') {
+      // v3.15 (19/05/2026): derive COMPLETED vs CLOSED khi TCHC duyệt.
+      // Quy tắc: tất cả root tasks (parentId = null) đã progress >= 100 → COMPLETED;
+      // ngược lại → CLOSED. Dự án chưa có root task nào → CLOSED (đóng "trống").
+      const rootTasks = await tx.planItem.findMany({
+        where: { projectId, parentId: null },
+        select: { id: true, progress: true },
+      })
+      const allRootDone =
+        rootTasks.length > 0 && rootTasks.every((t) => t.progress >= 100)
+      const finalStatus: 'CLOSED' | 'COMPLETED' = allRootDone ? 'COMPLETED' : 'CLOSED'
+
       await tx.project.update({
         where: { id: projectId },
-        data: { status: 'CLOSED', closedAt: new Date() },
+        data: { status: finalStatus, closedAt: new Date() },
       })
       await writeActivityLog(tx, {
         projectId,
@@ -281,13 +292,21 @@ export async function tchcDecide(
         entityType: 'PROJECT',
         entityId: projectId,
         entityName: request.project.name,
-        changes: [{ field: 'status', oldValue: request.project.status, newValue: 'CLOSED' }],
+        changes: [
+          { field: 'status', oldValue: request.project.status, newValue: finalStatus },
+        ],
       })
       const job = await pushNotification(tx, {
         userIds: [request.requestedById],
         kind: 'CLOSE_APPROVED',
-        title: `Dự án ${request.project.code} đã được đóng`,
-        body: `TCHC đã xác nhận đóng dự án "${request.project.name}".`,
+        title:
+          finalStatus === 'COMPLETED'
+            ? `Dự án ${request.project.code} đã được hoàn thành`
+            : `Dự án ${request.project.code} đã được đóng`,
+        body:
+          finalStatus === 'COMPLETED'
+            ? `TCHC đã xác nhận hoàn thành dự án "${request.project.name}".`
+            : `TCHC đã xác nhận đóng dự án "${request.project.name}".`,
         payload: { projectId, closeRequestId },
         email: true,
       })

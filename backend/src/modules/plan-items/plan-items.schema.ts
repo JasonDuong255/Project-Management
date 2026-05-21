@@ -13,7 +13,8 @@ export const savePlanItemSchema = z.object({
   ownerId: z.string().uuid(),
   assigneeId: z.string().uuid(),
   assigneeIds: z.array(z.string().uuid()).default([]),
-  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'NEEDS_REPLAN']),
+  // v3.14: chỉ 3 trạng thái lưu DB. DUE_SOON / OVERDUE là derive ở FE.
+  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'DONE']),
   baselineStartDate: z.string(),
   baselineEndDate: z.string(),
   startDate: z.string(),

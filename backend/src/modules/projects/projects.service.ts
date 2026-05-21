@@ -256,7 +256,9 @@ export async function updateProject(
     }
 
     if (patch.status !== undefined && patch.status !== before.status) {
-      if (patch.status === 'CLOSED') {
+      // v3.15: CLOSED và COMPLETED đều coi là "đóng dự án" cho activity log.
+      const isTerminal = (s: string) => s === 'CLOSED' || s === 'COMPLETED'
+      if (isTerminal(patch.status)) {
         await writeActivityLog(tx, {
           projectId,
           userId: currentUser.id,
@@ -264,9 +266,9 @@ export async function updateProject(
           entityType: 'PROJECT',
           entityId: projectId,
           entityName: updated.name,
-          changes: [{ field: 'status', oldValue: before.status, newValue: 'CLOSED' }],
+          changes: [{ field: 'status', oldValue: before.status, newValue: patch.status }],
         })
-      } else if (before.status === 'CLOSED') {
+      } else if (isTerminal(before.status)) {
         await writeActivityLog(tx, {
           projectId,
           userId: currentUser.id,
@@ -274,7 +276,7 @@ export async function updateProject(
           entityType: 'PROJECT',
           entityId: projectId,
           entityName: updated.name,
-          changes: [{ field: 'status', oldValue: 'CLOSED', newValue: patch.status }],
+          changes: [{ field: 'status', oldValue: before.status, newValue: patch.status }],
         })
       }
     }

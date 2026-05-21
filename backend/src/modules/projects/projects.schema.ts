@@ -48,7 +48,7 @@ export const updateProjectSchema = z.object({
       department: z.string().optional(),
       objective: z.string().optional(),
       ttkDecisionNumber: z.string().optional(),
-      status: z.enum(['ACTIVE', 'PAUSED', 'CLOSED']).optional(),
+      status: z.enum(['ACTIVE', 'PAUSED', 'CLOSED', 'COMPLETED']).optional(),
       health: z.enum(['STABLE', 'NEEDS_REVIEW', 'AT_RISK']).optional(),
       projectType: z.enum(['PRELIMINARY', 'FEASIBILITY', 'CONTRACT', 'INTERNAL']).optional(),
       psUserId: z.string().uuid().nullable().optional(),

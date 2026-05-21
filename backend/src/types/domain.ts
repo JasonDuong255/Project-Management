@@ -3,16 +3,13 @@
 export type UserRole = 'PMO' | 'ADMIN_HC' | 'PM' | 'DELIVERY_MEMBER'
 export type LegacyUserRole = UserRole | 'SYSTEM_ADMIN' | 'PROJECT_ADMIN'
 export type FunctionalTitle = 'NORMAL' | 'KSV'
-export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED'
+// v3.15: COMPLETED = đóng + all root tasks 100%; CLOSED = đóng + chưa hoàn thành.
+export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED' | 'COMPLETED'
 export type HealthStatus = 'STABLE' | 'NEEDS_REVIEW' | 'AT_RISK'
 export type ProjectType = 'PRELIMINARY' | 'FEASIBILITY' | 'CONTRACT' | 'INTERNAL'
 export type CloseRequestDecision = 'PENDING' | 'APPROVED' | 'REJECTED'
-export type PlanTaskStatus =
-  | 'NOT_STARTED'
-  | 'IN_PROGRESS'
-  | 'BLOCKED'
-  | 'DONE'
-  | 'NEEDS_REPLAN'
+// v3.14: bỏ BLOCKED + NEEDS_REPLAN. DUE_SOON/OVERDUE là derive ở FE.
+export type PlanTaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE'
 export type WorkType = 'PRELIMINARY' | 'SUBTASK' | 'MILESTONE'
 export type DelayRaiseStatus = 'OPEN' | 'ACKNOWLEDGED' | 'REPLANNED'
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'

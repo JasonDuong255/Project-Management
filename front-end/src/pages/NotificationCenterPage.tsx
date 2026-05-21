@@ -5,6 +5,7 @@ import { SectionHeader } from '../components/SectionHeader'
 import { StatusPill } from '../components/StatusPill'
 import { useAppData } from '../context/AppContext'
 import {
+  getEffectiveTaskStatus,
   getStatusTone,
   getTaskDeadlineNotifications,
 } from '../lib/calculations'
@@ -125,10 +126,15 @@ export function NotificationCenterPage() {
                                 label={`${childTask.progress}%`}
                                 tone={childTask.progress >= 80 ? 'info' : 'warning'}
                               />
-                              <StatusPill
-                                label={childTask.status}
-                                tone={getStatusTone(childTask.status)}
-                              />
+                              {(() => {
+                                const eff = getEffectiveTaskStatus(childTask)
+                                return (
+                                  <StatusPill
+                                    label={eff}
+                                    tone={getStatusTone(eff)}
+                                  />
+                                )
+                              })()}
                             </div>
                           </div>
                         ))}

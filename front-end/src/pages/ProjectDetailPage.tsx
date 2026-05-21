@@ -32,6 +32,8 @@ import {
   getProjectById,
   getProjectTasks,
   getStatusTone,
+  getEffectiveTaskStatus,
+  getEffectiveProjectHealth,
 } from '../lib/calculations'
 import { readDocumentAttachment } from '../lib/fileAttachment'
 import { formatDate, formatHours, formatMonthLabel, getCatalogLabel } from '../lib/formatters'
@@ -2356,11 +2358,17 @@ export function ProjectDetailPage() {
           />
         </div>
         <div className="detail-card">
-          <span>Health</span>
-          <StatusPill
-            label={getCatalogLabel(catalogs.healthStatuses, project.health)}
-            tone={getHealthTone(project.health)}
-          />
+          <span>Sức khỏe</span>
+          {(() => {
+            // v3.14: health auto-compute từ task deadlines.
+            const eff = getEffectiveProjectHealth(project, planItems)
+            return (
+              <StatusPill
+                label={getCatalogLabel(catalogs.healthStatuses, eff)}
+                tone={getHealthTone(eff)}
+              />
+            )
+          })()}
         </div>
         <div className="detail-card">
           <span>Tiến độ</span>
@@ -3853,10 +3861,15 @@ export function ProjectDetailPage() {
                     </p>
                   </div>
                   <div className="inline-actions">
-                    <StatusPill
-                      label={getCatalogLabel(catalogs.taskStatuses, selectedTask.status)}
-                      tone={getStatusTone(selectedTask.status)}
-                    />
+                    {(() => {
+                      const eff = getEffectiveTaskStatus(selectedTask)
+                      return (
+                        <StatusPill
+                          label={getCatalogLabel(catalogs.taskStatuses, eff)}
+                          tone={getStatusTone(eff)}
+                        />
+                      )
+                    })()}
                     {canUpdateSelectedTask ? (
                       <button
                         type="button"
@@ -4011,10 +4024,15 @@ export function ProjectDetailPage() {
                         </td>
                         <td>{getTaskAssigneeNames(task) || 'Chưa phân công'}</td>
                         <td>
-                          <StatusPill
-                            label={getCatalogLabel(catalogs.taskStatuses, task.status)}
-                            tone={getStatusTone(task.status)}
-                          />
+                          {(() => {
+                            const eff = getEffectiveTaskStatus(task)
+                            return (
+                              <StatusPill
+                                label={getCatalogLabel(catalogs.taskStatuses, eff)}
+                                tone={getStatusTone(eff)}
+                              />
+                            )
+                          })()}
                         </td>
                         <td>{task.progress}%</td>
                         <td>
@@ -4609,11 +4627,15 @@ export function ProjectDetailPage() {
                     )
                   }
                 >
-                  {catalogs.taskStatuses.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
+                  {/* v3.14: chỉ cho chọn 3 trạng thái lưu DB. DUE_SOON / OVERDUE
+                      là derive từ deadline, không cho set thủ công. */}
+                  {catalogs.taskStatuses
+                    .filter((item) => item.value !== 'DUE_SOON' && item.value !== 'OVERDUE')
+                    .map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
                 </select>
               </label>
               <label>
@@ -4807,7 +4829,7 @@ export function ProjectDetailPage() {
               <div className="panel-actions">
                 <StatusPill
                   label={`${selectedTask.progress}%`}
-                  tone={getStatusTone(selectedTask.status)}
+                  tone={getStatusTone(getEffectiveTaskStatus(selectedTask))}
                 />
                 <button
                   type="button"
@@ -5045,10 +5067,15 @@ export function ProjectDetailPage() {
                       : 'Chưa có worklog'}
                   </p>
                 </div>
-                <StatusPill
-                  label={getCatalogLabel(catalogs.taskStatuses, selectedTask.status)}
-                  tone={getStatusTone(selectedTask.status)}
-                />
+                {(() => {
+                  const eff = getEffectiveTaskStatus(selectedTask)
+                  return (
+                    <StatusPill
+                      label={getCatalogLabel(catalogs.taskStatuses, eff)}
+                      tone={getStatusTone(eff)}
+                    />
+                  )
+                })()}
               </div>
             </div>
           </div>

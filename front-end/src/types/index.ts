@@ -16,7 +16,17 @@ export type UserRole =
 export type FunctionalTitle = 'NORMAL' | 'KSV'
 
 /** v3.1: 3 operational values per BRD IV.2.2. */
-export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED'
+/**
+ * v3.15 (19/05/2026): thêm COMPLETED.
+ * - ACTIVE: đang triển khai
+ * - PAUSED: tạm đóng (có thể mở lại)
+ * - CLOSED: đóng nhưng còn task tổng quan chưa hoàn thành 100%
+ * - COMPLETED: đóng và tất cả task tổng quan đã đạt 100%
+ *
+ * Cả CLOSED và COMPLETED đều là trạng thái cuối (khóa mutation).
+ * Phân biệt do TCHC duyệt close — service tự derive theo tiến độ root tasks.
+ */
+export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'CLOSED' | 'COMPLETED'
 
 /** v3.1: derived from plan-item deadlines (computation in v3.2). */
 export type HealthStatus = 'STABLE' | 'NEEDS_REVIEW' | 'AT_RISK'
@@ -32,12 +42,20 @@ export type ProjectKindCode = 'NC' | 'KT' | 'HĐ' | 'HD' | 'NB'
 
 export type CloseRequestDecision = 'PENDING' | 'APPROVED' | 'REJECTED'
 
-export type PlanTaskStatus =
-  | 'NOT_STARTED'
-  | 'IN_PROGRESS'
-  | 'BLOCKED'
-  | 'DONE'
-  | 'NEEDS_REPLAN'
+/**
+ * Trạng thái thật sự lưu DB của task.
+ * v3.14 (19/05/2026): bỏ BLOCKED và NEEDS_REPLAN (delay-raise đã loại bỏ).
+ */
+export type PlanTaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE'
+
+/**
+ * Trạng thái HIỂN THỊ — derive on-the-fly từ PlanTaskStatus + endDate vs today.
+ * - 3 giá trị gốc PlanTaskStatus được giữ nguyên
+ * - DUE_SOON: task chưa DONE, endDate trong vòng 1 ngày tính từ hôm nay
+ * - OVERDUE: task chưa DONE, đã qua endDate
+ * Dùng cho UI / báo cáo / đếm delayed tasks. Không lưu DB.
+ */
+export type EffectiveTaskStatus = PlanTaskStatus | 'DUE_SOON' | 'OVERDUE'
 
 export type WorkType = 'PRELIMINARY' | 'SUBTASK' | 'MILESTONE'
 

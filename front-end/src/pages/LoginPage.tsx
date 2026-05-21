@@ -65,7 +65,6 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <section className="login-hero">
-        <span className="eyebrow">Internal Portfolio Workspace</span>
         <h1>Hệ thống quản lý dự án</h1>
         <p>
           Điều phối dự án, nhân sự và tiến độ trên một nền tảng duy nhất.
@@ -98,7 +97,6 @@ export function LoginPage() {
 
       <section className="login-card">
         <div>
-          <span className="eyebrow">Sign in</span>
           <h2>Đăng nhập</h2>
         </div>
 

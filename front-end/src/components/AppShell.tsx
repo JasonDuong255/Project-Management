@@ -190,7 +190,6 @@ export function AppShell() {
       <main className="app-content">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Module</span>
             <h2>{currentTitle}</h2>
           </div>
           <div className="topbar-meta">

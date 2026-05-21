@@ -149,9 +149,7 @@ export function ExternalPersonnelCatalogPanel() {
     <article className="panel">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">Catalog · BRD IV.2.7</span>
           <h3>Nhân sự Khách hàng / Đối tác</h3>
-          <p>Danh mục dùng chung — có thể tái sử dụng giữa các dự án.</p>
         </div>
         <StatusPill label={`${items.length} bản ghi`} tone="info" />
       </div>

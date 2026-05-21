@@ -423,9 +423,7 @@ export function ProjectsPage() {
           <section className="modal-card modal-card--wide" onClick={(event) => event.stopPropagation()}>
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">PMO workspace</span>
                 <h3>Tạo dự án mới</h3>
-                <p>Khởi tạo thông tin, PM và tổ triển khai.</p>
               </div>
               <button type="button" className="ghost-button icon-button" onClick={closeCreateModal}>
                 <X size={16} />
@@ -633,9 +631,7 @@ export function ProjectsPage() {
               <div className="span-2 roster-builder">
                 <div className="roster-builder__header">
                   <div>
-                    <span className="eyebrow">Roster builder</span>
                     <h4>Tổ triển khai</h4>
-                    <p>Chọn nhân sự tham gia dự án.</p>
                   </div>
                   <div className="inline-actions">
                     <StatusPill label={`${selectedMemberCount} đã chọn`} tone={selectedMemberCount ? 'info' : 'neutral'} />

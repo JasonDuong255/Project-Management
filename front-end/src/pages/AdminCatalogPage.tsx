@@ -206,7 +206,6 @@ function CatalogGroupCard({
     <article className="panel">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">{group.description}</span>
           <h3>{group.title}</h3>
         </div>
         <StatusPill label={`${options.length} giá trị`} tone="info" />

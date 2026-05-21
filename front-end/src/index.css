@@ -2741,6 +2741,63 @@ td p,
   color: var(--muted);
 }
 
+/* v3.17 Reports: tabs + preview table */
+.tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  background: var(--accent-soft);
+  border-radius: 999px;
+  margin-bottom: 0.85rem;
+}
+
+.tab {
+  padding: 0.45rem 1.2rem;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tab--active {
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.report-preview-table {
+  min-width: 1800px;
+  font-size: 0.78rem;
+}
+
+.report-preview-table th {
+  position: sticky;
+  top: 0;
+  background: #f9fafb;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.report-preview-table td {
+  vertical-align: top;
+  padding: 0.5rem 0.6rem;
+}
+
+.report-preview-table textarea {
+  font-size: 0.78rem;
+  min-width: 180px;
+  padding: 0.35rem;
+}
+
+.report-section-row td {
+  background: var(--primary-light-5);
+  font-weight: 700;
+  color: var(--accent);
+  border-top: 2px solid var(--accent);
+}
+
 .gantt-wt-icon--milestone {
   color: var(--accent);
   font-size: 0.65rem;

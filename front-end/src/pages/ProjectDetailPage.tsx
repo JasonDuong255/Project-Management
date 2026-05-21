@@ -61,11 +61,7 @@ import type {
   User,
 } from '../types'
 
-type ReferenceGroupKey =
-  | 'outputContracts'
-  | 'inputContracts'
-  | 'deploymentApprovals'
-  | 'projectTeamDecisions'
+// v3.12: ReferenceGroupKey đã bị loại bỏ cùng renderReferenceEditor.
 
 type FinancialFieldKey = 'revenue' | 'internalCost' | 'externalCost' | 'profit'
 type ExternalPersonnelGroupKey = 'customerMembers' | 'partners'
@@ -119,6 +115,8 @@ const ACTION_LABELS: Record<ActivityLogAction, string> = {
   PERSONNEL_ADDED: 'Thêm nhân sự',
   PERSONNEL_REMOVED: 'Xóa nhân sự',
   ALLOCATION_UPDATED: 'Cập nhật nguồn lực',
+  WORKLOG_APPROVED: 'PM duyệt worklog',
+  WORKLOG_REJECTED: 'PM từ chối worklog',
 }
 
 const ACTION_TONES: Record<ActivityLogAction, 'info' | 'danger' | 'warning' | 'success' | 'neutral'> = {
@@ -151,6 +149,8 @@ const ACTION_TONES: Record<ActivityLogAction, 'info' | 'danger' | 'warning' | 's
   PERSONNEL_ADDED: 'success',
   PERSONNEL_REMOVED: 'danger',
   ALLOCATION_UPDATED: 'info',
+  WORKLOG_APPROVED: 'success',
+  WORKLOG_REJECTED: 'danger',
 }
 type ProjectRiskStatus = ProjectRisk['status']
 
@@ -188,12 +188,8 @@ const deploymentModeOptions: Array<{ value: DeploymentMode; label: string }> = [
   { value: 'NOI_BO', label: 'Nội bộ' },
 ]
 
-const referenceGroupLabels: Record<ReferenceGroupKey, string> = {
-  outputContracts: 'Hợp đồng bán',
-  inputContracts: 'Hợp đồng mua',
-  deploymentApprovals: 'Phê duyệt triển khai',
-  projectTeamDecisions: 'Quyết định thành lập tổ dự án',
-}
+// v3.12: referenceGroupLabels (Hợp đồng mua/bán free-text) đã bị thay bằng
+// renderDocumentCategoryTable đọc từ project.documents — không còn dùng.
 
 const projectDocumentCategories: Array<{ value: ProjectDocumentCategory; label: string }> = [
   { value: 'TTK_DECISION', label: 'Quyết định thành lập TTK' },
@@ -322,12 +318,7 @@ function cloneExternalPersonnel(items: ProjectExternalPersonnel[]) {
   }))
 }
 
-function createReferenceItem(): ProjectReferenceItem {
-  return {
-    name: '',
-    note: '',
-  }
-}
+// v3.12: createReferenceItem đã bị loại bỏ cùng renderReferenceEditor.
 
 function createAitsPersonnel(): ProjectAitsPersonnel {
   return {
@@ -1127,7 +1118,8 @@ export function ProjectDetailPage() {
   // the disabled cascade on inputs AND the visibility of row-level "Thêm" /
   // "Xoá" action buttons (user feedback 13/05/2026: action buttons must be
   // hidden, not just disabled, while reading).
-  const overviewEditable = canEditProjectInfo && overviewEdit.isEditing
+  // v3.12: overviewEditable đã không còn dùng vì các reference editor đã bị bỏ.
+  // const overviewEditable = canEditProjectInfo && overviewEdit.isEditing
   const personnelEditable = canEditProjectInfo && personnelEdit.isEditing
 
   /**
@@ -1165,18 +1157,7 @@ export function ProjectDetailPage() {
     if (ok) removeExternalPersonnelItem(group, index)
   }
 
-  async function confirmRemoveReferenceItem(
-    group: ReferenceGroupKey,
-    index: number,
-  ) {
-    const ok = await confirm({
-      title: 'Xoá mục tài liệu căn cứ?',
-      description: 'Dòng này sẽ bị gỡ khỏi danh sách. Thay đổi chưa lưu — bấm "Lưu thay đổi" để xác nhận.',
-      tone: 'danger',
-      confirmLabel: 'Xoá khỏi danh sách',
-    })
-    if (ok) removeReferenceItemFromGroup(group, index)
-  }
+  // v3.12: confirmRemoveReferenceItem đã bị bỏ cùng với renderReferenceEditor.
   const canUpdateSelectedTask =
     !!selectedTask &&
     !isTaskLocked(selectedTask) &&
@@ -1231,9 +1212,12 @@ export function ProjectDetailPage() {
         project.createdById,
         currentUser.id,
         ...project.memberIds,
-        ...project.personnelInfo.aitsMembers.map((member) => member.userId).filter(Boolean),
+        // v3.12 manualEntry: userId có thể null → predicate filter để TS narrow string.
+        ...project.personnelInfo.aitsMembers
+          .map((member) => member.userId)
+          .filter((id): id is string => Boolean(id)),
         ...projectRiskItems.map((risk) => risk.ownerId),
-      ].filter(Boolean),
+      ].filter((id): id is string => Boolean(id)),
     ),
   )
   const totalDocumentCount = project.documents.length
@@ -1430,43 +1414,12 @@ export function ProjectDetailPage() {
     )
   }
 
-  function updateReferenceGroup(
-    group: ReferenceGroupKey,
-    recipe: (items: ProjectReferenceItem[]) => ProjectReferenceItem[],
-  ) {
-    setOverviewForm((current) => {
-      if (!current) {
-        return current
-      }
+  // v3.12: updateReferenceGroup đã bị loại bỏ cùng các reference editor helpers.
 
-      return {
-        ...current,
-        basisInfo: {
-          ...current.basisInfo,
-          [group]: recipe(current.basisInfo[group]),
-        },
-      }
-    })
-  }
-
-  function addReferenceItemToGroup(group: ReferenceGroupKey) {
-    updateReferenceGroup(group, (items) => [...items, createReferenceItem()])
-  }
-
-  function removeReferenceItemFromGroup(group: ReferenceGroupKey, index: number) {
-    updateReferenceGroup(group, (items) => items.filter((_, itemIndex) => itemIndex !== index))
-  }
-
-  function updateReferenceItemField(
-    group: ReferenceGroupKey,
-    index: number,
-    field: keyof ProjectReferenceItem,
-    value: string,
-  ) {
-    updateReferenceGroup(group, (items) =>
-      items.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
-    )
-  }
+  // v3.12: addReferenceItemToGroup / removeReferenceItemFromGroup /
+  // updateReferenceItemField đã bị loại bỏ cùng renderReferenceEditor.
+  // Section Hợp đồng mua/bán giờ đọc trực tiếp từ project.documents qua
+  // renderDocumentCategoryTable, không cần draft state.
 
   function updateFinancialField(
     field: FinancialFieldKey,
@@ -1491,72 +1444,9 @@ export function ProjectDetailPage() {
     })
   }
 
-  function renderReferenceEditor(group: ReferenceGroupKey) {
-    const items = overviewForm?.basisInfo[group] ?? []
-
-    return (
-      <div className="overview-reference-card">
-        <div className="overview-section__toolbar">
-          <div>
-            <strong>{referenceGroupLabels[group]}</strong>
-            <p>Tài liệu và ghi chú</p>
-          </div>
-          {overviewEditable ? (
-            <button
-              type="button"
-              className="ghost-button ghost-button--compact"
-              onClick={() => addReferenceItemToGroup(group)}
-            >
-              <CirclePlus size={15} />
-              Thêm mục
-            </button>
-          ) : null}
-        </div>
-
-        {items.length ? (
-          <div className="overview-reference-list">
-            {items.map((item, index) => (
-              <div key={`${group}-${index}`} className="overview-reference-item">
-                <label>
-                  <span>Tên tài liệu</span>
-                  <input
-                    value={item.name}
-                    onChange={(event) =>
-                      updateReferenceItemField(group, index, 'name', event.target.value)
-                    }
-                    disabled={!canEditProjectInfo}
-                  />
-                </label>
-                <label className="span-2">
-                  <span>Ghi chú</span>
-                  <input
-                    value={item.note}
-                    onChange={(event) =>
-                      updateReferenceItemField(group, index, 'note', event.target.value)
-                    }
-                    disabled={!canEditProjectInfo}
-                  />
-                </label>
-                {overviewEditable ? (
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--compact overview-reference-item__remove"
-                    onClick={() => void confirmRemoveReferenceItem(group, index)}
-                  >
-                    <Trash2 size={14} /> Xóa
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="overview-empty-note">
-            <p>Chưa có dữ liệu.</p>
-          </div>
-        )}
-      </div>
-    )
-  }
+  // v3.12 BA: renderReferenceEditor (Hợp đồng mua/bán) đã được loại bỏ.
+  // Section "Căn cứ" trong Thông tin chung giờ dùng renderDocumentCategoryTable
+  // (đọc từ project.documents) thay vì free-text reference items.
 
   async function handlePersonnelSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1978,14 +1868,15 @@ export function ProjectDetailPage() {
       // v3.12 BA #8: upload Tờ trình TRƯỚC khi lưu task (chỉ khi Timeline đổi).
       // File lên projectDocuments với category 'TASK_CHANGE_EVIDENCE'.
       if (timelineDirty && submittedPlan.evidenceTimelineFile) {
+        const evidenceFile = submittedPlan.evidenceTimelineFile
         await loading.run('Đang tải Tờ trình thay đổi kế hoạch…', () =>
           addProjectDocument({
             projectId: project.id,
-            title: `[Timeline] ${submittedPlan.name} — ${submittedPlan.evidenceTimelineFile?.fileName ?? ''}`,
+            title: `[Timeline] ${submittedPlan.name} — ${evidenceFile.fileName}`,
             category: 'TASK_CHANGE_EVIDENCE',
             description: `Timeline thay đổi: ${submittedPlan.evidenceTimelineNote.trim()}`,
             url: '',
-            attachment: submittedPlan.evidenceTimelineFile,
+            attachment: evidenceFile,
             uploadedBy: currentUser.id,
           }),
         )

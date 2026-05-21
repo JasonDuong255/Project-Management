@@ -322,19 +322,20 @@ function MonitoringReportTab({
   const groups = useMemo(() => groupMonitoringRows(rows), [rows])
 
   function patchInput(projectId: string, patch: Partial<MonitoringUserInputs>) {
-    setUserInputs((current) => ({
-      ...current,
-      [projectId]: {
+    setUserInputs((current) => {
+      const existing: MonitoringUserInputs = current[projectId] ?? {
         proposal: '',
         pmoEvaluation: '',
         dbclEvaluation: '',
         recommendation: '',
         overallRating: 'Không đánh giá',
         klgb: '',
-        ...current[projectId],
-        ...patch,
-      },
-    }))
+      }
+      return {
+        ...current,
+        [projectId]: { ...existing, ...patch },
+      }
+    })
   }
 
   function handleExportClick() {

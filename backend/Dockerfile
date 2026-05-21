@@ -7,12 +7,16 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# v3.18 (21/05/2026): prisma generate viết generated client vào node_modules/.prisma/client
+# - cần copy node_modules từ stage này (không phải từ deps) ở stage runtime
+# - không thì runtime gặp lỗi "@prisma/client did not initialize yet".
 RUN npx prisma generate && npm run build
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy từ build stage để có cả prisma generated client.
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY package.json ./

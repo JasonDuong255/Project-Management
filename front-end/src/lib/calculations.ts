@@ -14,10 +14,16 @@ import type {
 } from '../types'
 
 /**
+ * BRD VI.6.1: "gần đến hạn" = trong vòng 4 ngày trước hạn (chưa hoàn thành).
+ * Cửa sổ cảnh báo dùng chung cho effective status, project health và Thông báo.
+ */
+export const DUE_SOON_WINDOW_DAYS = 4
+
+/**
  * v3.14 (19/05/2026): suy ra trạng thái HIỂN THỊ của task từ status DB + endDate.
  * - DONE: giữ nguyên (đã hoàn thành thì không cần cảnh báo deadline)
  * - Chưa DONE + today > endDate → OVERDUE
- * - Chưa DONE + ngày endDate trong vòng 1 ngày (today hoặc ngày mai) → DUE_SOON
+ * - Chưa DONE + endDate trong vòng DUE_SOON_WINDOW_DAYS (4 ngày) → DUE_SOON
  * - Còn lại: giữ status DB (NOT_STARTED / IN_PROGRESS)
  * Dùng helper này MỌI NƠI hiển thị status thay vì đọc thẳng task.status,
  * để cảnh báo deadline thống nhất.
@@ -32,7 +38,7 @@ export function getEffectiveTaskStatus(
   const now = today.startOf('day')
   if (end.isBefore(now)) return 'OVERDUE'
   const diffDays = end.diff(now, 'day')
-  if (diffDays <= 1) return 'DUE_SOON'
+  if (diffDays <= DUE_SOON_WINDOW_DAYS) return 'DUE_SOON'
   return task.status
 }
 
@@ -73,28 +79,33 @@ export interface WorkloadRow {
   projectNames: string[]
 }
 
-export interface TaskDeadlineNotificationChild {
-  id: string
-  name: string
-  status: PlanItem['status']
-  progress: number
-  endDate: string
-  assigneeNames: string
-}
+/**
+ * BRD VI.6: hai mức cảnh báo deadline.
+ * - DUE_SOON (6.1): còn ≤ 4 ngày tới hạn, chưa hoàn thành → dự án "Cần xem xét".
+ * - OVERDUE (6.2): đã quá hạn, chưa hoàn thành → dự án "Có rủi ro".
+ */
+export type TaskDeadlineSeverity = 'DUE_SOON' | 'OVERDUE'
 
 export interface TaskDeadlineNotification {
   id: string
+  severity: TaskDeadlineSeverity
   projectId: string
   projectCode: string
   projectName: string
   taskId: string
   taskName: string
+  isSubtask: boolean
+  parentName: string | null
   progress: number
   endDate: string
+  /** ≥ 0 khi gần đến hạn (0 = hôm nay); < 0 khi đã quá hạn. */
   daysRemaining: number
+  /** Số ngày đã quá hạn (0 nếu chưa quá hạn). */
+  daysOverdue: number
   assigneeNames: string
   projectManagerName: string
-  childTasks: TaskDeadlineNotificationChild[]
+  /** Trạng thái sức khỏe dự án tương ứng: "Cần xem xét" / "Có rủi ro". */
+  projectHealthLabel: string
 }
 
 export function getTaskAssigneeIds(task: PlanItem) {
@@ -368,88 +379,76 @@ export function getUserById(users: User[], userId?: string) {
   return users.find((user) => user.id === userId) ?? null
 }
 
-function getDescendantPlanItems(planItems: PlanItem[], parentId: string): PlanItem[] {
-  const children = planItems.filter((item) => item.parentId === parentId)
-
-  return children.flatMap((child) => [child, ...getDescendantPlanItems(planItems, child.id)])
-}
-
+/**
+ * BRD VI.6.1 + 6.2: cảnh báo deadline cho TOÀN BỘ nhân sự trong TTK.
+ * - Quét cả task lẫn subtask (mọi plan item) chưa hoàn thành.
+ * - Người nhận = mọi thành viên TTK: dùng getVisibleProjects (PMO thấy tất cả,
+ *   PM thấy dự án mình phụ trách/điều phối, thành viên thấy dự án mình tham gia).
+ * - DUE_SOON: còn ≤ 4 ngày tới hạn (6.1, dự án "Cần xem xét").
+ * - OVERDUE: đã quá hạn (6.2, dự án "Có rủi ro").
+ */
 export function getTaskDeadlineNotifications(
   planItems: PlanItem[],
   projects: Project[],
   users: User[],
   currentUser: User | null,
-) {
+  today = dayjs().startOf('day'),
+): TaskDeadlineNotification[] {
   if (!currentUser) {
     return []
   }
 
-  const today = dayjs().startOf('day')
+  const visibleProjectsById = new Map(
+    getVisibleProjects(projects, currentUser).map((project) => [project.id, project]),
+  )
+  const planItemsById = new Map(planItems.map((item) => [item.id, item]))
+  const userName = (userId: string) =>
+    users.find((user) => user.id === userId)?.name ?? userId
+  const joinAssignees = (item: PlanItem) =>
+    getTaskAssigneeIds(item).map(userName).join(', ') || 'Chưa phân công'
 
   return planItems
-    .filter((item) => item.parentId === null)
-    .map<TaskDeadlineNotification | null>((task) => {
-      const project = projects.find((projectItem) => projectItem.id === task.projectId)
-
+    .map<TaskDeadlineNotification | null>((item) => {
+      const project = visibleProjectsById.get(item.projectId)
       if (!project) {
         return null
       }
 
-      const isRecipient =
-        normalizeUserRole(currentUser.role) === 'PMO' ||
-        project.adminId === currentUser.id ||
-        getTaskAssigneeIds(task).includes(currentUser.id)
-
-      if (!isRecipient) {
+      const effectiveStatus = getEffectiveTaskStatus(item, today)
+      if (effectiveStatus !== 'DUE_SOON' && effectiveStatus !== 'OVERDUE') {
         return null
       }
 
-      const daysRemaining = dayjs(task.endDate).startOf('day').diff(today, 'day')
-
-      if (daysRemaining < 0 || daysRemaining > 7 || task.progress >= 100) {
-        return null
-      }
-
-      const childTasks = getDescendantPlanItems(planItems, task.id)
-        .filter((item) => item.progress < 100 || item.status !== 'DONE')
-        .map<TaskDeadlineNotificationChild>((item) => ({
-          id: item.id,
-          name: item.name,
-          status: item.status,
-          progress: item.progress,
-          endDate: item.endDate,
-          assigneeNames:
-            getTaskAssigneeIds(item)
-              .map((userId) => users.find((user) => user.id === userId)?.name ?? userId)
-              .join(', ') || 'Chua phan cong',
-        }))
-
-      const assigneeNames =
-        getTaskAssigneeIds(task)
-          .map((userId) => users.find((user) => user.id === userId)?.name ?? userId)
-          .join(', ') || 'Chua phan cong'
+      const daysRemaining = dayjs(item.endDate).startOf('day').diff(today, 'day')
+      const parent = item.parentId ? planItemsById.get(item.parentId) : null
 
       return {
-        id: `deadline-${task.id}`,
+        id: `deadline-${item.id}`,
+        severity: effectiveStatus,
         projectId: project.id,
         projectCode: project.code,
         projectName: project.name,
-        taskId: task.id,
-        taskName: task.name,
-        progress: task.progress,
-        endDate: task.endDate,
+        taskId: item.id,
+        taskName: item.name,
+        isSubtask: item.parentId !== null,
+        parentName: parent?.name ?? null,
+        progress: item.progress,
+        endDate: item.endDate,
         daysRemaining,
-        assigneeNames,
-        projectManagerName: users.find((user) => user.id === project.adminId)?.name ?? project.adminId,
-        childTasks,
+        daysOverdue: daysRemaining < 0 ? Math.abs(daysRemaining) : 0,
+        assigneeNames: joinAssignees(item),
+        projectManagerName: userName(project.adminId),
+        projectHealthLabel: effectiveStatus === 'OVERDUE' ? 'Có rủi ro' : 'Cần xem xét',
       }
     })
     .filter((item): item is TaskDeadlineNotification => item !== null)
-    .sort(
-      (left, right) =>
-        left.daysRemaining - right.daysRemaining ||
-        left.endDate.localeCompare(right.endDate),
-    )
+    .sort((left, right) => {
+      // Quá hạn lên trước, sau đó task gấp nhất (daysRemaining nhỏ nhất) lên trước.
+      if (left.severity !== right.severity) {
+        return left.severity === 'OVERDUE' ? -1 : 1
+      }
+      return left.daysRemaining - right.daysRemaining || left.endDate.localeCompare(right.endDate)
+    })
 }
 
 export function getDashboardSummary(

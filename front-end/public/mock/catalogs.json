@@ -7,7 +7,7 @@
   ],
   "healthStatuses": [
     { "value": "STABLE", "label": "Ổn định" },
-    { "value": "NEEDS_REVIEW", "label": "Cần theo dõi" },
+    { "value": "NEEDS_REVIEW", "label": "Cần xem xét" },
     { "value": "AT_RISK", "label": "Có rủi ro" }
   ],
   "taskStatuses": [

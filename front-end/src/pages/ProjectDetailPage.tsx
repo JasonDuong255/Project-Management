@@ -203,12 +203,6 @@ const projectDocumentCategories: Array<{ value: ProjectDocumentCategory; label: 
   { value: 'MEETING_MINUTES', label: 'Biên bản họp' },
 ]
 
-const riskStatusOptions: Array<{ value: ProjectRiskStatus; label: string }> = [
-  { value: 'OPEN', label: 'Đang mở' },
-  { value: 'WATCHING', label: 'Đang theo dõi' },
-  { value: 'MITIGATED', label: 'Đã giảm nhẹ' },
-]
-
 function normalizeProjectDocumentCategory(category: string): ProjectDocumentCategory {
   const normalizedCategory = category.trim().toLowerCase()
 
@@ -578,32 +572,6 @@ function buildRiskDraftFromPlan(
   }
 }
 
-function getRiskLevelTone(level: RiskLevel) {
-  switch (level) {
-    case 'HIGH':
-      return 'danger'
-    case 'MEDIUM':
-      return 'warning'
-    default:
-      return 'success'
-  }
-}
-
-function getRiskStatusLabel(status: ProjectRiskStatus) {
-  return riskStatusOptions.find((item) => item.value === status)?.label ?? status
-}
-
-function getRiskStatusTone(status: ProjectRiskStatus) {
-  switch (status) {
-    case 'MITIGATED':
-      return 'success'
-    case 'WATCHING':
-      return 'info'
-    default:
-      return 'warning'
-  }
-}
-
 function getDocumentCategoryLabel(category: ProjectDocumentCategory) {
   return projectDocumentCategories.find((item) => item.value === category)?.label ?? 'Tài liệu'
 }
@@ -965,7 +933,6 @@ export function ProjectDetailPage() {
   const [documentForm, setDocumentForm] = useState<ReturnType<typeof buildDocumentForm> | null>(null)
   const [planForm, setPlanForm] = useState<ReturnType<typeof buildPlanForm> | null>(null)
   const [riskForm, setRiskForm] = useState<RiskFormState | null>(null)
-  const [riskSummaryDraft, setRiskSummaryDraft] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [executionForm, setExecutionForm] = useState<ReturnType<typeof buildExecutionForm> | null>(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
@@ -1075,7 +1042,6 @@ export function ProjectDetailPage() {
     setDocumentForm(buildDocumentForm())
     setPlanForm(buildPlanForm(project))
     setRiskForm(buildRiskForm(project, currentUser?.id ?? project.adminId))
-    setRiskSummaryDraft(project.riskSummary)
     setDocumentInputKey((current) => current + 1)
     setIsRiskModalOpen(false)
     setPlanRiskPrompt(null)
@@ -1220,11 +1186,6 @@ export function ProjectDetailPage() {
   const projectRiskItems = [...project.risks].sort((left, right) =>
     right.lastUpdated.localeCompare(left.lastUpdated),
   )
-  const openRiskCount = projectRiskItems.filter((risk) => risk.status !== 'MITIGATED').length
-  const highRiskCount = projectRiskItems.filter(
-    (risk) => risk.level === 'HIGH' && risk.status !== 'MITIGATED',
-  ).length
-  const mitigatedRiskCount = projectRiskItems.filter((risk) => risk.status === 'MITIGATED').length
   const riskOwnerIds = Array.from(
     new Set(
       [
@@ -1274,7 +1235,7 @@ export function ProjectDetailPage() {
     {
       id: 'RISKS',
       label: 'Rủi ro',
-      note: `${openRiskCount} đang mở | ${highRiskCount} mức cao`,
+      note: `${projectRiskItems.length} rủi ro`,
     },
     {
       id: 'DOCUMENTS',
@@ -1731,33 +1692,6 @@ export function ProjectDetailPage() {
       toast.success('Đã xóa task', item.name)
     } catch (err) {
       toast.error('Không xóa được task', err instanceof Error ? err.message : '')
-    }
-  }
-
-  async function handleRiskSummarySubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!project) return
-    if (!canManagePlan) {
-      toast.error('Không có quyền', 'Bạn không có quyền cập nhật tổng quan rủi ro của dự án này.')
-      return
-    }
-    const ok = await confirm({
-      title: 'Lưu tổng quan rủi ro?',
-      tone: 'primary',
-      confirmLabel: 'Lưu thay đổi',
-    })
-    if (!ok) return
-
-    try {
-      await loading.run('Đang lưu tổng quan rủi ro…', () =>
-        updateProject({
-          projectId: project.id,
-          patch: { riskSummary: riskSummaryDraft.trim() },
-        }),
-      )
-      toast.success('Đã cập nhật tổng quan rủi ro')
-    } catch (err) {
-      toast.error('Không lưu được tổng quan rủi ro', err instanceof Error ? err.message : '')
     }
   }
 
@@ -3638,10 +3572,7 @@ export function ProjectDetailPage() {
       {activeDetailTab === 'RISKS' ? (
         <section className="panel panel--compact detail-tab-panel">
           <div className="panel-heading panel-heading--compact">
-            <StatusPill
-              label={`${openRiskCount} đang mở · ${highRiskCount} mức cao`}
-              tone={highRiskCount ? 'danger' : openRiskCount ? 'warning' : 'success'}
-            />
+            <StatusPill label={`${projectRiskItems.length} rủi ro`} tone="info" />
             {canManagePlan ? (
               <button
                 type="button"
@@ -3654,93 +3585,43 @@ export function ProjectDetailPage() {
             ) : null}
           </div>
 
-          <div className="risk-panel-shell">
-            <form className="overview-section risk-summary-form" onSubmit={handleRiskSummarySubmit}>
-              <div className="risk-summary-strip">
-                <article className="risk-summary-card">
-                  <span>Đang mở</span>
-                  <strong>{openRiskCount}</strong>
-                  <small>Cần theo dõi</small>
-                </article>
-                <article className="risk-summary-card">
-                  <span>Mức cao</span>
-                  <strong>{highRiskCount}</strong>
-                  <small>Ưu tiên xử lý</small>
-                </article>
-                <article className="risk-summary-card">
-                  <span>Đã giảm nhẹ</span>
-                  <strong>{mitigatedRiskCount}</strong>
-                  <small>Đã có biện pháp</small>
-                </article>
-              </div>
-
-              <label className="span-2">
-                <span>Tóm tắt</span>
-                <textarea
-                  rows={4}
-                  value={riskSummaryDraft}
-                  onChange={(event) => setRiskSummaryDraft(event.target.value)}
-                  disabled={!canManagePlan}
-                  placeholder="Tóm tắt rủi ro và hướng xử lý"
-                />
-              </label>
-
-              {canManagePlan ? (
-                <div className="inline-actions span-2">
-                  <button type="submit" className="primary-button primary-button--compact">
-                    <Save size={16} />
-                    Lưu tóm tắt
-                  </button>
-                </div>
-              ) : null}
-            </form>
-
-            <div className="risk-list">
-              {projectRiskItems.length ? (
-                projectRiskItems.map((risk) => (
-                  <article key={risk.id} className="risk-card">
-                    <div className="risk-card__header">
-                      <div>
-                        <span className="eyebrow">Mức rủi ro</span>
-                        <h4>{risk.title}</h4>
-                      </div>
+          <div className="risk-list">
+            {projectRiskItems.length ? (
+              projectRiskItems.map((risk) => (
+                <article key={risk.id} className="risk-card">
+                  <div className="risk-card__header">
+                    <div>
+                      <span className="eyebrow">Rủi ro</span>
+                      <h4>{risk.title}</h4>
+                    </div>
+                    {canManagePlan ? (
                       <div className="inline-actions">
-                        <StatusPill
-                          label={getCatalogLabel(catalogs.riskLevels, risk.level)}
-                          tone={getRiskLevelTone(risk.level)}
-                        />
-                        <StatusPill
-                          label={getRiskStatusLabel(risk.status)}
-                          tone={getRiskStatusTone(risk.status)}
-                        />
-                        {canManagePlan ? (
-                          <button
-                            type="button"
-                            className="ghost-button ghost-button--compact"
-                            onClick={() => openRiskModal(risk)}
-                          >
-                            <Edit3 size={15} />
-                            Cập nhật
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--compact"
+                          onClick={() => openRiskModal(risk)}
+                        >
+                          <Edit3 size={15} />
+                          Cập nhật
+                        </button>
                       </div>
-                    </div>
+                    ) : null}
+                  </div>
 
-                    <div className="risk-card__meta">
-                      <span>Chủ trì: {getUser(risk.ownerId)?.name ?? risk.ownerId}</span>
-                      <span>Cập nhật: {formatDate(risk.lastUpdated)}</span>
-                    </div>
+                  <div className="risk-card__meta">
+                    <span>Chủ trì: {getUser(risk.ownerId)?.name ?? risk.ownerId}</span>
+                    <span>Cập nhật: {formatDate(risk.lastUpdated)}</span>
+                  </div>
 
-                    <p>{risk.mitigation || 'Chưa có biện pháp.'}</p>
-                  </article>
-                ))
-              ) : (
-                <div className="risk-empty-state">
-                  <strong>Chưa có rủi ro</strong>
-                  <p>Thêm mục rủi ro để lưu tác động và biện pháp.</p>
-                </div>
-              )}
-            </div>
+                  <p>{risk.mitigation || 'Chưa có biện pháp.'}</p>
+                </article>
+              ))
+            ) : (
+              <div className="risk-empty-state">
+                <strong>Chưa có rủi ro</strong>
+                <p>Thêm mục rủi ro để lưu tác động và biện pháp.</p>
+              </div>
+            )}
           </div>
         </section>
       ) : null}
@@ -4184,52 +4065,6 @@ export function ProjectDetailPage() {
                 />
               </label>
 
-              <label>
-                <span>Muc do</span>
-                <select
-                  value={riskForm.level}
-                  onChange={(event) =>
-                    setRiskForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            level: event.target.value as RiskLevel,
-                          }
-                        : current,
-                    )
-                  }
-                >
-                  {catalogs.riskLevels.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span>Trạng thái</span>
-                <select
-                  value={riskForm.status}
-                  onChange={(event) =>
-                    setRiskForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            status: event.target.value as ProjectRiskStatus,
-                          }
-                        : current,
-                    )
-                  }
-                >
-                  {riskStatusOptions.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
               <label className="span-2">
                 <span>Nguoi theo doi</span>
                 <select
@@ -4249,7 +4084,7 @@ export function ProjectDetailPage() {
               </label>
 
               <label className="span-2">
-                <span>Nguyên nhân</span>
+                <span>Nhận diện rủi ro/Đánh giá</span>
                 <textarea
                   rows={2}
                   value={riskForm.cause}
@@ -4277,7 +4112,7 @@ export function ProjectDetailPage() {
               </label>
 
               <label className="span-2">
-                <span>Giải pháp / Biện pháp giảm nhẹ</span>
+                <span>Giải pháp hạn chế</span>
                 <textarea
                   rows={3}
                   value={riskForm.mitigation}
